@@ -7,7 +7,7 @@
 // Fixed point mul
 static inline int64_t fixed_mul(int64_t a, int64_t b) {
   __int128 p = (__int128)a * b;
-  p += (1UL << 62);
+  p += (INT64_C(1) << 62);
   return (int64_t)(p >> 63);  // exclude extra signal bit
 }
 
@@ -27,7 +27,7 @@ static inline int64_t fixed_sub(int64_t a, int64_t b) {
 
 // Fixed point shift right
 static inline int64_t fixed_shift(int64_t a, int scale) {
-  a += (1UL << scale);
+  a += (INT64_C(1) << scale);
   return a;
 }
 

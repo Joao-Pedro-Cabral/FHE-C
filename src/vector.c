@@ -6,7 +6,7 @@
 #include "complex.h"
 #include "utils.h"
 
-void vec_new(vec* v, int n, int int_part) {
+void vec_new(vec* v, uint32_t n, uint32_t int_part) {
   v->rel = malloc(2 * n * sizeof(int64_t));
   v->img = &v->rel[n];
   v->int_part = int_part;
@@ -14,8 +14,8 @@ void vec_new(vec* v, int n, int int_part) {
 
 void vec_free(vec* v) { free(v->rel); }
 
-void vec_hermitian(vec* v2, const vec* v1, int n) {
-  for (int i = 0; i < n / 2; i++) {
+void vec_hermitian(vec* v2, const vec* v1, uint32_t n) {
+  for (uint32_t i = 0; i < n / 2; i++) {
     v2->rel[i] = v1->rel[i];
     v2->rel[n - 1 - i] = v1->rel[i];
     v2->img[i] = -v1->img[i];
@@ -23,8 +23,8 @@ void vec_hermitian(vec* v2, const vec* v1, int n) {
   }
 }
 
-void vec_input(vec* v2, const vec* v1, int n) {
-  for (int i = 0; i < n / 2; i++) {
+void vec_input(vec* v2, const vec* v1, uint32_t n) {
+  for (uint32_t i = 0; i < n / 2; i++) {
     v2->rel[i] = v1->rel[i];
     v2->img[i] = 0;
   }
@@ -77,10 +77,10 @@ static const int64_t w0_imag[20] = {
     INT64_C(27633741218820),
 };
 
-void gen_w(vec* w, int n) {
+void gen_w(vec* w, uint32_t n) {
   vec tmp;
   vec_new(&tmp, n, 1);
-  int index = floor_log2(n);
+  uint32_t index = floor_log2(n);
   int64_t w0_rel = w0_real[index];
   int64_t w0_img = w0_imag[index];
   tmp.rel[0] = (1UL << 63) - 1;
@@ -88,27 +88,27 @@ void gen_w(vec* w, int n) {
   int64_t w02_rel = rel_mul(w0_rel, w0_img, w0_rel, w0_img);
   int64_t w02_img = img_mul(w0_rel, w0_img, w0_rel, w0_img);
   // Compute in normal order (Q1.63 format)
-  for (int i = 1; i < n; i ++) {
+  for (uint32_t i = 1; i < n; i ++) {
     tmp.rel[i] = rel_mul(tmp.rel[i-1], tmp.img[i-1], w02_rel, w02_img);
     tmp.img[i] = img_mul(tmp.rel[i-1], tmp.img[i-1], w02_rel, w02_img);
   }
   // Then change to bit-reverse order
-  for (int i = 1; i < n; i ++) {
-    int j = bit_reverse32(i);
+  for (uint32_t i = 1; i < n; i ++) {
+    uint32_t j = bit_reverse32(i);
     w->rel[j] = tmp.rel[i];
     w->img[j] = tmp.img[i];
   }
   vec_free(&tmp);
 }
 
-void fft(vec* v, const vec* w, int n) {
+void fft(vec* v, const vec* w, uint32_t n) {
   int64_t w_rel, w_img;
   int64_t t_rel, t_img;
 
-  int k = 1;
-  for (int len = n / 2; len >= 2; len >>= 1) {
-    int j = 0;
-    for (int start = 0; start < n; start = j + len) {
+  uint32_t k = 1;
+  for (uint32_t len = n / 2; len >= 2; len >>= 1) {
+    uint32_t j = 0;
+    for (uint32_t start = 0; start < n; start = j + len) {
       w_rel = w->rel[k];
       w_img = w->img[k];
       k++;
@@ -126,14 +126,14 @@ void fft(vec* v, const vec* w, int n) {
   }
 }
 
-void ifft(vec* v, const vec* w, int n) {
+void ifft(vec* v, const vec* w, uint32_t n) {
   int64_t w_rel, w_img;
   int64_t t_rel, t_img;
 
-  int k = n / 2 - 1;
-  for (int len = 2; len <= n / 2; len <<= 1) {
-    int j = 0;
-    for (int start = 0; start < n; start = j + len) {
+  uint32_t k = n / 2 - 1;
+  for (uint32_t len = 2; len <= n / 2; len <<= 1) {
+    uint32_t j = 0;
+    for (uint32_t start = 0; start < n; start = j + len) {
       w_rel = w->rel[k];
       w_img = w->img[k];
       k--;
