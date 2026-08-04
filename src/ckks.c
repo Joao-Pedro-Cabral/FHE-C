@@ -29,7 +29,7 @@ void ckks_decode(vec* v, const poly scaled_m, const vec* w, int64_t scale,
   // They're equal, because X^n + 1 only has real coeffs
   poly m = v2.rel;
   poly_rescale(m, scaled_m, scale, v2.int_part, n);
-  memset(v2.img, 0, (size_t)n);
+  memset(v2.img, 0, (size_t)n * sizeof(int64_t));
   // Second step: FFT
   fft(&v2, w, n);
   // Third step: Convert into input complex vector

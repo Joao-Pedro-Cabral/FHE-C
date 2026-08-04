@@ -37,6 +37,10 @@ int main() {
     printf("v_img[%d]: %ld\n", i, v.img[i]);
   }
 
+  for (uint32_t i = 0; i < n; i++) {
+    printf("m[%d]: %ld\n", i, m[i]);
+  }
+
   for (uint32_t i = 0; i < n / 2; i++) {
     printf("v2_rel[%d]: %ld\n", i, v2.rel[i]);
     printf("v2_img[%d]: %ld\n", i, v2.img[i]);

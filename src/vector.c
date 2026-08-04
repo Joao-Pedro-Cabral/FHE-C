@@ -86,7 +86,7 @@ void gen_w(vec* w, uint32_t n) {
   }
   // Then change to bit-reverse order
   for (uint32_t i = 1; i < n; i++) {
-    uint32_t j = bit_reverse32(i);
+    uint32_t j = bit_reverse32(i, index);
     w->rel[j] = tmp.rel[i];
     w->img[j] = tmp.img[i];
   }
