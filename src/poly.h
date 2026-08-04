@@ -24,6 +24,7 @@ void poly_free(poly* m);
   @param int_part: integer part of the original value
   @param n: size of the polynomial
 */
-void poly_rescale(poly m2, const poly m, int64_t scale, uint32_t int_part, uint32_t n);
+void poly_rescale(poly m2, const poly m, int64_t scale, uint32_t int_part,
+                  uint32_t n);
 
 #endif  // __POLY_H__

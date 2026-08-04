@@ -55,26 +55,16 @@ static const int64_t w0_real[20] = {
 };
 
 static const int64_t w0_imag[20] = {
-    INT64_C(9223372036854775807),
-    INT64_C(6521908912666390528),
-    INT64_C(3529631669043774976),
-    INT64_C(1799390620744550912),
-    INT64_C(904048551248139776),
-    INT64_C(452569415305004288),
-    INT64_C(226352880908292032),
-    INT64_C(113184963073701952),
-    INT64_C(56593546894377864),
-    INT64_C(28296906617819880),
-    INT64_C(14148469955268186),
-    INT64_C(7074237058429792),
-    INT64_C(3537118789314387),
-    INT64_C(1768559427169631),
-    INT64_C(884279717648870),
-    INT64_C(442139859332442),
-    INT64_C(221069929729722),
-    INT64_C(110534964872798),
-    INT64_C(55267482437391),
-    INT64_C(27633741218820),
+    INT64_C(9223372036854775807), INT64_C(6521908912666390528),
+    INT64_C(3529631669043774976), INT64_C(1799390620744550912),
+    INT64_C(904048551248139776),  INT64_C(452569415305004288),
+    INT64_C(226352880908292032),  INT64_C(113184963073701952),
+    INT64_C(56593546894377864),   INT64_C(28296906617819880),
+    INT64_C(14148469955268186),   INT64_C(7074237058429792),
+    INT64_C(3537118789314387),    INT64_C(1768559427169631),
+    INT64_C(884279717648870),     INT64_C(442139859332442),
+    INT64_C(221069929729722),     INT64_C(110534964872798),
+    INT64_C(55267482437391),      INT64_C(27633741218820),
 };
 
 void gen_w(vec* w, uint32_t n) {
@@ -85,15 +75,17 @@ void gen_w(vec* w, uint32_t n) {
   int64_t w0_img = w0_imag[index];
   tmp.rel[0] = (1UL << 63) - 1;
   tmp.img[0] = 0;
+  tmp.rel[1] = w0_rel;
+  tmp.img[1] = w0_img;
   int64_t w02_rel = rel_mul(w0_rel, w0_img, w0_rel, w0_img);
   int64_t w02_img = img_mul(w0_rel, w0_img, w0_rel, w0_img);
   // Compute in normal order (Q1.63 format)
-  for (uint32_t i = 1; i < n; i ++) {
-    tmp.rel[i] = rel_mul(tmp.rel[i-1], tmp.img[i-1], w02_rel, w02_img);
-    tmp.img[i] = img_mul(tmp.rel[i-1], tmp.img[i-1], w02_rel, w02_img);
+  for (uint32_t i = 2; i < n; i++) {
+    tmp.rel[i] = rel_mul(tmp.rel[i - 1], tmp.img[i - 1], w02_rel, w02_img);
+    tmp.img[i] = img_mul(tmp.rel[i - 1], tmp.img[i - 1], w02_rel, w02_img);
   }
   // Then change to bit-reverse order
-  for (uint32_t i = 1; i < n; i ++) {
+  for (uint32_t i = 1; i < n; i++) {
     uint32_t j = bit_reverse32(i);
     w->rel[j] = tmp.rel[i];
     w->img[j] = tmp.img[i];

@@ -7,7 +7,8 @@
 typedef struct {
   int64_t* rel;  // real part
   int64_t* img;  // imaginary part
-  uint32_t int_part;  // bits to the integer part of the fixed-point representation
+  uint32_t
+      int_part;  // bits to the integer part of the fixed-point representation
 } vec;           // N fixed-point slots
 
 /*

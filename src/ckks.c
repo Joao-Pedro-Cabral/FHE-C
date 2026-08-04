@@ -3,9 +3,7 @@
 
 #include <string.h>
 
-void ckks_keygen(vec* w, uint32_t n) {
-  gen_w(w, n);
-}
+void ckks_keygen(vec* w, uint32_t n) { gen_w(w, n); }
 
 void ckks_encode(poly scaled_m, const vec* v, const vec* w, int64_t scale,
                  uint32_t n) {
@@ -23,7 +21,8 @@ void ckks_encode(poly scaled_m, const vec* v, const vec* w, int64_t scale,
   vec_free(&v2);
 }
 
-void ckks_decode(vec* v, const poly scaled_m, const vec* w, int64_t scale, uint32_t n) {
+void ckks_decode(vec* v, const poly scaled_m, const vec* w, int64_t scale,
+                 uint32_t n) {
   // First step: Rescale
   vec v2;
   vec_new(&v2, n, v->int_part);

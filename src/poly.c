@@ -5,11 +5,9 @@
 
 #include "fixed.h"
 
-void poly_new(poly* m, uint32_t n) {
-  *m = malloc(n * sizeof(int64_t));
-}
+void poly_new(poly* m, uint32_t n) { *m = malloc(n * sizeof(int64_t)); }
 
-void poly_free(poly *m) { free(*m); }
+void poly_free(poly* m) { free(*m); }
 
 void poly_rescale(poly m2, const poly m, int64_t scale, uint32_t int_part,
                   uint32_t n) {
