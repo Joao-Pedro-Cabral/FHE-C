@@ -32,9 +32,10 @@ int main() {
   ckks_decode(&v2, m, &w, scale, n);
 
   // Debug
+  printf("---------- DEBUG ----------\n");
   for (uint32_t i = 0; i < n / 2; i++) {
-    printf("v_rel[%d]: %ld\n", i, v.rel[i]);
-    printf("v_img[%d]: %ld\n", i, v.img[i]);
+    printf("v_rel[%d]: %lf\n", i, (double)v.rel[i] / (1UL << (63 - int_part)));
+    printf("v_img[%d]: %lf\n", i, (double)v.img[i] / (1UL << (63 - int_part)));
   }
 
   for (uint32_t i = 0; i < n; i++) {

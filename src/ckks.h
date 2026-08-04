@@ -16,19 +16,17 @@ void ckks_keygen(vec* w, uint32_t n);
   @param w: input odd 2n roots of unity
   @param scale: input Delta
   @param n: size of the polynomial m (2x v size)
-  @param scaled_m: output scaled (delta) polynomial m
+  @param m: output scaled (delta) polynomial m
 */
-void ckks_encode(poly scaled_m, const vec* v, const vec* w, int64_t scale,
-                 uint32_t n);
+void ckks_encode(poly m, const vec* v, const vec* w, int64_t scale, uint32_t n);
 
 /*
-  @param scaled_m: input scaled (delta) polynomial m
+  @param m: input scaled (delta) polynomial m
   @param w: input odd 2n roots of unity
   @param scale: input Delta
   @param n: size of the polynomial m (2x v size)
   @param v: output n/2 complex vector
 */
-void ckks_decode(vec* v, const poly scaled_m, const vec* w, int64_t scale,
-                 uint32_t n);
+void ckks_decode(vec* v, const poly m, const vec* w, int64_t scale, uint32_t n);
 
 #endif  // __CKKS_H__
