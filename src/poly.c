@@ -3,11 +3,11 @@
 
 #include "fixed.h"
 
-static inline int ceil_log2(int n) {
-  if (n == 1) return 0;
-
-  return 32 - __builtin_clz(n - 1);
+void poly_new(poly* m, int n) {
+  m = malloc(n * sizeof(int64_t));
 }
+
+void poly_free(poly* m) { free(m); }
 
 void poly_rescale(poly* m2, const poly* m, uint64_t scale, int int_part,
                   int n) {

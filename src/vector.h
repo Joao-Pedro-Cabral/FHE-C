@@ -26,8 +26,22 @@ void vec_free(vec* v);
 /*
   @param v1: input vector (n/2 elements)
   @param v2: output REVERSED hermitian vector (n elements)
+  @param n: number of elements
 */
-void vec_hermitian(vec* v2, const vec* v1);
+void vec_hermitian(vec* v2, const vec* v1, int n);
+
+/*
+  @param v2: input REVERSED hermitian vector (n elements)
+  @param v1: output vector (n/2 elements)
+  @param n: number of elements
+*/
+void vec_input(vec* v2, const vec* v1, int n);
+
+/*
+  @param w: input complex powers of unity of n
+  @param n: size of the underlying ring
+*/
+void gen_w(vec* w, int n);
 
 /*
   @param v: input complex vector/output polynomial vector
