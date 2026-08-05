@@ -15,16 +15,16 @@ void vector_to_poly(poly m, const vec* v, int64_t scale, uint32_t n) {
   // For completely eliminate the fractional part with a multiplication
   scale = scale * (INT64_C(1) << v->int_part);
   for (uint32_t i = 0; i < n; i++) {
-    m[i] = fixed_mul(v->rel[i], scale);
+    m[i] = (int64_t)(v->rel[i] * (double)scale);
   }
 }
 
 void poly_to_vector(vec* v, const poly m, int64_t scale, uint32_t n) {
   // To increase the precision, we first compute (1 << int_part)/scale
   // Instead of /scale and *(1 << int_part)
-  scale = ((INT64_C(1) << (63 - v->int_part)) + scale / 2) / scale;
+  double scale2 = 1.0 / (double)scale;
   for (uint32_t i = 0; i < n; i++) {
-    v->rel[i] = m[i] * scale;
+    v->rel[i] = (double)m[i] * scale2;
     v->img[i] = 0;
   }
 }

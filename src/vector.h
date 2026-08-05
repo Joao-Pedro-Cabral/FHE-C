@@ -5,8 +5,8 @@
 #include <stdint.h>
 
 typedef struct {
-  int64_t* rel;  // real part
-  int64_t* img;  // imaginary part
+  double* rel;  // real part
+  double* img;  // imaginary part
   uint32_t
       int_part;  // bits to the integer part of the fixed-point representation
 } vec;           // N fixed-point slots
@@ -39,7 +39,7 @@ void vec_hermitian(vec* v2, const vec* v1, uint32_t n);
 void vec_input(vec* v2, const vec* v1, uint32_t n);
 
 /*
-  @param w: input complex powers of unity of n
+  @param w: odd complex powers of unity of 2n
   @param n: size of the underlying ring
 */
 void gen_w(vec* w, uint32_t n);

@@ -6,6 +6,7 @@ CFLAGS := -O3 \
           -Wundef -Wdouble-promotion \
           -Wformat=2 \
           -Isrc
+LDLIBS = -lm
 
 VALGRIND_OPTIONS := -s --leak-check=full --track-origins=yes --show-leak-kinds=all
 
@@ -32,7 +33,7 @@ all: $(TARGET)
 
 $(TARGET): $(SRC_OBJ) $(TEST_OBJ)
 	@mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ $(LDLIBS)
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(BUILD_DIR)
