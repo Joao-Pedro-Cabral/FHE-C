@@ -28,3 +28,42 @@ void poly_to_vector(vec* v, const poly m, int64_t scale, uint32_t n) {
     v->img[i] = 0;
   }
 }
+
+void poly_ternary_sampler(poly s, uint32_t n) {}
+
+void poly_uniform_sampler(poly a, uint64_t q, uint32_t n) {}
+
+void poly_cbd24_sampler(poly e, uint32_t n) {
+  uint8_t* buf;
+  for (uint32_t i = 0; i < n; i++) {
+    int b1 = __builtin_popcount(buf[6 * i]);
+    b1 += __builtin_popcount(buf[6 * i + 1]);
+    b1 += __builtin_popcount(buf[6 * i + 2]);
+    int b2 = __builtin_popcount(buf[6 * i + 3]);
+    b2 += __builtin_popcount(buf[6 * i + 4]);
+    b2 += __builtin_popcount(buf[6 * i + 5]);
+    e[i] = b1 - b2;
+  }
+}
+
+void poly_add(poly a, const poly b, uint32_t n) {
+  for (uint32_t i = 0; i < n; i++) {
+    a[i] = a[i] + b[i];
+  }
+}
+
+void poly_sub(poly a, const poly b, uint32_t n) {
+  for (uint32_t i = 0; i < n; i++) {
+    a[i] = a[i] - b[i];
+  }
+}
+
+void poly_pointwise_mul(poly a, const poly b, uint32_t n) {
+  for (uint32_t i = 0; i < n; i++) {
+    a[i] = a[i] * b[i];
+  }
+}
+
+void poly_ntt(poly a, const int64_t* eta, uint32_t n) {}
+
+void poly_intt(poly a, const int64_t* eta, uint32_t n) {}
