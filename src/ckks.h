@@ -6,12 +6,14 @@
 #include "vector.h"
 
 typedef struct {
-  vec* w;      // odd 2n roots of unity
-  set q;       // l modulus
-  set* eta;    // l sets of roots of unity
-  rlwe s;      // secret key in l NTT domains
-  uint32_t l;  // size of the RNS
-  uint32_t n;  // size of the polynomials
+  vec* w;         // odd 2n roots of unity
+  set q;          // l modulus
+  set* eta;       // l sets of roots of unity
+  rlwe s;         // secret key in l NTT domains
+  rlwe p;         // public key in l NTT domains
+  uint32_t l;     // size of the RNS
+  uint32_t n;     // size of the polynomials
+  int64_t scale:  // input scale (Delta)
 } ckks_params;
 
 /*

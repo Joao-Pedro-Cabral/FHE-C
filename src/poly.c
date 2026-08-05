@@ -4,6 +4,8 @@
 #include <stdlib.h>
 
 #include "fixed.h"
+#include "shake.h"
+#include "utils.h"
 
 void poly_new(poly* m, uint32_t n) { *m = malloc(n * sizeof(int64_t)); }
 
@@ -31,10 +33,14 @@ void poly_to_vector(vec* v, const poly m, int64_t scale, uint32_t n) {
 
 void poly_ternary_sampler(poly s, uint32_t n) {}
 
-void poly_uniform_sampler(poly a, uint64_t q, uint32_t n) {}
+void poly_uniform_sampler(poly a, uint8_t seed[SEED_BYTES], uint64_t q,
+                          uint32_t n) {}
 
 void poly_cbd24_sampler(poly e, uint32_t n) {
-  uint8_t* buf;
+  uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
+  uint8_t seed[SEED_BYTES];
+  randombytes(seed, SEED_BYTES);
+  shake128(buf, 6 * n, seed, SEED_BYTES);
   for (uint32_t i = 0; i < n; i++) {
     int b1 = __builtin_popcount(buf[6 * i]);
     b1 += __builtin_popcount(buf[6 * i + 1]);

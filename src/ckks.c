@@ -9,9 +9,16 @@ void ckks_init(ckks_params* params) {
   poly_new(&s_hat, params->n);
   poly_ternary_sampler(s_hat, params->n);
   for (uint32_t i = 0; i < params->l; i++) {
-    gen_eta(params->eta[i], params->n, params->q);
+    gen_eta(params->eta[i], params->n, params->q[i]);
     memcpy(params->s[i], s_hat, sizeof(int64_t) * params->n);
     poly_ntt(params->s[i], params->eta[i], params->n);
+  }
+  uint8_t seed[SEED_BYTES];
+  randombytes(seed, SEED_BYTES);
+  // Consider that the p values are already on the NTT domain
+  for (uint32_t i = 0; i < params->l; i++) {
+    poly_uniform_sampler(params->p[i], seed, params->q[i], params->n);
+    seed[0] += 1;
   }
 }
 

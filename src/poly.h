@@ -51,7 +51,8 @@ void poly_ternary_sampler(poly s, uint32_t n);
   @param q: input modulus
   @param n: size of the polynomials
 */
-void poly_uniform_sampler(poly a, uint64_t q, uint32_t n);
+void poly_uniform_sampler(poly a, uint8_t seed[SEED_BYTES], uint64_t q,
+                          uint32_t n);
 
 /*
   @param e: output error polynomial
