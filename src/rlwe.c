@@ -5,15 +5,15 @@
 #include <string.h>
 
 void rlwe_new(rlwe* a, uint32_t n, uint32_t l) {
-  a = malloc(sizeof(uint64_t*) * l);
+  *a = malloc(sizeof(uint64_t*) * l);
   for (uint32_t i = 0; i < l; i++) {
-    poly_new(a[i], n);
+    poly_new(&(*a)[i], n);
   }
 }
 
 void rlwe_free(rlwe* a, uint32_t l) {
   for (uint32_t i = 0; i < l; i++) {
-    free(a[i]);
+    poly_free(&(*a)[i]);
   }
   free(*a);
 }

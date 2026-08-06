@@ -43,9 +43,6 @@ void gen_eta(roots eta, uint32_t n, int64_t q) {
 
 void set_gen_eta(set eta, const uint64_t* q, uint32_t n, uint32_t l) {
   for (uint32_t i = 0; i < l; i++) {
-    roots e = eta[i];
-    printf("eta:%lx\n", e);
-    int64_t alpha = (int64_t)q[i] * e[0];
-    gen_eta(e, n, alpha);
+    gen_eta(eta[i], n, (int64_t)q[i]);
   }
 }
