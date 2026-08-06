@@ -6,6 +6,7 @@
 #include "fixed.h"
 #include "shake.h"
 #include "utils.h"
+#include "random.h"
 
 void poly_new(poly* m, uint32_t n) { *m = malloc(n * sizeof(int64_t)); }
 
@@ -55,7 +56,7 @@ void poly_ternary_sampler(poly s, uint32_t n) {
     for (int k = 0; k < 8/2 && i < n; k ++) {
       uint8_t y = (x >> (2*k)) & 0x3;
       if (y < 3) {
-        int8_t z = -(y >> 1) + (y & 0x1);
+        int8_t z = (int8_t)(y & 0x1) - (int8_t)(y >> 1);
         s[i] = z;
         i ++;
       }
@@ -67,8 +68,6 @@ void poly_ternary_sampler(poly s, uint32_t n) {
 void poly_uniform_sampler(poly a, uint8_t seed[SEED_BYTES], uint64_t q,
                           uint32_t n) {
   // Initialize PRNG
-  uint8_t seed[SEED_BYTES];
-  randombytes(seed, SEED_BYTES);
   shake128ctx state;
   shake128_absorb(&state, seed, SEED_BYTES);
   // TODO: Improve division
@@ -78,24 +77,25 @@ void poly_uniform_sampler(poly a, uint8_t seed[SEED_BYTES], uint64_t q,
   bound *= q;
   // Sample
   blocks += 1; // "ceil"
-  size_t blocks = (blocks + SHAKE128_RATE - 1) / SHAKE128_RATE;
+  blocks = (blocks + SHAKE128_RATE - 1) / SHAKE128_RATE;
   size_t buflen = blocks * SHAKE128_RATE;
   // The rate is multiple of 8 so it's fine
   uint64_t* buf = (uint64_t*)malloc(buflen); // Initial guess
-  shake128_squeezeblocks(buf, blocks, &state);
+  shake128_squeezeblocks((uint8_t*)buf, blocks, &state);
   uint32_t i = 0, j = 0;
   while (i < n) {
     // We're probably almost at the end so just fetch one more block
     if (j == buflen) {
       blocks = 1;
       buflen = SHAKE128_RATE;
-      shake128_squeezeblocks(buf, blocks, &state);
+      shake128_squeezeblocks((uint8_t*)buf, blocks, &state);
       j = 0;
     }
     uint64_t x = buf[j];
     if (x < bound) {
       x %= q;
-      a[i] = x;
+      x -= q/2;
+      a[i] = (int64_t)x;
       i ++;
     }
     j ++;
