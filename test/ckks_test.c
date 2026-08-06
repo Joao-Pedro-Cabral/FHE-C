@@ -4,13 +4,19 @@
 #include <stdio.h>
 
 int main() {
+  // Parameters Construction
   uint32_t n = 4;
-
-  // Generate KeyGen
+  int64_t scale = 1024;
   vec w;
-  vec_new(&w, n, 1);
+  vec_new(&w, 2 * n, 1);
 
-  ckks_keygen(&w, n);
+  ckks_params params;
+  params.l = 2;
+  params.n = n;
+  params.scale = scale;
+  params.w = &w;
+
+  ckks_init(&params);
 
   // Encode
   poly m;
@@ -18,24 +24,23 @@ int main() {
   uint32_t int_part = 4;
   vec v;
   vec_new(&v, n / 2, int_part);
-  v.rel[0] = (int64_t)(1.1 * (1UL << (63 - int_part)));
-  v.img[0] = (int64_t)(4.3 * (1UL << (63 - int_part)));
-  v.rel[1] = (int64_t)(3.5 * (1UL << (63 - int_part)));
-  v.img[1] = (int64_t)(-1.4 * (1UL << (63 - int_part)));
+  v.rel[0] = 1;
+  v.img[0] = 4;
+  v.rel[1] = 3;
+  v.img[1] = -1;
   v.int_part = int_part;
-  int64_t scale = 1024;
-  ckks_encode(m, &v, &w, scale, n);
+  ckks_encode(m, &v, &params);
 
   // Decode
   vec v2;
   vec_new(&v2, n / 2, int_part);
-  ckks_decode(&v2, m, &w, scale, n);
+  ckks_decode(&v2, m, &params);
 
   // Debug
   printf("---------- DEBUG ----------\n");
   for (uint32_t i = 0; i < n / 2; i++) {
-    printf("v_rel[%d]: %lf\n", i, (double)v.rel[i] / (1UL << (63 - int_part)));
-    printf("v_img[%d]: %lf\n", i, (double)v.img[i] / (1UL << (63 - int_part)));
+    printf("v_rel[%d]: %lf\n", i, v.rel[i]);
+    printf("v_img[%d]: %lf\n", i, v.img[i]);
   }
 
   for (uint32_t i = 0; i < n; i++) {
@@ -43,8 +48,8 @@ int main() {
   }
 
   for (uint32_t i = 0; i < n / 2; i++) {
-    printf("v2_rel[%d]: %ld\n", i, v2.rel[i]);
-    printf("v2_img[%d]: %ld\n", i, v2.img[i]);
+    printf("v2_rel[%d]: %lf\n", i, v2.rel[i]);
+    printf("v2_img[%d]: %lf\n", i, v2.img[i]);
   }
 
   // Free

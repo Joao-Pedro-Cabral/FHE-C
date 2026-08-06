@@ -21,7 +21,4 @@ static inline uint32_t bit_reverse32(uint32_t x, uint32_t k) {
   return x >> (32 - k);
 }
 
-// n random bytes
-void randombytes(uint8_t* buf, uint32_t n);
-
 #endif

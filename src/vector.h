@@ -5,11 +5,10 @@
 #include <stdint.h>
 
 typedef struct {
-  double* rel;  // real part
-  double* img;  // imaginary part
-  uint32_t
-      int_part;  // bits to the integer part of the fixed-point representation
-} vec;           // N fixed-point slots
+  double* rel;        // real part
+  double* img;        // imaginary part
+  uint32_t int_part;  // bits of the integer part
+} vec;                // N fixed-point slots
 
 /*
   @param v: complex vector
