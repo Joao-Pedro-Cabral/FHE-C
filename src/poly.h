@@ -51,7 +51,7 @@ void poly_ternary_sampler(poly s, uint32_t n);
   @param q: input modulus
   @param n: size of the polynomials
 */
-void poly_uniform_sampler(poly a, uint8_t seed[SEED_BYTES], uint64_t q,
+void poly_uniform_sampler(poly a, const uint8_t seed[SEED_BYTES], uint64_t q,
                           uint32_t n);
 
 /*
@@ -76,7 +76,7 @@ void poly_add(poly a, const poly b, uint32_t n);
   @param b: input polynomial
   @param n: size of the polynomials
 */
-void poly_sub(poly a, const poly b, uint32_t n);
+void poly_rsub(poly a, const poly b, uint32_t n);
 
 /*
   @param a: input/output polynomial

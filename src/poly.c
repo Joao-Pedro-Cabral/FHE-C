@@ -63,9 +63,10 @@ void poly_ternary_sampler(poly s, uint32_t n) {
     }
     j ++;
   }
+  free(buf);
 }
 
-void poly_uniform_sampler(poly a, uint8_t seed[SEED_BYTES], uint64_t q,
+void poly_uniform_sampler(poly a, const uint8_t seed[SEED_BYTES], uint64_t q,
                           uint32_t n) {
   // Initialize PRNG
   shake128ctx state;
@@ -124,9 +125,9 @@ void poly_add(poly a, const poly b, uint32_t n) {
   }
 }
 
-void poly_sub(poly a, const poly b, uint32_t n) {
+void poly_rsub(poly a, const poly b, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = a[i] - b[i];
+    a[i] = b[i] - a[i];
   }
 }
 

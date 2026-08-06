@@ -110,13 +110,13 @@ void ifft(vec* v, const vec* w, uint32_t n) {
     printf("v_img[%d]: %lf\n", i, v->img[i]);
   }
 
-  uint32_t k = 1;
+  uint32_t k = n - 1;
   for (uint32_t len = 1; len < n; len <<= 1) {
     printf("--------LAYER %d-------\n", len);
     for (uint32_t start = 0; start < n; start += 2 * len) {
       w_rel = w->rel[k];
       w_img = w->img[k];
-      k++;
+      k--;
       printf("--------BLOCK %d-------\n", start);
       for (uint32_t j = start; j < start + len; j++) {
         printf("--------START-------\n");
@@ -151,8 +151,8 @@ void ifft(vec* v, const vec* w, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
     printf("v_rel[%d]: %lf\n", i, v->rel[i]);
     printf("v_img[%d]: %lf\n", i, v->img[i]);
-    w_rel = w->rel[bit_reverse32(2 * n - i, log2_2n)];
-    w_img = w->img[bit_reverse32(2 * n - i, log2_2n)];
+    w_rel = w->rel[bit_reverse32(i, log2_2n)];
+    w_img = w->img[bit_reverse32(i, log2_2n)];
     printf("w_rel: %lf\n", w_rel);
     printf("w_img: %lf\n", w_img);
     t_rel = rel_mul(v->rel[i], v->img[i], w_rel, w_img);
