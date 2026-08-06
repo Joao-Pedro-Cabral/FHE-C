@@ -41,7 +41,7 @@ void vec_input(vec* v2, const vec* v1, uint32_t n);
   @param w: odd complex powers of unity of 2n
   @param n: size of the underlying ring
 */
-void gen_w(vec* w, uint32_t n);
+void vec_gen_w(vec* w, uint32_t n);
 
 /*
   @param v: input complex vector/output polynomial vector

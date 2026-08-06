@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 
+#include "set.h"
 #include "vector.h"
 
 typedef int64_t* poly;  // N integer coefficients
@@ -89,12 +90,12 @@ void poly_pointwise_mul(poly a, const poly b, uint32_t n);
   @param a: input/output polynomial
   @param n: size of the polynomial
 */
-void poly_ntt(poly a, const int64_t* eta, uint32_t n);
+void poly_ntt(poly a, const roots eta, uint32_t n);
 
 /*
   @param a: input/output polynomial
   @param n: size of the polynomial
 */
-void poly_intt(poly a, const int64_t* eta, uint32_t n);
+void poly_intt(poly a, const roots eta, uint32_t n);
 
 #endif  // __POLY_H__

@@ -6,17 +6,13 @@
 int main() {
   // Parameters Construction
   uint32_t n = 4;
+  uint32_t l = 2;
+  uint64_t q[2] = {11, 13};
   int64_t scale = 1024;
-  vec w;
-  vec_new(&w, 2 * n, 1);
 
   ckks_params params;
-  params.l = 2;
-  params.n = n;
-  params.scale = scale;
-  params.w = &w;
 
-  ckks_init(&params);
+  ckks_new(&params, n, l, q, scale);
 
   // Encode
   poly m;
@@ -53,7 +49,7 @@ int main() {
   }
 
   // Free
-  vec_free(&w);
+  ckks_free(&params);
   vec_free(&v);
   vec_free(&v2);
   poly_free(&m);

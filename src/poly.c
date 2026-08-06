@@ -4,9 +4,9 @@
 #include <stdlib.h>
 
 #include "fixed.h"
+#include "random.h"
 #include "shake.h"
 #include "utils.h"
-#include "random.h"
 
 void poly_new(poly* m, uint32_t n) { *m = malloc(n * sizeof(int64_t)); }
 
@@ -39,9 +39,9 @@ void poly_ternary_sampler(poly s, uint32_t n) {
   shake128ctx state;
   shake128_absorb(&state, seed, SEED_BYTES);
   // Sample
-  size_t blocks = (((4 * (n/4) + 2) / 3) + SHAKE128_RATE - 1) / SHAKE128_RATE;
+  size_t blocks = (((4 * (n / 4) + 2) / 3) + SHAKE128_RATE - 1) / SHAKE128_RATE;
   size_t buflen = blocks * SHAKE128_RATE;
-  uint8_t* buf = malloc(buflen); // Initial guess
+  uint8_t* buf = malloc(buflen);  // Initial guess
   shake128_squeezeblocks(buf, blocks, &state);
   uint32_t i = 0, j = 0;
   while (i < n) {
@@ -53,15 +53,15 @@ void poly_ternary_sampler(poly s, uint32_t n) {
       j = 0;
     }
     uint8_t x = buf[j];
-    for (int k = 0; k < 8/2 && i < n; k ++) {
-      uint8_t y = (x >> (2*k)) & 0x3;
+    for (int k = 0; k < 8 / 2 && i < n; k++) {
+      uint8_t y = (x >> (2 * k)) & 0x3;
       if (y < 3) {
         int8_t z = (int8_t)(y & 0x1) - (int8_t)(y >> 1);
         s[i] = z;
-        i ++;
+        i++;
       }
     }
-    j ++;
+    j++;
   }
   free(buf);
 }
@@ -77,11 +77,11 @@ void poly_uniform_sampler(poly a, const uint8_t seed[SEED_BYTES], uint64_t q,
   size_t blocks = bound;
   bound *= q;
   // Sample
-  blocks += 1; // "ceil"
+  blocks += 1;  // "ceil"
   blocks = (blocks + SHAKE128_RATE - 1) / SHAKE128_RATE;
   size_t buflen = blocks * SHAKE128_RATE;
   // The rate is multiple of 8 so it's fine
-  uint64_t* buf = (uint64_t*)malloc(buflen); // Initial guess
+  uint64_t* buf = (uint64_t*)malloc(buflen);  // Initial guess
   shake128_squeezeblocks((uint8_t*)buf, blocks, &state);
   uint32_t i = 0, j = 0;
   while (i < n) {
@@ -95,11 +95,11 @@ void poly_uniform_sampler(poly a, const uint8_t seed[SEED_BYTES], uint64_t q,
     uint64_t x = buf[j];
     if (x < bound) {
       x %= q;
-      x -= q/2;
+      x -= q / 2;
       a[i] = (int64_t)x;
-      i ++;
+      i++;
     }
-    j ++;
+    j++;
   }
 }
 
@@ -137,6 +137,6 @@ void poly_pointwise_mul(poly a, const poly b, uint32_t n) {
   }
 }
 
-void poly_ntt(poly a, const int64_t* eta, uint32_t n) {}
+void poly_ntt(poly a, const roots eta, uint32_t n) {}
 
-void poly_intt(poly a, const int64_t* eta, uint32_t n) {}
+void poly_intt(poly a, const roots eta, uint32_t n) {}

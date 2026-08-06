@@ -36,7 +36,7 @@ void vec_input(vec* v2, const vec* v1, uint32_t n) {
   }
 }
 
-void gen_w(vec* w, uint32_t n) {
+void vec_gen_w(vec* w, uint32_t n) {
   uint32_t log2_2n = floor_log2(2 * n);
   // 1st quadrant
   w->rel[bit_reverse32(0, log2_2n)] = 1.0;
@@ -110,15 +110,16 @@ void ifft(vec* v, const vec* w, uint32_t n) {
     printf("v_img[%d]: %lf\n", i, v->img[i]);
   }
 
-  uint32_t k = n - 1;
-  for (uint32_t len = 1; len < n; len <<= 1) {
-    printf("--------LAYER %d-------\n", len);
-    for (uint32_t start = 0; start < n; start += 2 * len) {
-      w_rel = w->rel[k];
-      w_img = w->img[k];
-      k--;
-      printf("--------BLOCK %d-------\n", start);
-      for (uint32_t j = start; j < start + len; j++) {
+  uint32_t k = floor_log2(n);
+  for (uint32_t l = 0; l < k; l++) {
+    printf("--------LAYER %d-------\n", l);
+    for (uint32_t i = 0; i < (1UL << (k - 1 - l)); i++) {
+      w_rel = w->rel[(1UL << (k - 1 - l)) + i];
+      w_img = -w->img[(1UL << (k - 1 - l)) + i];
+      printf("--------BLOCK %d-------\n", (k - 1 - l));
+      uint32_t len = (1UL << l);
+      for (uint32_t j = i * (1UL << (l + 1)); j < i * (1UL << (l + 1)) + len;
+           j++) {
         printf("--------START-------\n");
         printf("v_rel[%d]: %lf\n", j, v->rel[j]);
         printf("v_img[%d]: %lf\n", j, v->img[j]);
@@ -147,18 +148,11 @@ void ifft(vec* v, const vec* w, uint32_t n) {
     }
   }
   printf("---------END IFFT-------\n");
-  uint32_t log2_2n = floor_log2(2 * n);
   for (uint32_t i = 0; i < n; i++) {
     printf("v_rel[%d]: %lf\n", i, v->rel[i]);
     printf("v_img[%d]: %lf\n", i, v->img[i]);
-    w_rel = w->rel[bit_reverse32(i, log2_2n)];
-    w_img = w->img[bit_reverse32(i, log2_2n)];
-    printf("w_rel: %lf\n", w_rel);
-    printf("w_img: %lf\n", w_img);
-    t_rel = rel_mul(v->rel[i], v->img[i], w_rel, w_img);
-    t_img = img_mul(v->rel[i], v->img[i], w_rel, w_img);
-    v->rel[i] = t_rel / n;
-    v->img[i] = t_img / n;
+    v->rel[i] = v->rel[i] / n;
+    v->img[i] = v->img[i] / n;
     printf("v_rel[%d]: %lf\n", i, v->rel[i]);
     printf("v_img[%d]: %lf\n", i, v->img[i]);
   }

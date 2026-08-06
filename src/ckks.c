@@ -1,20 +1,29 @@
 
 #include "ckks.h"
 
-#include <string.h>
 #include "random.h"
 
-void ckks_init(ckks_params* params) {
-  gen_w(params->w, params->n);
-  poly s_hat;
-  poly_new(&s_hat, params->n);
-  poly_ternary_sampler(s_hat, params->n);
-  // for (uint32_t i = 0; i < params->l; i++) {
-  //   gen_eta(params->eta[i], params->n, params->q[i]);
-  //   memcpy(params->s[i], s_hat, sizeof(int64_t) * params->n);
-  //   poly_ntt(params->s[i], params->eta[i], params->n);
-  // }
-  poly_free(&s_hat);
+void ckks_new(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
+              int64_t scale) {
+  params->n = n;
+  params->l = l;
+  params->q = q;
+  params->scale = scale;
+  // w
+  vec_new(&params->w, 2 * n, 1);
+  vec_gen_w(&params->w, n);
+  // eta
+  set_new(&params->eta, n, l);
+  set_gen_eta(params->eta, q, n, l);
+  // s
+  rlwe_new(&params->s, n, l);
+  rlwe_gen_secret(params->s, params->eta, params->q, n, l);
+}
+
+void ckks_free(ckks_params* params) {
+  vec_free(&params->w);
+  set_free(&params->eta, params->l);
+  rlwe_free(&params->s, params->l);
 }
 
 void ckks_encode(poly m, const vec* v, const ckks_params* params) {
@@ -23,7 +32,7 @@ void ckks_encode(poly m, const vec* v, const ckks_params* params) {
   vec_new(&v2, params->n, v->int_part);
   vec_hermitian(&v2, v, params->n);
   // Second step: IFFT
-  ifft(&v2, params->w, params->n);
+  ifft(&v2, &params->w, params->n);
   // Third step: Rescale
   vector_to_poly(m, &v2, params->scale, params->n);
   // Free
@@ -36,7 +45,7 @@ void ckks_decode(vec* v, const poly m, const ckks_params* params) {
   vec_new(&v2, params->n, v->int_part);
   poly_to_vector(&v2, m, params->scale, params->n);
   // Second step: FFT
-  fft(&v2, params->w, params->n);
+  fft(&v2, &params->w, params->n);
   // Third step: Convert into input complex vector
   vec_input(v, &v2, params->n);
   // Free
@@ -56,9 +65,10 @@ void ckks_encrypt(cyphertext ct, const poly m, const ckks_params* params) {
     poly_uniform_sampler(ct.b[i], ct.seed, params->q[i], params->n);
     ct.seed[0] += 1;
     poly_pointwise_mul(ct.b[i], params->s[i], params->n);
+    poly_intt(ct.b[i], params->eta[i], params->n);
     poly_rsub(ct.b[i], e, params->n);
   }
-  ct.seed[0] -= (uint8_t)params->l; // TODO: l < 255
+  ct.seed[0] -= (uint8_t)params->l;  // TODO: l < 255
   poly_free(&e);
 }
 
@@ -67,5 +77,6 @@ void ckks_decrypt(poly m, const cyphertext ct, const ckks_params* params) {
   // B + AS = DeltaM + E
   poly_uniform_sampler(m, ct.seed, params->q[0], params->n);
   poly_pointwise_mul(m, params->s[0], params->n);
+  poly_intt(m, params->eta[0], params->n);
   poly_add(m, ct.b[0], params->n);
 }
