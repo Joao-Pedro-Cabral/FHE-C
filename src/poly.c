@@ -31,10 +31,76 @@ void poly_to_vector(vec* v, const poly m, int64_t scale, uint32_t n) {
   }
 }
 
-void poly_ternary_sampler(poly s, uint32_t n) {}
+void poly_ternary_sampler(poly s, uint32_t n) {
+  // Initialize PRNG
+  uint8_t seed[SEED_BYTES];
+  randombytes(seed, SEED_BYTES);
+  shake128ctx state;
+  shake128_absorb(&state, seed, SEED_BYTES);
+  // Sample
+  size_t blocks = (((4 * (n/4) + 2) / 3) + SHAKE128_RATE - 1) / SHAKE128_RATE;
+  size_t buflen = blocks * SHAKE128_RATE;
+  uint8_t* buf = malloc(buflen); // Initial guess
+  shake128_squeezeblocks(buf, blocks, &state);
+  uint32_t i = 0, j = 0;
+  while (i < n) {
+    // We're probably almost at the end so just fetch one more block
+    if (j == buflen) {
+      blocks = 1;
+      buflen = SHAKE128_RATE;
+      shake128_squeezeblocks(buf, blocks, &state);
+      j = 0;
+    }
+    uint8_t x = buf[j];
+    for (int k = 0; k < 8/2 && i < n; k ++) {
+      uint8_t y = (x >> (2*k)) & 0x3;
+      if (y < 3) {
+        int8_t z = -(y >> 1) + (y & 0x1);
+        s[i] = z;
+        i ++;
+      }
+    }
+    j ++;
+  }
+}
 
 void poly_uniform_sampler(poly a, uint8_t seed[SEED_BYTES], uint64_t q,
-                          uint32_t n) {}
+                          uint32_t n) {
+  // Initialize PRNG
+  uint8_t seed[SEED_BYTES];
+  randombytes(seed, SEED_BYTES);
+  shake128ctx state;
+  shake128_absorb(&state, seed, SEED_BYTES);
+  // TODO: Improve division
+  uint64_t bound = UINT64_C(-1);
+  bound /= q;
+  size_t blocks = bound;
+  bound *= q;
+  // Sample
+  blocks += 1; // "ceil"
+  size_t blocks = (blocks + SHAKE128_RATE - 1) / SHAKE128_RATE;
+  size_t buflen = blocks * SHAKE128_RATE;
+  // The rate is multiple of 8 so it's fine
+  uint64_t* buf = (uint64_t*)malloc(buflen); // Initial guess
+  shake128_squeezeblocks(buf, blocks, &state);
+  uint32_t i = 0, j = 0;
+  while (i < n) {
+    // We're probably almost at the end so just fetch one more block
+    if (j == buflen) {
+      blocks = 1;
+      buflen = SHAKE128_RATE;
+      shake128_squeezeblocks(buf, blocks, &state);
+      j = 0;
+    }
+    uint64_t x = buf[j];
+    if (x < bound) {
+      x %= q;
+      a[i] = x;
+      i ++;
+    }
+    j ++;
+  }
+}
 
 void poly_cbd24_sampler(poly e, uint32_t n) {
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
