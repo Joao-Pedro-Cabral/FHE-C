@@ -61,6 +61,31 @@ def ifft_tp(a_hat, input_in_bitrev=True):
     return a
 
 
+def ifft_tp2(a_hat, input_in_bitrev=True):
+    n = len(a_hat)
+    k = round(np.log2(n))
+
+    print(n, k)
+    omega = np.exp(2j * np.pi / (2*n))
+
+    a = np.copy(a_hat)
+
+    for l in range(k - 1, -1, -1):
+        print(f"l: {l}")
+        idx = 0
+        for i in range(0, 2**(k - 1 - l)):
+            for j in range(i * 2**(l + 1), i * 2**(l + 1) + 2**l):
+                phi = omega ** bit_reverse(2 ** l + idx//(2**(k-1-l)), k)
+                idx += 1
+                t0 = a[j] + a[j + 2**l]
+                t1 = a[j] - a[j + 2**l]
+                a[j] = t0
+                a[j + 2**l] = phi * t1
+
+    a /= n
+    return a
+
+
 if __name__ == '__main__':
 
     x = np.array([1+4j, 3-1j, 3+1j, 1-4j], dtype=complex)
@@ -107,7 +132,7 @@ if __name__ == '__main__':
     print("y")
     print(y)
 
-    y = ifft_tp(x, input_in_bitrev=False)
+    y = ifft_tp2(x, input_in_bitrev=False)
     #
     print("y_tp")
     print(y)
