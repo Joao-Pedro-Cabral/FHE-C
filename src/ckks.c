@@ -12,12 +12,17 @@ void ckks_new(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
   // w
   vec_new(&params->w, 2 * n, 1);
   vec_gen_w(&params->w, n);
-  // eta
+  // eta for NTT
+  set eta0;
+  set_new(&eta0, n, 1);
   set_new(&params->eta, n, l);
-  set_gen_eta(params->eta, q, n, l);
+  set_gen_eta(params->eta, eta0[0], q, n, l);
   // s
   rlwe_new(&params->s, n, l);
   rlwe_gen_secret(params->s, params->eta, q, n, l);
+  // eta for INTT
+  set_gen_reverse_eta(params->eta, eta0[0], q, n, l);
+  set_free(&eta0, 1);
 }
 
 void ckks_free(ckks_params* params) {

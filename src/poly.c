@@ -145,8 +145,8 @@ void poly_pointwise_mul(poly a, const poly b, uint64_t q, uint32_t n) {
 void poly_ntt(poly a, const roots eta, uint64_t q, uint32_t n) {
   int64_t zeta, t;
 
-  uint32_t k = 0;
   for (uint32_t len = n / 2; len > 0; len >>= 1) {
+    uint32_t k = n / (2 * len);
     for (uint32_t start = 0; start < n; start += 2 * len) {
       zeta = eta[k];
       k++;
@@ -160,16 +160,15 @@ void poly_ntt(poly a, const roots eta, uint64_t q, uint32_t n) {
 }
 
 void poly_intt(poly a, const roots eta, uint64_t q, uint32_t n) {
-  unsigned int start, len, j, k;
   int64_t t, zeta;
   int64_t f = mod_inverse(n, (int64_t)q);  // mont^2/256
 
-  k = n - 1;
-  for (len = 1; len < n; len <<= 1) {
-    for (start = 0; start < n; start += 2 * len) {
-      zeta = -eta[k];
-      k--;
-      for (j = start; j < start + len; ++j) {
+  for (uint32_t len = 1; len < n; len <<= 1) {
+    uint32_t k = n / (2 * len);
+    for (uint32_t start = 0; start < n; start += 2 * len) {
+      zeta = eta[k];
+      k++;
+      for (uint32_t j = start; j < start + len; ++j) {
         t = a[j];
         a[j] = mod(t + a[j + len], (int64_t)q);
         a[j + len] = mod(t - a[j + len], (int64_t)q);
@@ -178,7 +177,7 @@ void poly_intt(poly a, const roots eta, uint64_t q, uint32_t n) {
     }
   }
 
-  for (j = 0; j < n; ++j) {
+  for (uint32_t j = 0; j < n; ++j) {
     a[j] = mod_mul(a[j], f, (int64_t)q);
   }
 }

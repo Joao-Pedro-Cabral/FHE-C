@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 static inline int64_t mod_inverse(int64_t a, int64_t q) {
+  if (a < 0) a += q;  // Function for [0, ..., q-1]
   int64_t t = 0, new_t = 1;
   int64_t r = q, new_r = a % q;
 
@@ -21,7 +22,8 @@ static inline int64_t mod_inverse(int64_t a, int64_t q) {
     r = tmp;
   }
 
-  if (t < 0) t += q;
+  if (t > q / 2) t -= q;
+  if (t < -q / 2) t += q;
 
   return t;
 }
@@ -29,6 +31,7 @@ static inline int64_t mod_inverse(int64_t a, int64_t q) {
 static inline int64_t mod(int64_t a, int64_t q) {
   a = a % q;
   if (a > q / 2) a -= q;
+  if (a < -q / 2) a += q;
   return a;
 }
 
@@ -36,6 +39,7 @@ static inline int64_t mod_mul(int64_t a, int64_t b, int64_t q) {
   __int128_t prod = (__int128_t)a * b;
   a = (int64_t)(prod % q);
   if (a > q / 2) a -= q;
+  if (a < -q / 2) a += q;
   return a;
 }
 

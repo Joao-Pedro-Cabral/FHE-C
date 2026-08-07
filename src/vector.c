@@ -70,10 +70,6 @@ void vec_gen_w(vec* w, uint32_t n) {
     w->img[bit_reverse32(i + 3 * n / 2, log2_2n)] =
         -w->img[bit_reverse32(i, log2_2n)];
   }
-  for (uint32_t i = 0; i < 2 * n; i++) {
-    printf("w_rel[%d]: %lf\n", i, w->rel[i]);
-    printf("w_img[%d]: %lf\n", i, w->img[i]);
-  }
 }
 
 void fft(vec* v, const vec* w, uint32_t n) {
@@ -104,29 +100,14 @@ void ifft(vec* v, const vec* w, uint32_t n) {
   double w_rel, w_img;
   double t_rel, t_img;
 
-  printf("---------START IFFT-------\n");
-  for (uint32_t i = 0; i < n; i++) {
-    printf("v_rel[%d]: %lf\n", i, v->rel[i]);
-    printf("v_img[%d]: %lf\n", i, v->img[i]);
-  }
-
   uint32_t k = floor_log2(n);
   for (uint32_t l = 0; l < k; l++) {
-    printf("--------LAYER %d-------\n", l);
     for (uint32_t i = 0; i < (1UL << (k - 1 - l)); i++) {
       w_rel = w->rel[(1UL << (k - 1 - l)) + i];
       w_img = -w->img[(1UL << (k - 1 - l)) + i];
-      printf("--------BLOCK %d-------\n", (k - 1 - l));
       uint32_t len = (1UL << l);
       for (uint32_t j = i * (1UL << (l + 1)); j < i * (1UL << (l + 1)) + len;
            j++) {
-        printf("--------START-------\n");
-        printf("v_rel[%d]: %lf\n", j, v->rel[j]);
-        printf("v_img[%d]: %lf\n", j, v->img[j]);
-        printf("v_rel[%d]: %lf\n", j + len, v->rel[j + len]);
-        printf("v_img[%d]: %lf\n", j + len, v->img[j + len]);
-        printf("w_rel: %lf\n", w_rel);
-        printf("w_img: %lf\n", w_img);
         t_rel = v->rel[j];
         t_img = v->img[j];
         // Each add/sub increases the integer part in one bit
@@ -139,21 +120,11 @@ void ifft(vec* v, const vec* w, uint32_t n) {
         t_img = img_mul(v->rel[j + len], v->img[j + len], w_rel, w_img);
         v->rel[j + len] = t_rel;
         v->img[j + len] = t_img;
-        printf("---------END-------\n");
-        printf("v_rel[%d]: %lf\n", j, v->rel[j]);
-        printf("v_img[%d]: %lf\n", j, v->img[j]);
-        printf("v_rel[%d]: %lf\n", j + len, v->rel[j + len]);
-        printf("v_img[%d]: %lf\n", j + len, v->img[j + len]);
       }
     }
   }
-  printf("---------END IFFT-------\n");
   for (uint32_t i = 0; i < n; i++) {
-    printf("v_rel[%d]: %lf\n", i, v->rel[i]);
-    printf("v_img[%d]: %lf\n", i, v->img[i]);
     v->rel[i] = v->rel[i] / n;
     v->img[i] = v->img[i] / n;
-    printf("v_rel[%d]: %lf\n", i, v->rel[i]);
-    printf("v_img[%d]: %lf\n", i, v->img[i]);
   }
 }
