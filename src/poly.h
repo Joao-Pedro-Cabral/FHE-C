@@ -70,32 +70,39 @@ void poly_cbd24_sampler(poly e, uint32_t n);
   @param b: input polynomial
   @param n: size of the polynomials
 */
-void poly_add(poly a, const poly b, uint32_t n);
+void poly_add(poly a, const poly b, uint64_t q, uint32_t n);
 
 /*
   @param a: input/output polynomial
   @param b: input polynomial
   @param n: size of the polynomials
 */
-void poly_rsub(poly a, const poly b, uint32_t n);
+void poly_add_no_mod(poly a, const poly b, uint32_t n);
 
 /*
   @param a: input/output polynomial
   @param b: input polynomial
   @param n: size of the polynomials
 */
-void poly_pointwise_mul(poly a, const poly b, uint32_t n);
+void poly_rsub(poly a, const poly b, uint64_t q, uint32_t n);
+
+/*
+  @param a: input/output polynomial
+  @param b: input polynomial
+  @param n: size of the polynomials
+*/
+void poly_pointwise_mul(poly a, const poly b, uint64_t q, uint32_t n);
 
 /*
   @param a: input/output polynomial
   @param n: size of the polynomial
 */
-void poly_ntt(poly a, const roots eta, uint32_t n);
+void poly_ntt(poly a, const roots eta, uint64_t q, uint32_t n);
 
 /*
   @param a: input/output polynomial
   @param n: size of the polynomial
 */
-void poly_intt(poly a, const roots eta, uint32_t n);
+void poly_intt(poly a, const roots eta, uint64_t q, uint32_t n);
 
 #endif  // __POLY_H__

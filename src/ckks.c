@@ -57,16 +57,16 @@ void ckks_encrypt(cyphertext ct, const poly m, const ckks_params* params) {
   poly e;
   poly_new(&e, params->n);
   poly_cbd24_sampler(e, params->n);
-  poly_add(e, m, params->n);
+  poly_add_no_mod(e, m, params->n);
   // Init A
   randombytes(ct.seed, SEED_BYTES);
   // -AS + DeltaM + E
   for (uint32_t i = 0; i < params->l; i++) {
     poly_uniform_sampler(ct.b[i], ct.seed, params->q[i], params->n);
     ct.seed[0] += 1;
-    poly_pointwise_mul(ct.b[i], params->s[i], params->n);
-    poly_intt(ct.b[i], params->eta[i], params->n);
-    poly_rsub(ct.b[i], e, params->n);
+    poly_pointwise_mul(ct.b[i], params->s[i], params->q[i], params->n);
+    poly_intt(ct.b[i], params->eta[i], params->q[i], params->n);
+    poly_rsub(ct.b[i], e, params->q[i], params->n);
   }
   ct.seed[0] -= (uint8_t)params->l;  // TODO: l < 255
   poly_free(&e);
@@ -76,7 +76,7 @@ void ckks_decrypt(poly m, const cyphertext ct, const ckks_params* params) {
   // For decrypting we only need l = 0 (deltaM + E < q_0/2)
   // B + AS = DeltaM + E
   poly_uniform_sampler(m, ct.seed, params->q[0], params->n);
-  poly_pointwise_mul(m, params->s[0], params->n);
-  poly_intt(m, params->eta[0], params->n);
-  poly_add(m, ct.b[0], params->n);
+  poly_pointwise_mul(m, params->s[0], params->q[0], params->n);
+  poly_intt(m, params->eta[0], params->q[0], params->n);
+  poly_add(m, ct.b[0], params->q[0], params->n);
 }
