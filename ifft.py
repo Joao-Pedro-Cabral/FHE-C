@@ -105,7 +105,7 @@ y = V @ x
 print("y")
 print(y)
 
-y = np.fft.fft(x)
+y = np.fft.ifft(x)
 
 print("y fft")
 print(y)

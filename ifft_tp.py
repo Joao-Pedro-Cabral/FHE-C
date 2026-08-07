@@ -1,11 +1,13 @@
 import numpy as np
 
+
 def bit_reverse(x, bits):
     y = 0
     for _ in range(bits):
         y = (y << 1) | (x & 1)
         x >>= 1
     return y
+
 
 def fft_tp(a, output_in_bitrev=True):
     a = np.array(a, dtype=complex)
@@ -41,13 +43,14 @@ def ifft_tp(a_hat, input_in_bitrev=True):
     a_hat = np.array(a_hat, dtype=complex)
 
     print(n, k)
-    omega = (-1 + 0j)**(1/2**(k - 1))
+    omega = np.exp(-2j * np.pi / (2*n))
 
     a = np.copy(a_hat)
 
     for l in range(0, k):
         for i in range(0, 2**(k - 1 - l)):
-            phi = omega ** bit_reverse(i, k - 1) # This is for cyclic FFT
+            # This is for cyclic FFT
+            phi = omega ** bit_reverse(2 ** (k-1-l) + i, k)
             for j in range(i * 2**(l + 1), i * 2**(l + 1) + 2**l):
                 t0 = a[j] + a[j + 2**l]
                 t1 = a[j] - a[j + 2**l]
@@ -56,7 +59,6 @@ def ifft_tp(a_hat, input_in_bitrev=True):
 
     a /= n
     return a
-
 
 
 if __name__ == '__main__':
@@ -80,6 +82,7 @@ if __name__ == '__main__':
     print(V)
 
     y = V @ x
+    y = y / 4
 
     print("y")
     print(y)
