@@ -17,7 +17,7 @@ void ckks_new(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
   set_gen_eta(params->eta, q, n, l);
   // s
   rlwe_new(&params->s, n, l);
-  rlwe_gen_secret(params->s, params->eta, params->q, n, l);
+  rlwe_gen_secret(params->s, params->eta, q, n, l);
 }
 
 void ckks_free(ckks_params* params) {
