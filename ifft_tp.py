@@ -16,13 +16,14 @@ def fft_tp(a, output_in_bitrev=True):
     k = round(np.log2(n))
 
     print(n, k)
-    omega = (-1 + 0j)**(1/2**(k - 1))
+    omega = np.exp(-2j * np.pi / (2*n))
 
     a_hat = np.copy(a)
 
     for l in range(k - 1, -1, -1):
         for i in range(0, 2**(k - 1 - l)):
-            phi = omega ** -bit_reverse(i, k - 1)  # This is for cyclic FFT
+            # This is for cyclic FFT
+            phi = omega ** -bit_reverse(2 ** (k-1-l) + i, k)
             for j in range(i * 2**(l + 1), i * 2**(l + 1) + 2**l):
                 t0 = a_hat[j]
                 t1 = phi * a_hat[j + 2**l]
@@ -69,12 +70,14 @@ def ifft_tp2(a_hat, input_in_bitrev=True):
     omega = np.exp(2j * np.pi / (2*n))
 
     a = np.copy(a_hat)
-
     for l in range(k - 1, -1, -1):
         print(f"l: {l}")
         idx = 0
         for i in range(0, 2**(k - 1 - l)):
             for j in range(i * 2**(l + 1), i * 2**(l + 1) + 2**l):
+                # Wrong?
+                # phi = omega ** (
+                #         bit_reverse(5 ** (2 ** l + idx//(2**(k-1-l))), k))
                 phi = omega ** bit_reverse(2 ** l + idx//(2**(k-1-l)), k)
                 idx += 1
                 t0 = a[j] + a[j + 2**l]
