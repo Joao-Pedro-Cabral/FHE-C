@@ -12,10 +12,9 @@
 #include "complex.h"
 #include "utils.h"
 
-void vec_new(vec* v, uint32_t n, uint32_t int_part) {
+void vec_new(vec* v, uint32_t n) {
   v->rel = malloc(2 * n * sizeof(double));
   v->img = &v->rel[n];
-  v->int_part = int_part;
 }
 
 void vec_free(vec* v) { free(v->rel); }

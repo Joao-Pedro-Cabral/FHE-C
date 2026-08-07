@@ -14,10 +14,6 @@ void poly_new(poly* m, uint32_t n) { *m = malloc(n * sizeof(int64_t)); }
 void poly_free(poly* m) { free(*m); }
 
 void vector_to_poly(poly m, const vec* v, int64_t scale, uint32_t n) {
-  // Since >> 63 = >> (int_part + frac_part)
-  // Then, we multiply scale by (1UL << int_part)
-  // For completely eliminate the fractional part with a multiplication
-  scale = scale * (INT64_C(1) << v->int_part);
   for (uint32_t i = 0; i < n; i++) {
     m[i] = (int64_t)(v->rel[i] * (double)scale);
   }

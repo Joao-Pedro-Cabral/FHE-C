@@ -5,17 +5,16 @@
 #include <stdint.h>
 
 typedef struct {
-  double* rel;        // real part
-  double* img;        // imaginary part
-  uint32_t int_part;  // bits of the integer part
-} vec;                // N fixed-point slots
+  double* rel;  // real part
+  double* img;  // imaginary part
+} vec;          // N slots
 
 /*
   @param v: complex vector
   @param scale: input Delta
   @param n: size of the vector
 */
-void vec_new(vec* v, uint32_t n, uint32_t int_part);
+void vec_new(vec* v, uint32_t n);
 
 /*
   @param v: complex vector

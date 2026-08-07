@@ -48,8 +48,16 @@ void ckks_encode(poly m, const vec* v, const ckks_params* params);
 */
 void ckks_decode(vec* v, const poly m, const ckks_params* params);
 
-void ckks_encrypt(cyphertext ct, const poly m, const ckks_params* params);
+void ckks_encrypt(cyphertext* ct, const poly m, const ckks_params* params);
 
-void ckks_decrypt(poly m, const cyphertext ct, const ckks_params* params);
+void ckks_decrypt(poly m, const cyphertext* ct, const ckks_params* params);
+
+/*
+  @param n: size of the polynomial m (2x v size)
+  @param w: output odd 2n roots of unity
+*/
+void cyphertext_new(cyphertext* ct, const ckks_params* params);
+
+void cyphertext_free(cyphertext* ct, const ckks_params* params);
 
 #endif  // __CKKS_H__
