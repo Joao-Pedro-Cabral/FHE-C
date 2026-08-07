@@ -35,7 +35,7 @@ void gen_eta(roots eta, uint32_t n, int64_t q) {
     if (x == 1) break;  // x^(2n) = 1
   }
   eta[0] = 1;
-  for (uint32_t i = 0; i < n; i++) {
+  for (uint32_t i = 1; i < n; i++) {
     eta[bit_reverse32(i, log2_n)] =
         (eta[bit_reverse32(i - 1, log2_n)] * eta0) % q;
   }

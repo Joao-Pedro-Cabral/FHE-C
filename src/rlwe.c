@@ -25,7 +25,7 @@ void rlwe_gen_secret(rlwe s, const set eta, const uint64_t* q, uint32_t n,
   poly_ternary_sampler(s_hat, n);
   for (uint32_t i = 0; i < l; i++) {
     memcpy(s[i], s_hat, sizeof(int64_t) * n);
-    poly_ntt(s[i], eta[i], n);
+    poly_ntt(s[i], eta[i], q[i], n);
   }
   poly_free(&s_hat);
 }

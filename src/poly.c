@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "fixed.h"
+#include "mod.h"
 #include "random.h"
 #include "shake.h"
 #include "utils.h"
@@ -72,8 +73,7 @@ void poly_uniform_sampler(poly a, const uint8_t seed[SEED_BYTES], uint64_t q,
   shake128ctx state;
   shake128_absorb(&state, seed, SEED_BYTES);
   // TODO: Improve division
-  uint64_t bound = UINT64_C(-1);
-  bound /= q;
+  uint64_t bound = UINT64_C(-1) / q;
   size_t blocks = bound;
   bound *= q;
   // Sample
@@ -94,9 +94,8 @@ void poly_uniform_sampler(poly a, const uint8_t seed[SEED_BYTES], uint64_t q,
     }
     uint64_t x = buf[j];
     if (x < bound) {
-      x %= q;
-      x -= q / 2;
-      a[i] = (int64_t)x;
+      int64_t y = mod((int64_t)x, (int64_t)q);
+      a[i] = y;
       i++;
     }
     j++;
@@ -119,24 +118,67 @@ void poly_cbd24_sampler(poly e, uint32_t n) {
   }
 }
 
-void poly_add(poly a, const poly b, uint32_t n) {
+void poly_add_no_mod(poly a, const poly b, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
     a[i] = a[i] + b[i];
   }
 }
 
-void poly_rsub(poly a, const poly b, uint32_t n) {
+void poly_add(poly a, const poly b, uint64_t q, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = b[i] - a[i];
+    a[i] = mod(a[i] + b[i], (int64_t)q);
   }
 }
 
-void poly_pointwise_mul(poly a, const poly b, uint32_t n) {
+void poly_rsub(poly a, const poly b, uint64_t q, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = a[i] * b[i];
+    a[i] = mod(b[i] - a[i], (int64_t)q);
   }
 }
 
-void poly_ntt(poly a, const roots eta, uint32_t n) {}
+void poly_pointwise_mul(poly a, const poly b, uint64_t q, uint32_t n) {
+  for (uint32_t i = 0; i < n; i++) {
+    a[i] = mod_mul(a[i], b[i], (int64_t)q);
+  }
+}
 
-void poly_intt(poly a, const roots eta, uint32_t n) {}
+void poly_ntt(poly a, const roots eta, uint64_t q, uint32_t n) {
+  int64_t zeta, t;
+
+  uint32_t k = 0;
+  for (uint32_t len = n / 2; len > 0; len >>= 1) {
+    for (uint32_t start = 0; start < n; start += 2 * len) {
+      zeta = eta[k];
+      k++;
+      for (uint32_t j = start; j < start + len; ++j) {
+        t = mod_mul(zeta, a[j + len], (int64_t)q);
+        a[j + len] = mod(a[j] - t, (int64_t)q);
+        a[j] = mod(a[j] + t, (int64_t)q);
+      }
+    }
+  }
+}
+
+void poly_intt(poly a, const roots eta, uint64_t q, uint32_t n) {
+  unsigned int start, len, j, k;
+  int64_t t, zeta;
+  int64_t f = mod_inverse(n, (int64_t)q);  // mont^2/256
+
+  k = n - 1;
+  for (len = 1; len < n; len <<= 1) {
+    for (start = 0; start < n; start += 2 * len) {
+      zeta = -eta[k];
+      k--;
+      for (j = start; j < start + len; ++j) {
+        t = a[j];
+        a[j] = mod(t + a[j + len], (int64_t)q);
+        a[j + len] = mod(t - a[j + len], (int64_t)q);
+        a[j + len] = mod_mul(zeta, a[j + len], (int64_t)q);
+      }
+    }
+  }
+
+  for (j = 0; j < n; ++j) {
+    a[j] = mod_mul(a[j], f, (int64_t)q);
+  }
+}
