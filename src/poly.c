@@ -140,13 +140,13 @@ void poly_pointwise_mul(poly a, const poly b, uint64_t q, uint32_t n) {
   }
 }
 
-void poly_ntt(poly a, const roots eta, uint64_t q, uint32_t n) {
+void poly_ntt(poly a, const poly roots, uint64_t q, uint32_t n) {
   int64_t zeta, t;
 
   for (uint32_t len = n / 2; len > 0; len >>= 1) {
     uint32_t k = n / (2 * len);
     for (uint32_t start = 0; start < n; start += 2 * len) {
-      zeta = eta[k];
+      zeta = roots[k];
       k++;
       for (uint32_t j = start; j < start + len; ++j) {
         t = mod_mul(zeta, a[j + len], (int64_t)q);
@@ -157,14 +157,14 @@ void poly_ntt(poly a, const roots eta, uint64_t q, uint32_t n) {
   }
 }
 
-void poly_intt(poly a, const roots eta, uint64_t q, uint32_t n) {
+void poly_intt(poly a, const poly roots, uint64_t q, uint32_t n) {
   int64_t t, zeta;
   int64_t f = mod_inverse(n, (int64_t)q);  // mont^2/256
 
   for (uint32_t len = 1; len < n; len <<= 1) {
     uint32_t k = n / (2 * len);
     for (uint32_t start = 0; start < n; start += 2 * len) {
-      zeta = eta[k];
+      zeta = roots[k];
       k++;
       for (uint32_t j = start; j < start + len; ++j) {
         t = a[j];
@@ -177,5 +177,37 @@ void poly_intt(poly a, const roots eta, uint64_t q, uint32_t n) {
 
   for (uint32_t j = 0; j < n; ++j) {
     a[j] = mod_mul(a[j], f, (int64_t)q);
+  }
+}
+
+void poly_gen_roots(poly roots, uint32_t n, int64_t q) {
+  // Find one primitive root (n > 2)
+  uint32_t log2_n = floor_log2(n);
+  int64_t root0;  // our primitive root
+  for (root0 = 2; root0 < q - 2; root0++) {
+    int64_t x = root0;
+    for (uint32_t j = 0; j < log2_n; j++) {
+      x = mod_mul(x, x, q);
+    }
+    if (x != -1) continue;  // x^(n) = -1
+    x = mod_mul(x, x, q);
+    if (x == 1) break;  // x^(2n) = 1
+  }
+  roots[0] = 1;
+  for (uint32_t i = 1; i < n; i++) {
+    roots[bit_reverse32(i, log2_n)] =
+        mod_mul(roots[bit_reverse32(i - 1, log2_n)], root0, q);
+  }
+}
+
+void poly_gen_inverse_roots(poly roots, uint32_t n, int64_t q) {
+  // Find one primitive root (n > 2)
+  uint32_t log2_n = floor_log2(n);
+  int64_t etan = -1;         // x^n
+  int64_t root0 = roots[1];  // Previously poly_gen_roots output
+  roots[0] = 1;
+  for (uint32_t i = 1; i < n; i++) {
+    etan = mod_mul(etan, root0, q);
+    roots[bit_reverse32(n - i, log2_n)] = etan;
   }
 }

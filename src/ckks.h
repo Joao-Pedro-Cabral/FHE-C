@@ -2,22 +2,21 @@
 #ifndef __CKKS_H__
 #define __CKKS_H__
 
-#include "rlwe.h"
-#include "set.h"
+#include "rns.h"
 #include "vector.h"
 
 typedef struct {
   vec w;              // odd 2n roots of unity
   const uint64_t* q;  // l modulus
-  set eta;            // l sets of roots of unity
-  rlwe s;             // secret key in l NTT domains
+  rns roots;          // roots of unity for l NTT domains
+  rns s;              // secret key in l NTT domains
   uint32_t l;         // size of the RNS
   uint32_t n;         // size of the polynomials
   int64_t scale;      // input scale (Delta)
 } ckks_params;
 
 typedef struct {
-  rlwe b;                    // ciphertext
+  rns b;                     // ciphertext
   uint8_t seed[SEED_BYTES];  // key for generate A
 } cyphertext;
 

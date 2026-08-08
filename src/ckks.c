@@ -12,23 +12,20 @@ void ckks_new(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
   // w
   vec_new(&params->w, n);
   vec_gen_w(&params->w, n);
-  // eta for NTT
-  set eta0;
-  set_new(&eta0, n, 1);
-  set_new(&params->eta, n, l);
-  set_gen_eta(params->eta, eta0[0], q, n, l);
+  // roots for NTT
+  rns_new(&params->roots, n, l);
+  rns_gen_roots(params->roots, q, n, l);
   // s
-  rlwe_new(&params->s, n, l);
-  rlwe_gen_secret(params->s, params->eta, q, n, l);
-  // eta for INTT
-  set_gen_reverse_eta(params->eta, eta0[0], q, n, l);
-  set_free(&eta0, 1);
+  rns_new(&params->s, n, l);
+  rns_gen_secret_key(params->s, params->roots, q, n, l);
+  // roots for INTT
+  rns_gen_inverse_roots(params->roots, q, n, l);
 }
 
 void ckks_free(ckks_params* params) {
   vec_free(&params->w);
-  set_free(&params->eta, params->l);
-  rlwe_free(&params->s, params->l);
+  rns_free(&params->roots, params->l);
+  rns_free(&params->s, params->l);
 }
 
 void ckks_encode(poly m, const vec* v, const ckks_params* params) {
@@ -70,7 +67,7 @@ void ckks_encrypt(cyphertext* ct, const poly m, const ckks_params* params) {
     poly_uniform_sampler(ct->b[i], ct->seed, params->q[i], params->n);
     ct->seed[0] += 1;
     poly_pointwise_mul(ct->b[i], params->s[i], params->q[i], params->n);
-    poly_intt(ct->b[i], params->eta[i], params->q[i], params->n);
+    poly_intt(ct->b[i], params->roots[i], params->q[i], params->n);
     poly_rsub(ct->b[i], e, params->q[i], params->n);
   }
   ct->seed[0] -= (uint8_t)params->l;  // TODO: l < 255
@@ -82,14 +79,14 @@ void ckks_decrypt(poly m, const cyphertext* ct, const ckks_params* params) {
   // B + AS = DeltaM + E
   poly_uniform_sampler(m, ct->seed, params->q[0], params->n);
   poly_pointwise_mul(m, params->s[0], params->q[0], params->n);
-  poly_intt(m, params->eta[0], params->q[0], params->n);
+  poly_intt(m, params->roots[0], params->q[0], params->n);
   poly_add(m, ct->b[0], params->q[0], params->n);
 }
 
 void cyphertext_new(cyphertext* ct, const ckks_params* params) {
-  rlwe_new(&(ct->b), params->n, params->l);
+  rns_new(&(ct->b), params->n, params->l);
 }
 
 void cyphertext_free(cyphertext* ct, const ckks_params* params) {
-  rlwe_free(&(ct->b), params->l);
+  rns_free(&(ct->b), params->l);
 }
