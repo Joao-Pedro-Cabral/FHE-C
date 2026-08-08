@@ -11,7 +11,6 @@ typedef struct {
 
 /*
   @param v: complex vector
-  @param scale: input Delta
   @param n: size of the vector
 */
 void vec_new(vec* v, uint32_t n);
@@ -40,7 +39,7 @@ void vec_input(vec* v2, const vec* v1, uint32_t n);
   @param w: odd complex powers of unity of 2n
   @param n: size of the underlying ring
 */
-void vec_gen_w(vec* w, uint32_t n);
+void vec_gen_roots(vec* w, uint32_t n);
 
 /*
   @param v: input complex vector/output polynomial vector

@@ -35,7 +35,7 @@ void vec_input(vec* v2, const vec* v1, uint32_t n) {
   }
 }
 
-void vec_gen_w(vec* w, uint32_t n) {
+void vec_gen_roots(vec* w, uint32_t n) {
   uint32_t log2_n = floor_log2(n);
   // 1st quadrant
   w->rel[bit_reverse32(0, log2_n)] = 1.0;

@@ -30,7 +30,7 @@ void poly_free(poly* m);
   @param scale: input Delta
   @param n: size of the polynomial
 */
-void vector_to_poly(poly m, const vec* v, int64_t scale, uint32_t n);
+void vector_to_poly(poly m, const vec* v, uint64_t scale, uint32_t n);
 
 /*
   @param v: output vector
@@ -38,7 +38,7 @@ void vector_to_poly(poly m, const vec* v, int64_t scale, uint32_t n);
   @param scale: input Delta
   @param n: size of the polynomial
 */
-void poly_to_vector(vec* v, const poly m, int64_t scale, uint32_t n);
+void poly_to_vector(vec* v, const poly m, uint64_t scale, uint32_t n);
 
 /*
   @param s: output secret polynomial
@@ -51,12 +51,10 @@ void poly_ternary_sampler(poly s, uint32_t n);
   @param q: input modulus
   @param n: size of the polynomials
 */
-void poly_uniform_sampler(poly a, const uint8_t seed[SEED_BYTES], uint64_t q,
-                          uint32_t n);
+void poly_uniform_sampler(poly a, uint64_t q, uint32_t n);
 
 /*
   @param e: output error polynomial
-  @param buf: input pseudo-random sequence with 2*3*n bytes
   @param n: size of the polynomial
   // To mimic a gaussian with std deviation 3.2 with a cbd
   // The minimal cbd parameter is 21
@@ -67,6 +65,7 @@ void poly_cbd24_sampler(poly e, uint32_t n);
 /*
   @param a: input/output polynomial
   @param b: input polynomial
+  @param q: input moduli
   @param n: size of the polynomials
 */
 void poly_add(poly a, const poly b, uint64_t q, uint32_t n);
@@ -80,32 +79,47 @@ void poly_add_no_mod(poly a, const poly b, uint32_t n);
 
 /*
   @param a: input/output polynomial
-  @param b: input polynomial
+  @param q: input moduli
   @param n: size of the polynomials
 */
-void poly_rsub(poly a, const poly b, uint64_t q, uint32_t n);
+void poly_neg(poly a, uint64_t q, uint32_t n);
 
 /*
   @param a: input/output polynomial
   @param b: input polynomial
+  @param q: input moduli
   @param n: size of the polynomials
 */
-void poly_pointwise_mul(poly a, const poly b, uint64_t q, uint32_t n);
+void poly_pointwise_mul(poly c, const poly a, const poly b, uint64_t q,
+                        uint32_t n);
 
 /*
   @param a: input/output polynomial
+  @param q: input moduli
   @param n: size of the polynomial
 */
 void poly_ntt(poly a, const poly roots, uint64_t q, uint32_t n);
 
 /*
   @param a: input/output polynomial
+  @param q: input moduli
   @param n: size of the polynomial
 */
 void poly_intt(poly a, const poly roots, uint64_t q, uint32_t n);
 
+/*
+  @param q: input moduli
+  @param n: size of the ring
+  @param roots: output primitive roots the moduli
+*/
 void poly_gen_roots(poly roots, uint32_t n, int64_t q);
 
+/*
+  Suppose that roots was initialized by a previous call to poly_gen_roots
+  @param q: input moduli
+  @param n: size of the ring
+  @param roots: output primitive roots the moduli
+*/
 void poly_gen_inverse_roots(poly roots, uint32_t n, int64_t q);
 
 #endif  // __POLY_H__

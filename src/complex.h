@@ -2,6 +2,8 @@
 #ifndef __COMPLEX_H__
 #define __COMPLEX_H__
 
+// We do static inline here for remove function call overhead
+
 // Real part multiplication
 static inline double rel_mul(double a_rel, double a_img, double b_rel,
                              double b_img) {

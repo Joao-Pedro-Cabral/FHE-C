@@ -4,14 +4,14 @@
 #include "random.h"
 
 void ckks_new(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
-              int64_t scale) {
+              uint64_t scale) {
   params->n = n;
   params->l = l;
   params->q = q;
   params->scale = scale;
   // w
   vec_new(&params->w, n);
-  vec_gen_w(&params->w, n);
+  vec_gen_roots(&params->w, n);
   // roots for NTT
   rns_new(&params->roots, n, l);
   rns_gen_roots(params->roots, q, n, l);
@@ -60,33 +60,38 @@ void ckks_encrypt(cyphertext* ct, const poly m, const ckks_params* params) {
   poly_new(&e, params->n);
   poly_cbd24_sampler(e, params->n);
   poly_add_no_mod(e, m, params->n);
-  // Init A
-  randombytes(ct->seed, SEED_BYTES);
-  // -AS + DeltaM + E
+  // B = AS + DeltaM + E
   for (uint32_t i = 0; i < params->l; i++) {
-    poly_uniform_sampler(ct->b[i], ct->seed, params->q[i], params->n);
-    ct->seed[0] += 1;
-    poly_pointwise_mul(ct->b[i], params->s[i], params->q[i], params->n);
+    poly_uniform_sampler(ct->a[i], params->q[i], params->n);
+    poly_pointwise_mul(ct->b[i], ct->a[i], params->s[i], params->q[i],
+                       params->n);
     poly_intt(ct->b[i], params->roots[i], params->q[i], params->n);
-    poly_rsub(ct->b[i], e, params->q[i], params->n);
+    poly_add(ct->b[i], e, params->q[i], params->n);
+    poly_neg(ct->a[i], params->q[i], params->n);
   }
-  ct->seed[0] -= (uint8_t)params->l;  // TODO: l < 255
   poly_free(&e);
 }
 
 void ckks_decrypt(poly m, const cyphertext* ct, const ckks_params* params) {
   // For decrypting we only need l = 0 (deltaM + E < q_0/2)
-  // B + AS = DeltaM + E
-  poly_uniform_sampler(m, ct->seed, params->q[0], params->n);
-  poly_pointwise_mul(m, params->s[0], params->q[0], params->n);
+  // B - AS = DeltaM + E
+  poly_pointwise_mul(m, ct->a[0], params->s[0], params->q[0], params->n);
   poly_intt(m, params->roots[0], params->q[0], params->n);
   poly_add(m, ct->b[0], params->q[0], params->n);
 }
 
 void cyphertext_new(cyphertext* ct, const ckks_params* params) {
   rns_new(&(ct->b), params->n, params->l);
+  rns_new(&(ct->a), params->n, params->l);
+  ct->n = params->n;
+  ct->l = params->l;
+  ct->scale = params->scale;
+  ct->int_scale = 1;
+  ct->noise_scale = 1;
+  ct->encoding_type = 4;  // OpenFHE: CKKS_PACKED_ENCODING
 }
 
 void cyphertext_free(cyphertext* ct, const ckks_params* params) {
   rns_free(&(ct->b), params->l);
+  rns_free(&(ct->a), params->l);
 }

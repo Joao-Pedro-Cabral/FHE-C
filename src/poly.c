@@ -3,7 +3,6 @@
 
 #include <stdlib.h>
 
-#include "fixed.h"
 #include "mod.h"
 #include "random.h"
 #include "shake.h"
@@ -13,13 +12,13 @@ void poly_new(poly* m, uint32_t n) { *m = malloc(n * sizeof(int64_t)); }
 
 void poly_free(poly* m) { free(*m); }
 
-void vector_to_poly(poly m, const vec* v, int64_t scale, uint32_t n) {
+void vector_to_poly(poly m, const vec* v, uint64_t scale, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
     m[i] = (int64_t)(v->rel[i] * (double)scale);
   }
 }
 
-void poly_to_vector(vec* v, const poly m, int64_t scale, uint32_t n) {
+void poly_to_vector(vec* v, const poly m, uint64_t scale, uint32_t n) {
   // To increase the precision, we first compute (1 << int_part)/scale
   // Instead of /scale and *(1 << int_part)
   double scale2 = 1.0 / (double)scale;
@@ -63,8 +62,9 @@ void poly_ternary_sampler(poly s, uint32_t n) {
   free(buf);
 }
 
-void poly_uniform_sampler(poly a, const uint8_t seed[SEED_BYTES], uint64_t q,
-                          uint32_t n) {
+void poly_uniform_sampler(poly a, uint64_t q, uint32_t n) {
+  uint8_t seed[SEED_BYTES];
+  randombytes(seed, SEED_BYTES);
   // Initialize PRNG
   shake128ctx state;
   shake128_absorb(&state, seed, SEED_BYTES);
@@ -128,15 +128,16 @@ void poly_add(poly a, const poly b, uint64_t q, uint32_t n) {
   }
 }
 
-void poly_rsub(poly a, const poly b, uint64_t q, uint32_t n) {
+void poly_neg(poly a, uint64_t q, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod(b[i] - a[i], (int64_t)q);
+    a[i] = mod((int64_t)q - a[i], (int64_t)q);
   }
 }
 
-void poly_pointwise_mul(poly a, const poly b, uint64_t q, uint32_t n) {
+void poly_pointwise_mul(poly c, const poly a, const poly b, uint64_t q,
+                        uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod_mul(a[i], b[i], (int64_t)q);
+    c[i] = mod_mul(a[i], b[i], (int64_t)q);
   }
 }
 

@@ -41,7 +41,7 @@ int main() {
   uint32_t n = 4;
   uint32_t l = 2;
   uint64_t q[2] = {337, 353};
-  int64_t scale = 40;
+  uint64_t scale = 40;
 
   ckks_params params;
 

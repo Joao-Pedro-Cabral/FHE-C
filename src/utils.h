@@ -2,6 +2,8 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__
 
+// We do static inline here for remove function call overhead
+
 static inline uint32_t ceil_log2(uint32_t n) {
   if (n == 1) return 0;
 
