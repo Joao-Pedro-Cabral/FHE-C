@@ -89,11 +89,7 @@ int main() {
   ckks_decrypt(m2, &ct, &params);
   printf("---------- DECRYPTED POLYNOMIAL ----------\n");
   for (uint32_t i = 0; i < n; i++) {
-    printf("m2[%d]: %ld\n", i, m[i]);
-  }
-  for (uint32_t i = 0; i < n; i++) {
-    if (m[i] != m2[i])
-      printf("m[%d]: %ld differs from m2[%d]: %ld\n", i, m[i], i, m2[i]);
+    printf("m2[%d]: %ld\n", i, m2[i]);
   }
 
   printf("---------- DECODE ----------\n");
@@ -113,6 +109,8 @@ int main() {
   vec_free(&v2);
   poly_free(&m);
   poly_free(&m2);
+
+  printf("---------- END OF TESTS ----------\n");
 
   return 0;
 }

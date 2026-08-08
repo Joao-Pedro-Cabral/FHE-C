@@ -23,7 +23,9 @@ def fft_tp(a, output_in_bitrev=True):
     for l in range(k - 1, -1, -1):
         for i in range(0, 2**(k - 1 - l)):
             # This is for cyclic FFT
-            phi = omega ** -bit_reverse(2 ** (k-1-l) + i, k)
+            index = 2 ** (k-1-l) + i
+            phi = omega ** bit_reverse(index, k)
+            print(f"{index}, {phi}")
             for j in range(i * 2**(l + 1), i * 2**(l + 1) + 2**l):
                 t0 = a_hat[j]
                 t1 = phi * a_hat[j + 2**l]
@@ -51,7 +53,9 @@ def ifft_tp(a_hat, input_in_bitrev=True):
     for l in range(0, k):
         for i in range(0, 2**(k - 1 - l)):
             # This is for cyclic FFT
-            phi = omega ** bit_reverse(2 ** (k-1-l) + i, k)
+            index = 2 ** (k-1-l) + i
+            phi = omega ** -bit_reverse(index, k)
+            print(f"{index}, {phi}")
             for j in range(i * 2**(l + 1), i * 2**(l + 1) + 2**l):
                 t0 = a[j] + a[j + 2**l]
                 t1 = a[j] - a[j + 2**l]
@@ -78,7 +82,7 @@ def ifft_tp2(a_hat, input_in_bitrev=True):
                 # Wrong?
                 # phi = omega ** (
                 #         bit_reverse(5 ** (2 ** l + idx//(2**(k-1-l))), k))
-                phi = omega ** bit_reverse(2 ** l + idx//(2**(k-1-l)), k)
+                phi = omega ** -bit_reverse(2 ** l + idx//(2**(k-1-l)), k)
                 idx += 1
                 t0 = a[j] + a[j + 2**l]
                 t1 = a[j] - a[j + 2**l]
@@ -135,7 +139,22 @@ if __name__ == '__main__':
     print("y")
     print(y)
 
-    y = ifft_tp2(x, input_in_bitrev=False)
+    N = 16
+
+    # Random complex vector
+    x = np.random.rand(N) + 1j * np.random.rand(N)
+
+    y = ifft_tp(x, input_in_bitrev=False)
     #
     print("y_tp")
     print(y)
+
+    x2 = fft_tp(y, output_in_bitrev=False)
+    #
+    print("x_tp")
+    print(x2)
+
+    if np.allclose(x, x2, rtol=1e-12, atol=1e-12):
+        print("x and x2 are equal within numerical precision.")
+    else:
+        print("x and x2 differ.")

@@ -68,12 +68,12 @@ void poly_uniform_sampler(poly a, const uint8_t seed[SEED_BYTES], uint64_t q,
   // Initialize PRNG
   shake128ctx state;
   shake128_absorb(&state, seed, SEED_BYTES);
-  // TODO: Improve division
-  uint64_t bound = UINT64_C(-1) / q;
-  size_t blocks = bound;
-  bound *= q;
   // Sample
-  blocks += 1;  // "ceil"
+  uint64_t bound = UINT64_C(-1) / q;
+  bound *= q;
+  // Normally q < 2^50, then the rejection probability (2^63-1-kq)/(2^63-1) is
+  // extremely small, so I just fetch n int64_t plus the SHAKE rate rounding
+  size_t blocks = (n * sizeof(int64_t));
   blocks = (blocks + SHAKE128_RATE - 1) / SHAKE128_RATE;
   size_t buflen = blocks * SHAKE128_RATE;
   // The rate is multiple of 8 so it's fine
@@ -96,6 +96,7 @@ void poly_uniform_sampler(poly a, const uint8_t seed[SEED_BYTES], uint64_t q,
     }
     j++;
   }
+  free(buf);
 }
 
 void poly_cbd24_sampler(poly e, uint32_t n) {
@@ -112,6 +113,7 @@ void poly_cbd24_sampler(poly e, uint32_t n) {
     b2 += __builtin_popcount(buf[6 * i + 5]);
     e[i] = b1 - b2;
   }
+  free(buf);
 }
 
 void poly_add_no_mod(poly a, const poly b, uint32_t n) {

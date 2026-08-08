@@ -36,38 +36,21 @@ void vec_input(vec* v2, const vec* v1, uint32_t n) {
 }
 
 void vec_gen_w(vec* w, uint32_t n) {
-  uint32_t log2_2n = floor_log2(2 * n);
+  uint32_t log2_n = floor_log2(n);
   // 1st quadrant
-  w->rel[bit_reverse32(0, log2_2n)] = 1.0;
-  w->img[bit_reverse32(0, log2_2n)] = 0.0;
+  w->rel[bit_reverse32(0, log2_n)] = 1.0;
+  w->img[bit_reverse32(0, log2_n)] = 0.0;
   for (uint32_t i = 1; i < n / 2; i++) {
-    w->rel[bit_reverse32(i, log2_2n)] = cos(i * M_PI / n);
-    w->img[bit_reverse32(i, log2_2n)] = sin(i * M_PI / n);
+    w->rel[bit_reverse32(i, log2_n)] = cos(i * M_PI / n);
+    w->img[bit_reverse32(i, log2_n)] = sin(i * M_PI / n);
   }
   // 2nd quadrant
-  w->rel[bit_reverse32(n / 2, log2_2n)] = 0.0;
-  w->img[bit_reverse32(n / 2, log2_2n)] = 1.0;
+  w->rel[bit_reverse32(n / 2, log2_n)] = 0.0;
+  w->img[bit_reverse32(n / 2, log2_n)] = 1.0;
   for (uint32_t i = 1; i < n / 2; i++) {
-    w->rel[bit_reverse32(i + n / 2, log2_2n)] =
-        -w->rel[bit_reverse32(i, log2_2n)];
-    w->img[bit_reverse32(i + n / 2, log2_2n)] =
-        w->img[bit_reverse32(i, log2_2n)];
-  }
-  // 3rd quadrant
-  w->rel[bit_reverse32(n, log2_2n)] = -1.0;
-  w->img[bit_reverse32(n, log2_2n)] = 0.0;
-  for (uint32_t i = 1; i < n / 2; i++) {
-    w->rel[bit_reverse32(i + n, log2_2n)] = -w->rel[bit_reverse32(i, log2_2n)];
-    w->img[bit_reverse32(i + n, log2_2n)] = -w->img[bit_reverse32(i, log2_2n)];
-  }
-  // 4th quadrant
-  w->rel[bit_reverse32(3 * n / 2, log2_2n)] = 0.0;
-  w->img[bit_reverse32(3 * n / 2, log2_2n)] = -1.0;
-  for (uint32_t i = 1; i < n / 2; i++) {
-    w->rel[bit_reverse32(i + 3 * n / 2, log2_2n)] =
-        w->rel[bit_reverse32(i, log2_2n)];
-    w->img[bit_reverse32(i + 3 * n / 2, log2_2n)] =
-        -w->img[bit_reverse32(i, log2_2n)];
+    w->rel[bit_reverse32(i + n / 2, log2_n)] =
+        -w->rel[bit_reverse32(i, log2_n)];
+    w->img[bit_reverse32(i + n / 2, log2_n)] = w->img[bit_reverse32(i, log2_n)];
   }
 }
 
@@ -75,13 +58,13 @@ void fft(vec* v, const vec* w, uint32_t n) {
   double w_rel, w_img;
   double t_rel, t_img;
 
-  uint32_t k = 1;
   for (uint32_t len = n / 2; len > 0; len >>= 1) {
+    uint32_t k = n / (2 * len);
     for (uint32_t start = 0; start < n; start += 2 * len) {
       w_rel = w->rel[k];
       w_img = w->img[k];
       k++;
-      for (uint32_t j = start; j < start + len; j++) {
+      for (uint32_t j = start; j < start + len; ++j) {
         // |w| <= 1, then multiplying doesn't increase the integer part
         t_rel = rel_mul(v->rel[j + len], v->img[j + len], w_rel, w_img);
         t_img = img_mul(v->rel[j + len], v->img[j + len], w_rel, w_img);
@@ -99,14 +82,16 @@ void ifft(vec* v, const vec* w, uint32_t n) {
   double w_rel, w_img;
   double t_rel, t_img;
 
-  uint32_t k = floor_log2(n);
-  for (uint32_t l = 0; l < k; l++) {
-    for (uint32_t i = 0; i < (1UL << (k - 1 - l)); i++) {
-      w_rel = w->rel[(1UL << (k - 1 - l)) + i];
-      w_img = -w->img[(1UL << (k - 1 - l)) + i];
-      uint32_t len = (1UL << l);
-      for (uint32_t j = i * (1UL << (l + 1)); j < i * (1UL << (l + 1)) + len;
-           j++) {
+  for (uint32_t len = n / 2; len > 0; len >>= 1) {
+    uint32_t k = 0;
+    uint32_t ratio = n / (2 * len);
+    for (uint32_t start = 0; start < n; start += 2 * len) {
+      // We only have the upper half roots, so we conjugate here
+      for (uint32_t j = start; j < start + len; ++j) {
+        uint32_t idx = len + k / ratio;
+        w_rel = w->rel[idx];
+        w_img = -w->img[idx];
+        k++;
         t_rel = v->rel[j];
         t_img = v->img[j];
         // Each add/sub increases the integer part in one bit
@@ -122,8 +107,9 @@ void ifft(vec* v, const vec* w, uint32_t n) {
       }
     }
   }
+  double inv_n = 1.0 / n;
   for (uint32_t i = 0; i < n; i++) {
-    v->rel[i] = v->rel[i] / n;
-    v->img[i] = v->img[i] / n;
+    v->rel[i] = v->rel[i] * inv_n;
+    v->img[i] = v->img[i] * inv_n;
   }
 }

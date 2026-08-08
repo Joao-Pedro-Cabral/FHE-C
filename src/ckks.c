@@ -10,7 +10,7 @@ void ckks_new(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
   params->q = q;
   params->scale = scale;
   // w
-  vec_new(&params->w, 2 * n);
+  vec_new(&params->w, n);
   vec_gen_w(&params->w, n);
   // eta for NTT
   set eta0;
@@ -91,5 +91,5 @@ void cyphertext_new(cyphertext* ct, const ckks_params* params) {
 }
 
 void cyphertext_free(cyphertext* ct, const ckks_params* params) {
-  rlwe_free(&(ct->b), params->n);
+  rlwe_free(&(ct->b), params->l);
 }
