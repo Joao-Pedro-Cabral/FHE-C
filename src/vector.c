@@ -31,7 +31,7 @@ void vec_hermitian(vec* v2, const vec* v1, uint32_t n) {
 void vec_input(vec* v2, const vec* v1, uint32_t n) {
   for (uint32_t i = 0; i < n / 2; i++) {
     v2->rel[i] = v1->rel[i];
-    v2->img[i] = 0;
+    v2->img[i] = v1->img[i];
   }
 }
 
@@ -58,17 +58,17 @@ void fft(vec* v, const vec* w, uint32_t n) {
   double w_rel, w_img;
   double t_rel, t_img;
 
-  for (uint32_t len = n / 2; len > 0; len >>= 1) {
-    uint32_t k = n / (2 * len);
+  for (uint32_t len = 1; len < n; len <<= 1) {
+    uint32_t k = 0;
+    uint32_t ratio = n / (2 * len);
     for (uint32_t start = 0; start < n; start += 2 * len) {
-      w_rel = w->rel[k];
-      w_img = w->img[k];
-      k++;
       for (uint32_t j = start; j < start + len; ++j) {
-        // |w| <= 1, then multiplying doesn't increase the integer part
+        uint32_t idx = len + k / ratio;
+        w_rel = w->rel[idx];
+        w_img = w->img[idx];
+        k++;
         t_rel = rel_mul(v->rel[j + len], v->img[j + len], w_rel, w_img);
         t_img = img_mul(v->rel[j + len], v->img[j + len], w_rel, w_img);
-        // Each add/sub increases the integer part in one bit
         v->rel[j + len] = v->rel[j] - t_rel;
         v->img[j + len] = v->img[j] - t_img;
         v->rel[j] = v->rel[j] + t_rel;
@@ -94,12 +94,10 @@ void ifft(vec* v, const vec* w, uint32_t n) {
         k++;
         t_rel = v->rel[j];
         t_img = v->img[j];
-        // Each add/sub increases the integer part in one bit
         v->rel[j] = v->rel[j + len] + t_rel;
         v->img[j] = v->img[j + len] + t_img;
         v->rel[j + len] = t_rel - v->rel[j + len];
         v->img[j + len] = t_img - v->img[j + len];
-        // |w| <= 1, then multiplying doesn't increase the integer part
         t_rel = rel_mul(v->rel[j + len], v->img[j + len], w_rel, w_img);
         t_img = img_mul(v->rel[j + len], v->img[j + len], w_rel, w_img);
         v->rel[j + len] = t_rel;
