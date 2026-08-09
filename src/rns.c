@@ -33,17 +33,17 @@ void rns_gen_secret_key(rns s, const rns roots, const uint64_t* q,
   poly_free(&s_hat);
 }
 
-void rns_gen_roots(rns roots, const uint64_t* q, const int64_t* qinv,
+void rns_gen_roots(rns roots, const uint64_t* q,
                    uint32_t n, uint32_t l) {
   for (uint32_t i = 0; i < l; i++) {
-    poly_gen_roots(roots[i], n, (int64_t)q[i], qinv[i]);
+    poly_gen_roots(roots[i], n, (int64_t)q[i]);
   }
 }
 
-void rns_gen_inverse_roots(rns roots, const uint64_t* q, const int64_t* qinv,
+void rns_gen_inverse_roots(rns roots, const uint64_t* q,
                            uint32_t n, uint32_t l) {
   for (uint32_t i = 0; i < l; i++) {
-    poly_gen_inverse_roots(roots[i], n, (int64_t)q[i], qinv[i]);
+    poly_gen_inverse_roots(roots[i], n, (int64_t)q[i]);
   }
 }
 
@@ -56,14 +56,15 @@ void rns_gen_q_new(int64_t** qn, int64_t** qR, int64_t** qinv, uint32_t l) {
 void rns_gen_q_aux(int64_t* qn, int64_t* qR, int64_t* qinv, const uint64_t* q,
                    uint32_t n, uint32_t l) {
   for (uint32_t i = 0; i < l; i++) {
-    qinv[i] = mod_inverse(q[i], (1UL << 63));
-    uint64_t R = (1UL << 63) - q[i];
-    R += (1UL << 63);
-    qR[i] = R % q[i];
-    if (qR[i] > R / 2) qR[i] -= q[i];
-    qn[i] = mod_inverse(n, q[i]);                                 // 1/n
-    qn[i] = mod_mul(qn[i], qR[i], (int64_t)q[i], qinv[i]);        // R/n
-    qn[i] = mod_mul_exact(qn[i], qR[i], (int64_t)q[i], qinv[i]);  // R^2/n
+    qinv[i] = mod_inverse_big(q[i], ((__uint128_t)1 << 64));
+    uint64_t R = (uint64_t)(((__uint128_t)1 << 64) - q[i]);
+    qR[i] = (int64_t)(R % q[i]);
+    if (qR[i] > (int64_t)(R / 2)) qR[i] -= (int64_t)q[i];
+    qn[i] = mod_inverse(n, q[i]);                           // 1/n
+    qn[i] = (int64_t)((((__int128_t)1 << 64)*qn[i])%q[i]);  // R/n
+    qn[i] = (int64_t)((((__int128_t)1 << 64)*qn[i])%q[i]);  // R^2/n
+    if (qn[i] > (int64_t)(q[i] / 2)) qn[i] -= (int64_t)q[i];
+    if (qn[i] < (int64_t)(q[i] / 2)) qn[i] += (int64_t)q[i];
   }
 }
 

@@ -72,7 +72,7 @@ void poly_uniform_sampler(poly a, uint64_t q, int64_t qR, int64_t qinv,
   // Sample
   uint64_t bound = UINT64_C(-1) / q;
   bound *= q;
-  // Normally q < 2^50, then the rejection probability (2^63-1-kq)/(2^63-1) is
+  // Normally q < 2^50, then the rejection probability (2^64-1-kq)/(2^64-1) is
   // extremely small, so I just fetch n int64_t plus the SHAKE rate rounding
   size_t blocks = (n * sizeof(int64_t));
   blocks = (blocks + SHAKE128_RATE - 1) / SHAKE128_RATE;
@@ -91,7 +91,7 @@ void poly_uniform_sampler(poly a, uint64_t q, int64_t qR, int64_t qinv,
     }
     uint64_t x = buf[j];
     if (x < bound) {
-      int64_t y = mod((int64_t)x, (int64_t)q, qR, qinv);
+      int64_t y = mod_ct((int64_t)x, (int64_t)q, qR, qinv);
       a[i] = y;
       i++;
     }
@@ -126,20 +126,20 @@ void poly_add_no_mod(poly a, const poly b, uint32_t n) {
 void poly_add(poly a, const poly b, uint64_t q, int64_t qR, int64_t qinv,
               uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod(a[i] + b[i], (int64_t)q, qR, qinv);
+    a[i] = mod_ct(a[i] + b[i], (int64_t)q, qR, qinv);
   }
 }
 
 void poly_neg(poly a, uint64_t q, int64_t qR, int64_t qinv, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod((int64_t)q - a[i], (int64_t)q, qR, qinv);
+    a[i] = mod_ct((int64_t)q - a[i], (int64_t)q, qR, qinv);
   }
 }
 
 void poly_pointwise_mul(poly c, const poly a, const poly b, uint64_t q,
                         int64_t qinv, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    c[i] = mod_mul(a[i], b[i], (int64_t)q, qinv);
+    c[i] = mod_mul_ct(a[i], b[i], (int64_t)q, qinv);
   }
 }
 
@@ -153,9 +153,9 @@ void poly_ntt(poly a, const poly roots, uint64_t q, int64_t qR, int64_t qinv,
       zeta = roots[k];
       k++;
       for (uint32_t j = start; j < start + len; ++j) {
-        t = mod_mul(zeta, a[j + len], (int64_t)q, qinv);
-        a[j + len] = mod(a[j] - t, (int64_t)q, qR, qinv);
-        a[j] = mod(a[j] + t, (int64_t)q, qR, qinv);
+        t = mod_mul_ct(zeta, a[j + len], (int64_t)q, qinv);
+        a[j + len] = mod_ct(a[j] - t, (int64_t)q, qR, qinv);
+        a[j] = mod_ct(a[j] + t, (int64_t)q, qR, qinv);
       }
     }
   }
@@ -172,46 +172,46 @@ void poly_intt(poly a, const poly roots, uint64_t q, int64_t qR, int64_t qinv,
       k++;
       for (uint32_t j = start; j < start + len; ++j) {
         t = a[j];
-        a[j] = mod(t + a[j + len], (int64_t)q, qR, qinv);
-        a[j + len] = mod(t - a[j + len], (int64_t)q, qR, qinv);
-        a[j + len] = mod_mul(zeta, a[j + len], (int64_t)q, qinv);
+        a[j] = mod_ct(t + a[j + len], (int64_t)q, qR, qinv);
+        a[j + len] = mod_ct(t - a[j + len], (int64_t)q, qR, qinv);
+        a[j + len] = mod_mul_ct(zeta, a[j + len], (int64_t)q, qinv);
       }
     }
   }
 
   for (uint32_t j = 0; j < n; ++j) {
-    a[j] = mod_mul(a[j], qn, (int64_t)q, qinv);
+    a[j] = mod_mul_ct(a[j], qn, (int64_t)q, qinv);
   }
 }
 
-void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qinv) {
+void poly_gen_roots(poly roots, uint32_t n, int64_t q) {
   // Find one primitive root (n > 2)
   uint32_t log2_n = floor_log2(n);
   int64_t root0;  // our primitive root
   for (root0 = 2; root0 < q - 2; root0++) {
     int64_t x = root0;
     for (uint32_t j = 0; j < log2_n; j++) {
-      x = mod_mul(x, x, q, qinv);
+      x = mod_mul(x, x, q);
     }
     if (x != -1) continue;  // x^(n) = -1
-    x = mod_mul(x, x, q, qinv);
+    x = mod_mul(x, x, q);
     if (x == 1) break;  // x^(2n) = 1
   }
   roots[0] = 1;
   for (uint32_t i = 1; i < n; i++) {
     roots[bit_reverse32(i, log2_n)] =
-        mod_mul(roots[bit_reverse32(i - 1, log2_n)], root0, q, qinv);
+        mod_mul(roots[bit_reverse32(i - 1, log2_n)], root0, q);
   }
 }
 
-void poly_gen_inverse_roots(poly roots, uint32_t n, int64_t q, int64_t qinv) {
+void poly_gen_inverse_roots(poly roots, uint32_t n, int64_t q) {
   // Find one primitive root (n > 2)
   uint32_t log2_n = floor_log2(n);
   int64_t etan = -1;         // x^n
   int64_t root0 = roots[1];  // Previously poly_gen_roots output
   roots[0] = 1;
   for (uint32_t i = 1; i < n; i++) {
-    etan = mod_mul(etan, root0, q, qinv);
+    etan = mod_mul(etan, root0, q);
     roots[bit_reverse32(n - i, log2_n)] = etan;
   }
 }

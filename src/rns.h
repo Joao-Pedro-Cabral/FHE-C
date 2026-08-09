@@ -22,7 +22,7 @@ void rns_free(rns* a, uint32_t l);
 /*
   @param roots: input primitive roots of each moduli
   @param q: input modulus
-  @param qR: input R=2^63 in the l modulis
+  @param qR: input R=2^64 in the l modulis
   @param qinv: input inverse of the l q's mod 2^64
   @param n: size of the ring
   @param l: size of the rns
@@ -39,7 +39,7 @@ void rns_gen_secret_key(rns s, const rns roots, const uint64_t* q,
   @param l: size of the rns
   @param roots: output primitive roots of each moduli
 */
-void rns_gen_roots(rns roots, const uint64_t* q, const int64_t* qinv,
+void rns_gen_roots(rns roots, const uint64_t* q,
                    uint32_t n, uint32_t l);
 
 /*
@@ -50,13 +50,13 @@ void rns_gen_roots(rns roots, const uint64_t* q, const int64_t* qinv,
   @param l: size of the rns
   @param roots: input/output primitive roots of each moduli
 */
-void rns_gen_inverse_roots(rns roots, const uint64_t* q, const int64_t* qinv,
+void rns_gen_inverse_roots(rns roots, const uint64_t* q,
                            uint32_t n, uint32_t l);
 
 /*
   @param l: size of the rns
-  @param qn: output R^2/n, R=2^63 in q modulis
-  @param qR: output R=2^63 in the l modulis
+  @param qn: output R^2/n, R=2^64 in q modulis
+  @param qR: output R=2^64 in the l modulis
   @param qinv: output inverse of the l q's mod 2^64
 */
 void rns_gen_q_new(int64_t** qn, int64_t** qR, int64_t** qinv, uint32_t l);
@@ -65,16 +65,16 @@ void rns_gen_q_new(int64_t** qn, int64_t** qR, int64_t** qinv, uint32_t l);
   @param q: input modulus
   @param n: size of the ring
   @param l: size of the rns
-  @param qn: output R^2/n, R=2^63 in q modulis
-  @param qR: output R=2^63 in the l modulis
+  @param qn: output R^2/n, R=2^64 in q modulis
+  @param qR: output R=2^64 in the l modulis
   @param qinv: output inverse of the l q's mod 2^64
 */
 void rns_gen_q_aux(int64_t* qn, int64_t* qR, int64_t* qinv, const uint64_t* q,
                    uint32_t n, uint32_t l);
 
 /*
-  @param qn: output R^2/n, R=2^63 in q modulis
-  @param qR: output R=2^63 in the l modulis
+  @param qn: output R^2/n, R=2^64 in q modulis
+  @param qR: output R=2^64 in the l modulis
   @param qinv: output inverse of the l q's mod 2^64
 */
 void rns_gen_q_free(int64_t** qn, int64_t** qR, int64_t** qinv);

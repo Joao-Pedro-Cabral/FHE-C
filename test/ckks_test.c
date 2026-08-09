@@ -4,7 +4,15 @@
 #include <stdio.h>
 #include <string.h>
 
+void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qinv, const int64_t* qn, uint32_t l) {
+  printf("---------- VERIFY Q AUXILIARIES ROOTS ----------\n");
+  for (uint32_t i = 0; i < l; i++) {
+    printf("qR: %ld, qinv: %ld, qn: %ld mod %ld\n", qR[i], qinv[i], qn[i], q[i]);
+  }
+}
+
 void check_roots(const rns roots, const uint64_t* q, uint32_t l, uint32_t n) {
+  printf("---------- VERIFY RNS ROOTS ----------\n");
   for (uint32_t i = 0; i < l; i++) {
     for (uint32_t j = 0; j < n; j++) {
       printf("roots[%d]: %ld mod %ld\n", j, roots[i][j], q[i]);
@@ -48,6 +56,7 @@ int main() {
 
   printf("---------- INIT ----------\n");
   ckks_new(&params, n, l, q, scale);
+  check_q_aux(params.q, params.qR, params.qinv, params.qn, params.l);
   // check_roots(params.roots, params.q, params.l, params.n);
   check_secret_key(params.s, params.q, params.qR, params.qinv, params.qn,
                    params.roots, params.l, params.n);
