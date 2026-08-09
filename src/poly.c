@@ -5,8 +5,8 @@
 
 #include "mod.h"
 #include "random.h"
-#include "xof.h"
 #include "utils.h"
+#include "xof.h"
 
 void poly_new(poly* m, uint32_t n) { *m = malloc(n * sizeof(int64_t)); }
 
@@ -128,9 +128,10 @@ void poly_add(poly a, const poly b, uint64_t q, int64_t qR, int64_t qinv,
   }
 }
 
-void poly_neg(poly a, uint64_t q, int64_t qR, int64_t qinv, uint32_t n) {
+void poly_rsub(poly a, const poly b, uint64_t q, int64_t qR, int64_t qinv,
+               uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod_ct((int64_t)q - a[i], (int64_t)q, qR, qinv);
+    a[i] = mod_ct(b[i] - a[i], (int64_t)q, qR, qinv);
   }
 }
 
@@ -182,7 +183,8 @@ void poly_intt(poly a, const poly roots, uint64_t q, int64_t qR, int64_t qinv,
   }
 }
 
-void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qR, int64_t qinv) {
+void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qR,
+                    int64_t qinv) {
   // Find one primitive root (n > 2)
   uint32_t log2_n = floor_log2(n);
   int64_t root0;  // our primitive root
@@ -195,7 +197,7 @@ void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qR, int64_t qinv)
     x = mod_mul(x, x, q);
     if (x == 1) break;  // x^(2n) = 1
   }
-  root0 = mod_mul(root0, qR, q); // montgomery factor
+  root0 = mod_mul(root0, qR, q);  // montgomery factor
   roots[0] = 1;
   roots[bit_reverse32(1, log2_n)] = root0;
   for (uint32_t i = 2; i < n; i++) {
@@ -207,11 +209,12 @@ void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qR, int64_t qinv)
 void poly_gen_inverse_roots(poly roots, uint32_t n, int64_t q, int64_t qinv) {
   // Find one primitive root (n > 2)
   uint32_t log2_n = floor_log2(n);
-  int64_t etan = -1;         // x^n
-  int64_t root0 = roots[bit_reverse32(1, log2_n)];  // Previously poly_gen_roots output
+  int64_t etan = -1;  // x^n
+  int64_t root0 =
+      roots[bit_reverse32(1, log2_n)];  // Previously poly_gen_roots output
   roots[0] = 1;
   etan = mod_mul(etan, root0, q);
-  roots[bit_reverse32(n-1, log2_n)] = etan;
+  roots[bit_reverse32(n - 1, log2_n)] = etan;
   for (uint32_t i = 2; i < n; i++) {
     etan = mod_mul_ct_exact(etan, root0, q, qinv);
     roots[bit_reverse32(n - i, log2_n)] = etan;
