@@ -5,7 +5,7 @@
 
 #include "mod.h"
 #include "random.h"
-#include "shake.h"
+#include "xof.h"
 #include "utils.h"
 
 void poly_new(poly* m, uint32_t n) { *m = malloc(n * sizeof(int64_t)); }
@@ -32,20 +32,19 @@ void poly_ternary_sampler(poly s, uint32_t n) {
   // Initialize PRNG
   uint8_t seed[SEED_BYTES];
   randombytes(seed, SEED_BYTES);
-  shake128ctx state;
-  shake128_absorb(&state, seed, SEED_BYTES);
+  xof_state state;
+  xof_absorb(&state, seed, SEED_BYTES);
   // Sample
-  size_t blocks = (((4 * (n / 4) + 2) / 3) + SHAKE128_RATE - 1) / SHAKE128_RATE;
-  size_t buflen = blocks * SHAKE128_RATE;
+  size_t blocks = (((4 * (n / 4) + 2) / 3) + XOF_RATE - 1) / XOF_RATE;
+  size_t buflen = blocks * XOF_RATE;
   uint8_t* buf = malloc(buflen);  // Initial guess
-  shake128_squeezeblocks(buf, blocks, &state);
+  xof_squeeze(buf, buflen, &state);
   uint32_t i = 0, j = 0;
   while (i < n) {
     // We're probably almost at the end so just fetch one more block
     if (j == buflen) {
-      blocks = 1;
-      buflen = SHAKE128_RATE;
-      shake128_squeezeblocks(buf, blocks, &state);
+      buflen = XOF_RATE;
+      xof_squeeze(buf, buflen, &state);
       j = 0;
     }
     uint8_t x = buf[j];
@@ -67,26 +66,25 @@ void poly_uniform_sampler(poly a, uint64_t q, int64_t qR, int64_t qinv,
   uint8_t seed[SEED_BYTES];
   randombytes(seed, SEED_BYTES);
   // Initialize PRNG
-  shake128ctx state;
-  shake128_absorb(&state, seed, SEED_BYTES);
+  xof_state state;
+  xof_absorb(&state, seed, SEED_BYTES);
   // Sample
   uint64_t bound = UINT64_C(-1) / q;
   bound *= q;
   // Normally q < 2^50, then the rejection probability (2^64-1-kq)/(2^64-1) is
-  // extremely small, so I just fetch n int64_t plus the SHAKE rate rounding
+  // extremely small, so I just fetch n int64_t plus the XOF rate rounding
   size_t blocks = (n * sizeof(int64_t));
-  blocks = (blocks + SHAKE128_RATE - 1) / SHAKE128_RATE;
-  size_t buflen = blocks * SHAKE128_RATE;
+  blocks = (blocks + XOF_RATE - 1) / XOF_RATE;
+  size_t buflen = blocks * XOF_RATE;
   // The rate is multiple of 8 so it's fine
   uint64_t* buf = (uint64_t*)malloc(buflen);  // Initial guess
-  shake128_squeezeblocks((uint8_t*)buf, blocks, &state);
+  xof_squeeze((uint8_t*)buf, buflen, &state);
   uint32_t i = 0, j = 0;
   while (i < n) {
     // We're probably almost at the end so just fetch one more block
     if (j == buflen) {
-      blocks = 1;
-      buflen = SHAKE128_RATE;
-      shake128_squeezeblocks((uint8_t*)buf, blocks, &state);
+      buflen = XOF_RATE;
+      xof_squeeze((uint8_t*)buf, buflen, &state);
       j = 0;
     }
     uint64_t x = buf[j];
@@ -104,7 +102,7 @@ void poly_cbd24_sampler(poly e, uint32_t n) {
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
   uint8_t seed[SEED_BYTES];
   randombytes(seed, SEED_BYTES);
-  shake128(buf, 6 * n, seed, SEED_BYTES);
+  xof(buf, 6 * n, seed, SEED_BYTES);
   for (uint32_t i = 0; i < n; i++) {
     int b1 = __builtin_popcount(buf[6 * i]);
     b1 += __builtin_popcount(buf[6 * i + 1]);
