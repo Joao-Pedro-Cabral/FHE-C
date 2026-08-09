@@ -1,8 +1,8 @@
 
 #include "vector.h"
 
+#include <immintrin.h>
 #include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 #ifndef M_PI
@@ -19,6 +19,7 @@ void vec_new(vec* v, uint32_t n) {
 
 void vec_free(vec* v) { free(v->rel); }
 
+// TODO: Vectorize only in forward mode
 void vec_hermitian(vec* v2, const vec* v1, uint32_t n) {
   for (uint32_t i = 0; i < n / 2; i++) {
     v2->rel[i] = v1->rel[i];
@@ -29,7 +30,15 @@ void vec_hermitian(vec* v2, const vec* v1, uint32_t n) {
 }
 
 void vec_input(vec* v2, const vec* v1, uint32_t n) {
-  for (uint32_t i = 0; i < n / 2; i++) {
+  // n >= 4 power of two
+  uint32_t n2 = (n / 2) - (n / 2) & 0x3;
+  for (uint32_t i = 0; i < n2; i += 4) {
+    __m256d vrel = _mm256_loadu_pd(&v1->rel[i]);
+    __m256d vimg = _mm256_loadu_pd(&v1->img[i]);
+    _mm256_storeu_pd(&v2->rel[i], vrel);
+    _mm256_storeu_pd(&v2->img[i], vimg);
+  }
+  for (uint32_t i = n2; i < n / 2; i++) {
     v2->rel[i] = v1->rel[i];
     v2->img[i] = v1->img[i];
   }

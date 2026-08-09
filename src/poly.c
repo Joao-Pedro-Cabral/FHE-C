@@ -1,6 +1,7 @@
 
 #include "poly.h"
 
+#include <immintrin.h>
 #include <stdlib.h>
 
 #include "mod.h"
@@ -12,6 +13,7 @@ void poly_new(poly* m, uint32_t n) { *m = malloc(n * sizeof(int64_t)); }
 
 void poly_free(poly* m) { free(*m); }
 
+// AVX2 doesn't support int64_t <-> double conversion
 void vector_to_poly(poly m, const vec* v, uint64_t scale, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
     m[i] = (int64_t)(v->rel[i] * (double)scale);
@@ -28,6 +30,25 @@ void poly_to_vector(vec* v, const poly m, uint64_t scale, uint32_t n) {
   }
 }
 
+static const uint32_t perm_table[16][8] = {
+    // mask     destination 32-bit lanes
+    /* 0x0 */ {0, 1, 0, 1, 0, 1, 0, 1},
+    /* 0x1 */ {0, 1, 0, 1, 0, 1, 0, 1},
+    /* 0x2 */ {2, 3, 0, 1, 0, 1, 0, 1},
+    /* 0x3 */ {0, 1, 2, 3, 0, 1, 0, 1},
+    /* 0x4 */ {4, 5, 0, 1, 0, 1, 0, 1},
+    /* 0x5 */ {0, 1, 4, 5, 0, 1, 0, 1},
+    /* 0x6 */ {2, 3, 4, 5, 0, 1, 0, 1},
+    /* 0x7 */ {0, 1, 2, 3, 4, 5, 0, 1},
+    /* 0x8 */ {6, 7, 0, 1, 0, 1, 0, 1},
+    /* 0x9 */ {0, 1, 6, 7, 0, 1, 0, 1},
+    /* 0xA */ {2, 3, 6, 7, 0, 1, 0, 1},
+    /* 0xB */ {0, 1, 2, 3, 6, 7, 0, 1},
+    /* 0xC */ {4, 5, 6, 7, 0, 1, 0, 1},
+    /* 0xD */ {0, 1, 4, 5, 6, 7, 0, 1},
+    /* 0xE */ {2, 3, 4, 5, 6, 7, 0, 1},
+    /* 0xF */ {0, 1, 2, 3, 4, 5, 6, 7}};
+
 void poly_ternary_sampler(poly s, uint32_t n) {
   // Initialize PRNG
   uint8_t seed[SEED_BYTES];
@@ -40,6 +61,11 @@ void poly_ternary_sampler(poly s, uint32_t n) {
   uint8_t* buf = malloc(buflen);  // Initial guess
   xof_squeeze(buf, buflen, &state);
   uint32_t i = 0, j = 0;
+  __m256i v0123 = _mm256_set_epi64x(3, 2, 1, 0);
+  __m256i v0246 = _mm256_set_epi64x(6, 4, 2, 0);
+  __m256i v1 = _mm256_set1_epi64x(1);
+  __m256i v3 = _mm256_set1_epi64x(3);
+  __m256i vn = _mm256_set1_epi64x(n);
   while (i < n) {
     // We're probably almost at the end so just fetch one more block
     if (j == buflen) {
@@ -47,20 +73,41 @@ void poly_ternary_sampler(poly s, uint32_t n) {
       xof_squeeze(buf, buflen, &state);
       j = 0;
     }
-    uint8_t x = buf[j];
-    for (int k = 0; k < 8 / 2 && i < n; k++) {
-      uint8_t y = (x >> (2 * k)) & 0x3;
-      if (y < 3) {
-        int8_t z = (int8_t)(y & 0x1) - (int8_t)(y >> 1);
-        s[i] = z;
-        i++;
-      }
-    }
+    // uint8_t x = buf[j];
+    // for (int k = 0; k < 8 / 2 && i < n; k++) {
+    //   uint8_t y = (x >> (2 * k)) & 0x3;
+    //   if (y < 3) {
+    //     int8_t z = (int8_t)(y & 0x1) - (int8_t)(y >> 1);
+    //     s[i] = z;
+    //     i++;
+    //   }
+    // }
+    __m256i vi = _mm256_set1_epi64x(i);
+    vi = _mm256_add_epi64(vi, v0123);
+    __m256i maski = _mm256_cmpgt_epi64(vn, vi);
+    __m256i vy = _mm256_set1_epi64x(buf[j]);
+    vy = _mm256_srlv_epi64(vy, v0246);
+    vy = _mm256_and_si256(vy, v3);
+    __m256i masky = _mm256_cmpgt_epi64(v3, vy);
+    __m256i mask = _mm256_and_si256(maski, masky);
+    __m256i vz = _mm256_and_si256(vy, v1);
+    __m256i vz2 = _mm256_srlv_epi64(vy, v1);
+    vz = _mm256_sub_epi64(vz, vz2);
+    uint32_t m = (uint32_t)_mm256_movemask_pd(_mm256_castsi256_pd(mask));
+    uint32_t popcnt = (uint32_t)__builtin_popcount(m);
+    __m256i perm = _mm256_loadu_si256((__m256i*)perm_table[m]);
+    vz = _mm256_permutevar8x32_epi32(vz, perm);
+    __m256i store_mask =
+        _mm256_set_epi64x(-(int64_t)(popcnt >= 4), -(int64_t)(popcnt >= 3),
+                          -(int64_t)(popcnt >= 2), -(int64_t)(popcnt >= 1));
+    _mm256_maskstore_epi64((long long*)&s[i], store_mask, vz);
+    i += popcnt;
     j++;
   }
   free(buf);
 }
 
+// AVX2 doesn't support int64_t multiplication
 void poly_uniform_sampler(poly a, uint64_t q, int64_t qR, int64_t qinv,
                           uint32_t n) {
   uint8_t seed[SEED_BYTES];
@@ -98,6 +145,7 @@ void poly_uniform_sampler(poly a, uint64_t q, int64_t qR, int64_t qinv,
   free(buf);
 }
 
+// AVX2 doesn't support popcnt
 void poly_cbd24_sampler(poly e, uint32_t n) {
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
   uint8_t seed[SEED_BYTES];
@@ -116,8 +164,11 @@ void poly_cbd24_sampler(poly e, uint32_t n) {
 }
 
 void poly_add_no_mod(poly a, const poly b, uint32_t n) {
-  for (uint32_t i = 0; i < n; i++) {
-    a[i] = a[i] + b[i];
+  for (uint32_t i = 0; i < n; i += 4) {  // n >= 4 power of two
+    __m256i va = _mm256_loadu_si256((__m256i*)&a[i]);
+    __m256i vb = _mm256_loadu_si256((__m256i*)&b[i]);
+    va = _mm256_add_epi64(va, vb);
+    _mm256_storeu_si256((__m256i*)&a[i], va);
   }
 }
 

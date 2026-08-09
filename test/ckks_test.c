@@ -4,10 +4,12 @@
 #include <stdio.h>
 #include <string.h>
 
-void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qinv, const int64_t* qn, uint32_t l) {
+void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qinv,
+                 const int64_t* qn, uint32_t l) {
   printf("---------- VERIFY Q AUXILIARIES ROOTS ----------\n");
   for (uint32_t i = 0; i < l; i++) {
-    printf("qR: %ld, qinv: %ld, qn: %ld mod %ld\n", qR[i], qinv[i], qn[i], q[i]);
+    printf("qR: %ld, qinv: %ld, qn: %ld mod %ld\n", qR[i], qinv[i], qn[i],
+           q[i]);
   }
 }
 
@@ -34,7 +36,8 @@ void check_secret_key(const rns s, const uint64_t* q, const int64_t* qR,
   for (uint32_t i = 0; i < l; i++) {
     memcpy(s_hat, s[i], n * sizeof(uint64_t));
     poly_intt(s_hat, roots[i], q[i], qR[i], qinv[i], qn[i], n);
-    poly_pointwise_mul(s_hat, s_hat, ones, q[i], qinv[i], n); // remove extra montgomery factor
+    poly_pointwise_mul(s_hat, s_hat, ones, q[i], qinv[i],
+                       n);  // remove extra montgomery factor
     for (uint32_t j = 0; j < n; j++) {
       if (s_hat[j] * s_hat[j] > 1) {
         correct = 0;
