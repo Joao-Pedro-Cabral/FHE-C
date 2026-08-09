@@ -8,44 +8,43 @@
 // We do static inline here for remove function call overhead
 
 // Modular Inverse
-static inline int64_t mod_inverse(int64_t a, int64_t q) {
-  if (a < 0) a += q;  // Function for [0, ..., q-1]
-  int64_t t = 0, new_t = 1;
-  int64_t r = q, new_r = a % q;
+int64_t mod_inverse(uint64_t a, uint64_t q);
 
-  while (new_r != 0) {
-    int64_t quotient = r / new_r;
-
-    int64_t tmp = new_t;
-    new_t = t - quotient * new_t;
-    t = tmp;
-
-    tmp = new_r;
-    new_r = r - quotient * new_r;
-    r = tmp;
-  }
-
-  if (t > q / 2) t -= q;
-  if (t < -q / 2) t += q;
-
+// Modular Multiplication
+static inline int64_t mod_mul(int64_t a, int64_t b, int64_t q, int64_t qinv) {
+  int64_t c0 = a * b;
+  int64_t c1 = (int64_t)((__int128_t)a * b >> 64);
+  int64_t t = c1 * qinv;
+  t = (int64_t)((__int128_t)t * q >> 64);
+  t = c0 - t;
   return t;
 }
 
 // Modular Reduction
-static inline int64_t mod(int64_t a, int64_t q) {
-  a = a % q;
-  if (a > q / 2) a -= q;
-  if (a < -q / 2) a += q;
-  return a;
+static inline int64_t mod(int64_t a, int64_t q, int64_t qR, int64_t qinv) {
+  return mod_mul(a, qR, q, qinv);
 }
 
-// Modular Multiplication
-static inline int64_t mod_mul(int64_t a, int64_t b, int64_t q) {
-  __int128_t prod = (__int128_t)a * b;
-  a = (int64_t)(prod % q);
-  if (a > q / 2) a -= q;
-  if (a < -q / 2) a += q;
-  return a;
+static inline int64_t mod_mul_exact(int64_t a, int64_t b, int64_t q,
+                                    int64_t qinv) {
+  int64_t c = mod_mul(a, b, q, qinv);
+
+  int64_t diff1 = (q / 2) - c;
+  int64_t diff2 = c - (-q / 2);
+
+  int64_t mask1 = diff1 >> 63;
+  int64_t mask2 = diff2 >> 63;
+
+  // Apply modifications using bitwise AND
+  c -= (mask1 & q);
+  c += (mask2 & q);
+
+  return c;
+}
+
+static inline int64_t mod_exact(int64_t a, int64_t q, int64_t qR,
+                                int64_t qinv) {
+  return mod_mul_exact(a, qR, q, qinv);
 }
 
 #endif  // __MOD_H__

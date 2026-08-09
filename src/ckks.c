@@ -9,20 +9,25 @@ void ckks_new(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
   params->l = l;
   params->q = q;
   params->scale = scale;
-  // w
+  // moduli auxiliares
+  rns_gen_q_new(&params->qn, &params->qR, &params->qinv, l);
+  rns_gen_q_aux(params->qn, params->qR, params->qinv, q, n, l);
+  // complex roots
   vec_new(&params->w, n);
   vec_gen_roots(&params->w, n);
   // roots for NTT
   rns_new(&params->roots, n, l);
-  rns_gen_roots(params->roots, q, n, l);
+  rns_gen_roots(params->roots, q, params->qinv, n, l);
   // s
   rns_new(&params->s, n, l);
-  rns_gen_secret_key(params->s, params->roots, q, n, l);
+  rns_gen_secret_key(params->s, params->roots, q, params->qR, params->qinv, n,
+                     l);
   // roots for INTT
-  rns_gen_inverse_roots(params->roots, q, n, l);
+  rns_gen_inverse_roots(params->roots, q, params->qinv, n, l);
 }
 
 void ckks_free(ckks_params* params) {
+  rns_gen_q_free(&params->qn, &params->qR, &params->qinv);
   vec_free(&params->w);
   rns_free(&params->roots, params->l);
   rns_free(&params->s, params->l);
@@ -62,12 +67,15 @@ void ckks_encrypt(cyphertext* ct, const poly m, const ckks_params* params) {
   poly_add_no_mod(e, m, params->n);
   // B = AS + DeltaM + E
   for (uint32_t i = 0; i < params->l; i++) {
-    poly_uniform_sampler(ct->a[i], params->q[i], params->n);
+    poly_uniform_sampler(ct->a[i], params->q[i], params->qR[i], params->qinv[i],
+                         params->n);
     poly_pointwise_mul(ct->b[i], ct->a[i], params->s[i], params->q[i],
-                       params->n);
-    poly_intt(ct->b[i], params->roots[i], params->q[i], params->n);
-    poly_add(ct->b[i], e, params->q[i], params->n);
-    poly_neg(ct->a[i], params->q[i], params->n);
+                       params->qinv[i], params->n);
+    poly_intt(ct->b[i], params->roots[i], params->q[i], params->qR[i],
+              params->qinv[i], params->qn[i], params->n);
+    poly_add(ct->b[i], e, params->q[i], params->qR[i], params->qinv[i],
+             params->n);
+    poly_neg(ct->a[i], params->q[i], params->qR[i], params->qinv[i], params->n);
   }
   poly_free(&e);
 }
@@ -75,9 +83,12 @@ void ckks_encrypt(cyphertext* ct, const poly m, const ckks_params* params) {
 void ckks_decrypt(poly m, const cyphertext* ct, const ckks_params* params) {
   // For decrypting we only need l = 0 (deltaM + E < q_0/2)
   // B - AS = DeltaM + E
-  poly_pointwise_mul(m, ct->a[0], params->s[0], params->q[0], params->n);
-  poly_intt(m, params->roots[0], params->q[0], params->n);
-  poly_add(m, ct->b[0], params->q[0], params->n);
+  poly_pointwise_mul(m, ct->a[0], params->s[0], params->q[0], params->qinv[0],
+                     params->n);
+  poly_intt(m, params->roots[0], params->q[0], params->qR[0], params->qinv[0],
+            params->qn[0], params->n);
+  poly_add(m, ct->b[0], params->q[0], params->qR[0], params->qinv[0],
+           params->n);
 }
 
 void cyphertext_new(cyphertext* ct, const ckks_params* params) {

@@ -12,7 +12,8 @@ void check_roots(const rns roots, const uint64_t* q, uint32_t l, uint32_t n) {
   }
 }
 
-void check_secret_key(const rns s, const uint64_t* q, const rns roots,
+void check_secret_key(const rns s, const uint64_t* q, const int64_t* qR,
+                      const int64_t* qinv, const int64_t* qn, const rns roots,
                       uint32_t l, uint32_t n) {
   printf("---------- VERIFY SECRET KEY ----------\n");
   uint8_t correct = 1;
@@ -20,7 +21,7 @@ void check_secret_key(const rns s, const uint64_t* q, const rns roots,
   poly_new(&s_hat, n);
   for (uint32_t i = 0; i < l; i++) {
     memcpy(s_hat, s[i], n * sizeof(uint64_t));
-    poly_intt(s_hat, roots[i], q[i], n);
+    poly_intt(s_hat, roots[i], q[i], qR[i], qinv[i], qn[i], n);
     for (uint32_t j = 0; j < n; j++) {
       if (s_hat[j] * s_hat[j] > 1) {
         correct = 0;
@@ -48,7 +49,8 @@ int main() {
   printf("---------- INIT ----------\n");
   ckks_new(&params, n, l, q, scale);
   // check_roots(params.roots, params.q, params.l, params.n);
-  check_secret_key(params.s, params.q, params.roots, params.l, params.n);
+  check_secret_key(params.s, params.q, params.qR, params.qinv, params.qn,
+                   params.roots, params.l, params.n);
 
   // Encode
   printf("---------- ENCODE ----------\n");

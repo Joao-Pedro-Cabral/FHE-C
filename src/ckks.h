@@ -9,6 +9,9 @@
 typedef struct {
   vec w;              // odd 2n complex roots of unity
   const uint64_t* q;  // l modulus
+  int64_t* qinv;      // inverse of the l q's mod 2^64
+  int64_t* qR;        // R=2^63 in the l modulis
+  int64_t* qn;        // R^2/n, R=2^63 in q modulis
   rns roots;          // moduli primitive roots for l NTT domains
   rns s;              // secret key in l NTT domains
   uint32_t l;         // size of the rms

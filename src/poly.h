@@ -49,9 +49,12 @@ void poly_ternary_sampler(poly s, uint32_t n);
 /*
   @param a: output public polynomial
   @param q: input modulus
+  @param qR: input R=2^63 mod q
+  @param qinv: input q^(-1) mod 2^63
   @param n: size of the polynomials
 */
-void poly_uniform_sampler(poly a, uint64_t q, uint32_t n);
+void poly_uniform_sampler(poly a, uint64_t q, int64_t qR, int64_t qinv,
+                          uint32_t n);
 
 /*
   @param e: output error polynomial
@@ -66,9 +69,12 @@ void poly_cbd24_sampler(poly e, uint32_t n);
   @param a: input/output polynomial
   @param b: input polynomial
   @param q: input moduli
+  @param qR: input R=2^63 mod q
+  @param qinv: input q^(-1) mod 2^63
   @param n: size of the polynomials
 */
-void poly_add(poly a, const poly b, uint64_t q, uint32_t n);
+void poly_add(poly a, const poly b, uint64_t q, int64_t qR, int64_t qinv,
+              uint32_t n);
 
 /*
   @param a: input/output polynomial
@@ -80,46 +86,58 @@ void poly_add_no_mod(poly a, const poly b, uint32_t n);
 /*
   @param a: input/output polynomial
   @param q: input moduli
+  @param qR: input R=2^63 mod q
+  @param qinv: input q^(-1) mod 2^63
   @param n: size of the polynomials
 */
-void poly_neg(poly a, uint64_t q, uint32_t n);
+void poly_neg(poly a, uint64_t q, int64_t qR, int64_t qinv, uint32_t n);
 
 /*
   @param a: input/output polynomial
   @param b: input polynomial
   @param q: input moduli
+  @param qinv: input q^(-1) mod 2^63
   @param n: size of the polynomials
 */
 void poly_pointwise_mul(poly c, const poly a, const poly b, uint64_t q,
-                        uint32_t n);
+                        int64_t qinv, uint32_t n);
 
 /*
   @param a: input/output polynomial
   @param q: input moduli
+  @param qR: input R=2^63 mod q
+  @param qinv: input q^(-1) mod 2^63
   @param n: size of the polynomial
 */
-void poly_ntt(poly a, const poly roots, uint64_t q, uint32_t n);
+void poly_ntt(poly a, const poly roots, uint64_t q, int64_t qR, int64_t qinv,
+              uint32_t n);
 
 /*
   @param a: input/output polynomial
   @param q: input moduli
+  @param qR: input R=2^63 mod q
+  @param qinv: input q^(-1) mod 2^63
+  @param qn: input R^2/n mod q, R=2^63
   @param n: size of the polynomial
 */
-void poly_intt(poly a, const poly roots, uint64_t q, uint32_t n);
+void poly_intt(poly a, const poly roots, uint64_t q, int64_t qR, int64_t qinv,
+               int64_t qn, uint32_t n);
 
 /*
   @param q: input moduli
+  @param qinv: input q^(-1) mod 2^63
   @param n: size of the ring
   @param roots: output primitive roots the moduli
 */
-void poly_gen_roots(poly roots, uint32_t n, int64_t q);
+void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qinv);
 
 /*
   Suppose that roots was initialized by a previous call to poly_gen_roots
   @param q: input moduli
+  @param qinv: input q^(-1) mod 2^63
   @param n: size of the ring
   @param roots: output primitive roots the moduli
 */
-void poly_gen_inverse_roots(poly roots, uint32_t n, int64_t q);
+void poly_gen_inverse_roots(poly roots, uint32_t n, int64_t q, int64_t qinv);
 
 #endif  // __POLY_H__
