@@ -25,11 +25,16 @@ void check_secret_key(const rns s, const uint64_t* q, const int64_t* qR,
                       uint32_t l, uint32_t n) {
   printf("---------- VERIFY SECRET KEY ----------\n");
   uint8_t correct = 1;
-  poly s_hat;
+  poly s_hat, ones;
   poly_new(&s_hat, n);
+  poly_new(&ones, n);
+  for (uint32_t i = 0; i < n; i++) {
+    ones[i] = 1;
+  }
   for (uint32_t i = 0; i < l; i++) {
     memcpy(s_hat, s[i], n * sizeof(uint64_t));
     poly_intt(s_hat, roots[i], q[i], qR[i], qinv[i], qn[i], n);
+    poly_pointwise_mul(s_hat, s_hat, ones, q[i], qinv[i], n); // remove extra montgomery factor
     for (uint32_t j = 0; j < n; j++) {
       if (s_hat[j] * s_hat[j] > 1) {
         correct = 0;
@@ -38,6 +43,7 @@ void check_secret_key(const rns s, const uint64_t* q, const int64_t* qR,
     }
   }
   poly_free(&s_hat);
+  poly_free(&ones);
   if (correct) {
     printf("---------- SECRET KEY CORRECT ----------\n");
   } else {
@@ -57,7 +63,7 @@ int main() {
   printf("---------- INIT ----------\n");
   ckks_new(&params, n, l, q, scale);
   check_q_aux(params.q, params.qR, params.qinv, params.qn, params.l);
-  // check_roots(params.roots, params.q, params.l, params.n);
+  check_roots(params.roots, params.q, params.l, params.n);
   check_secret_key(params.s, params.q, params.qR, params.qinv, params.qn,
                    params.roots, params.l, params.n);
 

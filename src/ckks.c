@@ -17,13 +17,13 @@ void ckks_new(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
   vec_gen_roots(&params->w, n);
   // roots for NTT
   rns_new(&params->roots, n, l);
-  rns_gen_roots(params->roots, q, n, l);
+  rns_gen_roots(params->roots, q, params->qR, params->qinv, n, l);
   // s
   rns_new(&params->s, n, l);
   rns_gen_secret_key(params->s, params->roots, q, params->qR, params->qinv, n,
                      l);
   // roots for INTT
-  rns_gen_inverse_roots(params->roots, q, n, l);
+  rns_gen_inverse_roots(params->roots, q, params->qinv, n, l);
 }
 
 void ckks_free(ckks_params* params) {

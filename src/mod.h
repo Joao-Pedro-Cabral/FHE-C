@@ -16,9 +16,9 @@ int64_t mod_inverse_big(__uint128_t a, __uint128_t q);
 static inline int64_t mod_mul_ct(int64_t a, int64_t b, int64_t q, int64_t qinv) {
   int64_t c0 = a * b;
   int64_t c1 = (int64_t)((__int128_t)a * b >> 64);
-  int64_t t = c1 * qinv;
+  int64_t t = c0 * qinv;
   t = (int64_t)((__int128_t)t * q >> 64);
-  t = c0 - t;
+  t = c1 - t;
   return t;
 }
 

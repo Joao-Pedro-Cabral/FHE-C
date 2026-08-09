@@ -125,17 +125,20 @@ void poly_intt(poly a, const poly roots, uint64_t q, int64_t qR, int64_t qinv,
 
 /*
   @param q: input moduli
+  @param qR: input R=2^64 mod q
+  @param qinv: input q^(-1) mod 2^64
   @param n: size of the ring
   @param roots: output primitive roots the moduli
 */
-void poly_gen_roots(poly roots, uint32_t n, int64_t q);
+void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qR, int64_t qinv);
 
 /*
   Suppose that roots was initialized by a previous call to poly_gen_roots
   @param q: input moduli
+  @param qinv: input q^(-1) mod 2^64
   @param n: size of the ring
   @param roots: output primitive roots the moduli
 */
-void poly_gen_inverse_roots(poly roots, uint32_t n, int64_t q);
+void poly_gen_inverse_roots(poly roots, uint32_t n, int64_t q, int64_t qinv);
 
 #endif  // __POLY_H__

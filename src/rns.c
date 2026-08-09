@@ -33,17 +33,17 @@ void rns_gen_secret_key(rns s, const rns roots, const uint64_t* q,
   poly_free(&s_hat);
 }
 
-void rns_gen_roots(rns roots, const uint64_t* q,
+void rns_gen_roots(rns roots, const uint64_t* q, const int64_t* qR, const int64_t* qinv,
                    uint32_t n, uint32_t l) {
   for (uint32_t i = 0; i < l; i++) {
-    poly_gen_roots(roots[i], n, (int64_t)q[i]);
+    poly_gen_roots(roots[i], n, (int64_t)q[i], qR[i], qinv[i]);
   }
 }
 
-void rns_gen_inverse_roots(rns roots, const uint64_t* q,
+void rns_gen_inverse_roots(rns roots, const uint64_t* q, const int64_t* qinv,
                            uint32_t n, uint32_t l) {
   for (uint32_t i = 0; i < l; i++) {
-    poly_gen_inverse_roots(roots[i], n, (int64_t)q[i]);
+    poly_gen_inverse_roots(roots[i], n, (int64_t)q[i], qinv[i]);
   }
 }
 
