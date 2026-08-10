@@ -80,23 +80,31 @@ void fft(vec* v, const vec* w, uint32_t n) {
   }
 }
 
+#define GS_BUTTERFLY(vj_rel, vj_img, vk_rel, vk_img, vw_rel, vw_img, vt_rel, \
+                     vt_img)                                                 \
+  do {                                                                       \
+    vt_rel = _mm256_sub_pd((vj_rel), (vk_rel));                              \
+    vt_img = _mm256_sub_pd((vj_img), (vk_img));                              \
+    (vj_rel) = _mm256_add_pd((vj_rel), (vk_rel));                            \
+    (vj_img) = _mm256_add_pd((vj_img), (vk_img));                            \
+    (vk_rel) = rel_vmul(vt_rel, vt_img, (vw_rel), (vw_img));                 \
+    (vk_img) = img_vmul(vt_rel, vt_img, (vw_rel), (vw_img));                 \
+  } while (0)
+
 void ifft(vec* v, const vec* w, uint32_t n) {
   double w_rel, w_img;
   double t_rel, t_img;
 
-  // First layer (len = 1), everyone uses a different root
-  uint32_t k = n / 2;
+  uint32_t k1 = n / 2;
+  uint32_t k2 = n / 4;
+  __m256d sign = _mm256_set1_pd(-0.0f);
+  // Merge 2 layers
   for (uint32_t j = 0; j < n; j += 8) {
     // Load
     __m256d vj_rel = _mm256_loadu_pd(&v->rel[j]);
     __m256d vj_img = _mm256_loadu_pd(&v->img[j]);
     __m256d vk_rel = _mm256_loadu_pd(&v->rel[j + 4]);
     __m256d vk_img = _mm256_loadu_pd(&v->img[j + 4]);
-    __m256d vw_rel = _mm256_loadu_pd(&w->rel[k]);
-    __m256d vw_img = _mm256_loadu_pd(&w->img[k]);
-    __m256d sign = _mm256_set1_pd(-0.0f);
-    vw_img = _mm256_xor_pd(vw_img, sign);
-    k += 4;
     // Tranpose
     __m256d vt_rel = _mm256_permute2f128_pd(vj_rel, vk_rel, 0x20);
     __m256d vt_img = _mm256_permute2f128_pd(vj_img, vk_img, 0x20);
@@ -106,18 +114,27 @@ void ifft(vec* v, const vec* w, uint32_t n) {
     vj_img = _mm256_unpacklo_pd(vt_img, vk_img);
     vk_rel = _mm256_unpackhi_pd(vt_rel, vk_rel);
     vk_img = _mm256_unpackhi_pd(vt_img, vk_img);
-    // GS
-    vt_rel = _mm256_sub_pd(vj_rel, vk_rel);
-    vt_img = _mm256_sub_pd(vj_img, vk_img);
-    vj_rel = _mm256_add_pd(vj_rel, vk_rel);
-    vj_img = _mm256_add_pd(vj_img, vk_img);
-    vk_rel = rel_vmul(vt_rel, vt_img, vw_rel, vw_img);
-    vk_img = img_vmul(vt_rel, vt_img, vw_rel, vw_img);
+    // First layer (len = 1), everyone uses a different root
+    __m256d vw_rel = _mm256_loadu_pd(&w->rel[k1]);
+    __m256d vw_img = _mm256_loadu_pd(&w->img[k1]);
+    vw_img = _mm256_xor_pd(vw_img, sign);
+    k1 += 4;
+    GS_BUTTERFLY(vj_rel, vj_img, vk_rel, vk_img, vw_rel, vw_img, vt_rel,
+                 vt_img);
     // Transpose back
     vt_rel = _mm256_unpacklo_pd(vj_rel, vk_rel);
     vt_img = _mm256_unpacklo_pd(vj_img, vk_img);
     vk_rel = _mm256_unpackhi_pd(vj_rel, vk_rel);
     vk_img = _mm256_unpackhi_pd(vj_img, vk_img);
+    // Second layer (len = 2), two roots
+    vw_rel =
+        _mm256_setr_pd(w->rel[k2], w->rel[k2], w->rel[k2 + 1], w->rel[k2 + 1]);
+    vw_img = _mm256_setr_pd(-w->img[k2], -w->img[k2], -w->img[k2 + 1],
+                            -w->img[k2 + 1]);
+    k2 += 2;
+    GS_BUTTERFLY(vt_rel, vt_img, vk_rel, vk_img, vw_rel, vw_img, vj_rel,
+                 vj_img);
+    // Transpose back
     vj_rel = _mm256_permute2f128_pd(vt_rel, vk_rel, 0x20);
     vj_img = _mm256_permute2f128_pd(vt_img, vk_img, 0x20);
     vk_rel = _mm256_permute2f128_pd(vt_rel, vk_rel, 0x31);
@@ -129,8 +146,8 @@ void ifft(vec* v, const vec* w, uint32_t n) {
     _mm256_storeu_pd(&v->img[j + 4], vk_img);
   }
 
-  for (uint32_t len = 2; len < n; len <<= 1) {
-    k = n / (2 * len);
+  for (uint32_t len = 4; len < n; len <<= 1) {
+    uint32_t k = n / (2 * len);
     for (uint32_t start = 0; start < n; start += 2 * len) {
       // We only have the upper half roots, so we conjugate here
       w_rel = w->rel[k];
