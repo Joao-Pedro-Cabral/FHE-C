@@ -97,8 +97,9 @@ void ifft(vec* v, const vec* w, uint32_t n) {
 
   uint32_t k1 = n / 2;
   uint32_t k2 = n / 4;
+  uint32_t k3 = n / 8;
   __m256d sign = _mm256_set1_pd(-0.0f);
-  // Merge 2 layers
+  // Merge 3 layers
   for (uint32_t j = 0; j < n; j += 8) {
     // Load
     __m256d vj_rel = _mm256_loadu_pd(&v->rel[j]);
@@ -114,7 +115,7 @@ void ifft(vec* v, const vec* w, uint32_t n) {
     vj_img = _mm256_unpacklo_pd(vt_img, vk_img);
     vk_rel = _mm256_unpackhi_pd(vt_rel, vk_rel);
     vk_img = _mm256_unpackhi_pd(vt_img, vk_img);
-    // First layer (len = 1), everyone uses a different root
+    // First layer (len = 1), four roots
     __m256d vw_rel = _mm256_loadu_pd(&w->rel[k1]);
     __m256d vw_img = _mm256_loadu_pd(&w->img[k1]);
     vw_img = _mm256_xor_pd(vw_img, sign);
@@ -139,6 +140,12 @@ void ifft(vec* v, const vec* w, uint32_t n) {
     vj_img = _mm256_permute2f128_pd(vt_img, vk_img, 0x20);
     vk_rel = _mm256_permute2f128_pd(vt_rel, vk_rel, 0x31);
     vk_img = _mm256_permute2f128_pd(vt_img, vk_img, 0x31);
+    // Third layer (len = 4), one root
+    vw_rel = _mm256_set1_pd(w->rel[k3]);
+    vw_img = _mm256_set1_pd(-w->img[k3]);
+    k3 += 1;
+    GS_BUTTERFLY(vj_rel, vj_img, vk_rel, vk_img, vw_rel, vw_img, vt_rel,
+                 vt_img);
     // Store
     _mm256_storeu_pd(&v->rel[j], vj_rel);
     _mm256_storeu_pd(&v->img[j], vj_img);
@@ -146,7 +153,7 @@ void ifft(vec* v, const vec* w, uint32_t n) {
     _mm256_storeu_pd(&v->img[j + 4], vk_img);
   }
 
-  for (uint32_t len = 4; len < n; len <<= 1) {
+  for (uint32_t len = 8; len < n; len <<= 1) {
     uint32_t k = n / (2 * len);
     for (uint32_t start = 0; start < n; start += 2 * len) {
       // We only have the upper half roots, so we conjugate here
