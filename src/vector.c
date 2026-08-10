@@ -84,8 +84,53 @@ void ifft(vec* v, const vec* w, uint32_t n) {
   double w_rel, w_img;
   double t_rel, t_img;
 
-  for (uint32_t len = 1; len < n; len <<= 1) {
-    uint32_t k = n / (2 * len);
+  // First layer (len = 1), everyone uses a different root
+  uint32_t k = n / 2;
+  for (uint32_t j = 0; j < n; j += 8) {
+    // Load
+    __m256d vj_rel = _mm256_loadu_pd(&v->rel[j]);
+    __m256d vj_img = _mm256_loadu_pd(&v->img[j]);
+    __m256d vk_rel = _mm256_loadu_pd(&v->rel[j + 4]);
+    __m256d vk_img = _mm256_loadu_pd(&v->img[j + 4]);
+    __m256d vw_rel = _mm256_loadu_pd(&w->rel[k]);
+    __m256d vw_img = _mm256_loadu_pd(&w->img[k]);
+    __m256d sign = _mm256_set1_pd(-0.0f);
+    vw_img = _mm256_xor_pd(vw_img, sign);
+    k += 4;
+    // Tranpose
+    __m256d vt_rel = _mm256_permute2f128_pd(vj_rel, vk_rel, 0x20);
+    __m256d vt_img = _mm256_permute2f128_pd(vj_img, vk_img, 0x20);
+    vk_rel = _mm256_permute2f128_pd(vj_rel, vk_rel, 0x31);
+    vk_img = _mm256_permute2f128_pd(vj_img, vk_img, 0x31);
+    vj_rel = _mm256_unpacklo_pd(vt_rel, vk_rel);
+    vj_img = _mm256_unpacklo_pd(vt_img, vk_img);
+    vk_rel = _mm256_unpackhi_pd(vt_rel, vk_rel);
+    vk_img = _mm256_unpackhi_pd(vt_img, vk_img);
+    // GS
+    vt_rel = _mm256_sub_pd(vj_rel, vk_rel);
+    vt_img = _mm256_sub_pd(vj_img, vk_img);
+    vj_rel = _mm256_add_pd(vj_rel, vk_rel);
+    vj_img = _mm256_add_pd(vj_img, vk_img);
+    vk_rel = rel_vmul(vt_rel, vt_img, vw_rel, vw_img);
+    vk_img = img_vmul(vt_rel, vt_img, vw_rel, vw_img);
+    // Transpose back
+    vt_rel = _mm256_unpacklo_pd(vj_rel, vk_rel);
+    vt_img = _mm256_unpacklo_pd(vj_img, vk_img);
+    vk_rel = _mm256_unpackhi_pd(vj_rel, vk_rel);
+    vk_img = _mm256_unpackhi_pd(vj_img, vk_img);
+    vj_rel = _mm256_permute2f128_pd(vt_rel, vk_rel, 0x20);
+    vj_img = _mm256_permute2f128_pd(vt_img, vk_img, 0x20);
+    vk_rel = _mm256_permute2f128_pd(vt_rel, vk_rel, 0x31);
+    vk_img = _mm256_permute2f128_pd(vt_img, vk_img, 0x31);
+    // Store
+    _mm256_storeu_pd(&v->rel[j], vj_rel);
+    _mm256_storeu_pd(&v->img[j], vj_img);
+    _mm256_storeu_pd(&v->rel[j + 4], vk_rel);
+    _mm256_storeu_pd(&v->img[j + 4], vk_img);
+  }
+
+  for (uint32_t len = 2; len < n; len <<= 1) {
+    k = n / (2 * len);
     for (uint32_t start = 0; start < n; start += 2 * len) {
       // We only have the upper half roots, so we conjugate here
       w_rel = w->rel[k];
@@ -105,38 +150,6 @@ void ifft(vec* v, const vec* w, uint32_t n) {
       }
     }
   }
-  // Last layer (len = 1), everyone uses the same root
-  // __m256d vw_rel = _mm256_set1_pd(w->rel[1]);
-  // __m256d vw_img = _mm256_set1_pd(-w->img[1]);
-  // for (uint32_t j = 0; j < n; j += 8) {
-  //   // Load
-  //   __m256d vj_rel = _mm256_loadu_pd(&v->rel[j]);
-  //   __m256d vj_img = _mm256_loadu_pd(&v->img[j]);
-  //   __m256d vk_rel = _mm256_loadu_pd(&v->rel[j + 4]);
-  //   __m256d vk_img = _mm256_loadu_pd(&v->img[j + 4]);
-  //   // Tranpose
-  //   __m256d vt_rel = _mm256_unpacklo_pd(vj_rel, vk_rel);
-  //   __m256d vt_img = _mm256_unpacklo_pd(vj_img, vk_img);
-  //   vk_rel = _mm256_unpackhi_pd(vj_rel, vk_rel);
-  //   vk_img = _mm256_unpackhi_pd(vj_img, vk_img);
-  //   // GS
-  //   vj_rel = _mm256_add_pd(vt_rel, vk_rel);
-  //   vj_img = _mm256_add_pd(vt_img, vk_img);
-  //   vk_rel = _mm256_sub_pd(vt_rel, vk_rel);
-  //   vk_img = _mm256_sub_pd(vt_img, vk_img);
-  //   vt_rel = rel_vmul(vk_rel, vk_img, vw_rel, vw_img);
-  //   vt_img = img_vmul(vk_rel, vk_img, vw_rel, vw_img);
-  //   // Transpose back
-  //   vk_rel = _mm256_unpackhi_pd(vj_rel, vt_rel);
-  //   vk_img = _mm256_unpackhi_pd(vj_img, vt_img);
-  //   vj_rel = _mm256_unpacklo_pd(vj_rel, vt_rel);
-  //   vj_img = _mm256_unpacklo_pd(vj_img, vt_img);
-  //   // Store
-  //   _mm256_storeu_pd(&v->rel[j], vj_rel);
-  //   _mm256_storeu_pd(&v->img[j], vj_img);
-  //   _mm256_storeu_pd(&v->rel[j + 4], vk_rel);
-  //   _mm256_storeu_pd(&v->img[j + 4], vk_img);
-  // }
   double inv_n = 1.0 / n;
   for (uint32_t i = 0; i < n; i++) {
     v->rel[i] = v->rel[i] * inv_n;
