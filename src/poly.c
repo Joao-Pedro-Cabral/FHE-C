@@ -16,7 +16,10 @@ void poly_free(poly* m) { free(*m); }
 // AVX2 doesn't support int64_t <-> double conversion
 void vector_to_poly(poly m, const vec* v, uint64_t scale, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    m[i] = (int64_t)(v->rel[i] * (double)scale);
+    int64_t mask = ((int64_t)v->rel[i]) >> 63;
+    mask = mask & 0x1;
+    double round = 0.5 - (double)mask;
+    m[i] = (int64_t)(v->rel[i] * (double)scale + round);
   }
 }
 

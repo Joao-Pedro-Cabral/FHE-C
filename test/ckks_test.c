@@ -15,10 +15,20 @@ void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qinv,
 
 void check_roots(const rns roots, const uint64_t* q, uint32_t l, uint32_t n) {
   printf("---------- VERIFY RNS ROOTS ----------\n");
+  uint8_t correct = 1;
   for (uint32_t i = 0; i < l; i++) {
     for (uint32_t j = 0; j < n; j++) {
-      printf("roots[%d]: %ld mod %ld\n", j, roots[i][j], q[i]);
+      if ((roots[i][j] > (int64_t)q[i] / 2) |
+          (roots[i][j] < -(int64_t)q[i] / 2)) {
+        correct = 0;
+        printf("roots[%d]: %ld mod %ld\n", j, roots[i][j], q[i]);
+      }
     }
+  }
+  if (correct) {
+    printf("---------- RNS ROOTS CORRECT ----------\n");
+  } else {
+    printf("---------- RNS ROOTS WRONG ----------\n");
   }
 }
 
@@ -54,12 +64,30 @@ void check_secret_key(const rns s, const uint64_t* q, const int64_t* qR,
   }
 }
 
+void check_polynomials(const poly m, const poly m2, uint64_t scale,
+                       uint32_t n) {
+  printf("---------- VERIFY POLYNOMIALS ----------\n");
+  uint8_t correct = 1;
+  for (uint32_t i = 0; i < n; i++) {
+    int64_t diff = m[i] - m2[i];
+    if ((diff > (int64_t)scale / 2) | (diff < -(int64_t)scale / 2)) {
+      correct = 0;
+      printf("m[%d]: %lx, m[%d]: %lx\n", i, m[i], i, m2[i]);
+    }
+  }
+  if (correct) {
+    printf("---------- POLYNOMIALS CORRECT ----------\n");
+  } else {
+    printf("---------- POLYNOMIALS WRONG ----------\n");
+  }
+}
+
 int main() {
   // Parameters Construction
-  uint32_t n = 4;
+  uint32_t n = 16;
   uint32_t l = 2;
-  uint64_t q[2] = {337, 353};
-  uint64_t scale = 40;
+  uint64_t q[2] = {534529, 747521};
+  uint64_t scale = 10000;
 
   ckks_params params;
 
@@ -75,47 +103,46 @@ int main() {
   printf("---------- ENCODE VECTOR ----------\n");
   vec v;
   vec_new(&v, n / 2);
-  v.rel[0] = 1;
-  v.img[0] = 4;
-  v.rel[1] = 3;
-  v.img[1] = -1;
   for (uint32_t i = 0; i < n / 2; i++) {
+    v.rel[i] = i / 4;
+    v.img[i] = i / 4 + 1;
     printf("v_rel[%d]: %lf\n", i, v.rel[i]);
     printf("v_img[%d]: %lf\n", i, v.img[i]);
   }
   poly m;
   poly_new(&m, n);
   ckks_encode(m, &v, &params);
-  printf("---------- ENCODE POLYNOMIAL ----------\n");
-  for (uint32_t i = 0; i < n; i++) {
-    printf("m[%d]: %ld\n", i, m[i]);
-  }
+  // printf("---------- ENCODE POLYNOMIAL ----------\n");
+  // for (uint32_t i = 0; i < n; i++) {
+  //   printf("m[%d]: %ld\n", i, m[i]);
+  // }
 
   // Encrypt
   printf("---------- ENCRYPT ----------\n");
   cyphertext ct;
   cyphertext_new(&ct, &params);
   ckks_encrypt(&ct, m, &params);
-  printf("---------- ENCRYPTED B ----------\n");
-  for (uint32_t i = 0; i < l; i++) {
-    for (uint32_t j = 0; j < n; j++) {
-      printf("b[%d][%d]: %ld\n", i, j, ct.b[i][j]);
-    }
-  }
+  // printf("---------- ENCRYPTED B ----------\n");
+  // for (uint32_t i = 0; i < l; i++) {
+  //   for (uint32_t j = 0; j < n; j++) {
+  //     printf("b[%d][%d]: %ld\n", i, j, ct.b[i][j]);
+  //   }
+  // }
 
   printf("---------- DECRYPT ----------\n");
   poly m2;
   poly_new(&m2, n);
   ckks_decrypt(m2, &ct, &params);
-  printf("---------- DECRYPTED POLYNOMIAL ----------\n");
-  for (uint32_t i = 0; i < n; i++) {
-    printf("m2[%d]: %ld\n", i, m2[i]);
-  }
+  check_polynomials(m, m2, scale, n);
+  // printf("---------- DECRYPTED POLYNOMIAL ----------\n");
+  // for (uint32_t i = 0; i < n; i++) {
+  //   printf("m2[%d]: %ld\n", i, m2[i]);
+  // }
 
   printf("---------- DECODE ----------\n");
   vec v2;
   vec_new(&v2, n / 2);
-  ckks_decode(&v2, m, &params);
+  ckks_decode(&v2, m2, &params);
   printf("---------- DECODED VECTOR ----------\n");
   for (uint32_t i = 0; i < n / 2; i++) {
     printf("v2_rel[%d]: %lf\n", i, v2.rel[i]);

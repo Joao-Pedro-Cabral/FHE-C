@@ -31,7 +31,7 @@ void vec_hermitian(vec* v2, const vec* v1, uint32_t n) {
 
 void vec_input(vec* v2, const vec* v1, uint32_t n) {
   // n >= 4 power of two
-  uint32_t n2 = (n / 2) - (n / 2) & 0x3;
+  uint32_t n2 = (n / 2) - ((n / 2) & 0x3);
   for (uint32_t i = 0; i < n2; i += 4) {
     __m256d vrel = _mm256_loadu_pd(&v1->rel[i]);
     __m256d vimg = _mm256_loadu_pd(&v1->img[i]);
@@ -114,6 +114,38 @@ void ifft(vec* v, const vec* w, uint32_t n) {
       }
     }
   }
+  // Last layer (len = 1), everyone uses the same root
+  // __m256d vw_rel = _mm256_set1_pd(w->rel[1]);
+  // __m256d vw_img = _mm256_set1_pd(-w->img[1]);
+  // for (uint32_t j = 0; j < n; j += 8) {
+  //   // Load
+  //   __m256d vj_rel = _mm256_loadu_pd(&v->rel[j]);
+  //   __m256d vj_img = _mm256_loadu_pd(&v->img[j]);
+  //   __m256d vk_rel = _mm256_loadu_pd(&v->rel[j + 4]);
+  //   __m256d vk_img = _mm256_loadu_pd(&v->img[j + 4]);
+  //   // Tranpose
+  //   __m256d vt_rel = _mm256_unpacklo_pd(vj_rel, vk_rel);
+  //   __m256d vt_img = _mm256_unpacklo_pd(vj_img, vk_img);
+  //   vk_rel = _mm256_unpackhi_pd(vj_rel, vk_rel);
+  //   vk_img = _mm256_unpackhi_pd(vj_img, vk_img);
+  //   // GS
+  //   vj_rel = _mm256_add_pd(vt_rel, vk_rel);
+  //   vj_img = _mm256_add_pd(vt_img, vk_img);
+  //   vk_rel = _mm256_sub_pd(vt_rel, vk_rel);
+  //   vk_img = _mm256_sub_pd(vt_img, vk_img);
+  //   vt_rel = rel_vmul(vk_rel, vk_img, vw_rel, vw_img);
+  //   vt_img = img_vmul(vk_rel, vk_img, vw_rel, vw_img);
+  //   // Transpose back
+  //   vk_rel = _mm256_unpackhi_pd(vj_rel, vt_rel);
+  //   vk_img = _mm256_unpackhi_pd(vj_img, vt_img);
+  //   vj_rel = _mm256_unpacklo_pd(vj_rel, vt_rel);
+  //   vj_img = _mm256_unpacklo_pd(vj_img, vt_img);
+  //   // Store
+  //   _mm256_storeu_pd(&v->rel[j], vj_rel);
+  //   _mm256_storeu_pd(&v->img[j], vj_img);
+  //   _mm256_storeu_pd(&v->rel[j + 4], vk_rel);
+  //   _mm256_storeu_pd(&v->img[j + 4], vk_img);
+  // }
   double inv_n = 1.0 / n;
   for (uint32_t i = 0; i < n; i++) {
     v->rel[i] = v->rel[i] * inv_n;
