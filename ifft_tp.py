@@ -16,7 +16,7 @@ def fft_tp(a, output_in_bitrev=True):
     k = round(np.log2(n))
 
     print(n, k)
-    omega = np.exp(-2j * np.pi / (2*n))
+    omega = np.exp(2j * np.pi / (2*n))
 
     a_hat = np.copy(a)
 
@@ -45,8 +45,11 @@ def ifft_tp(a_hat, input_in_bitrev=True):
         a_hat = np.array([a_hat[bit_reverse(i, k)] for i in range(n)])
     a_hat = np.array(a_hat, dtype=complex)
 
+    print("a_hat")
+    print(a_hat)
+
     print(n, k)
-    omega = np.exp(-2j * np.pi / (2*n))
+    omega = np.exp(2j * np.pi / (2*n))
 
     a = np.copy(a_hat)
 
@@ -144,7 +147,7 @@ if __name__ == '__main__':
     print("y")
     print(y)
 
-    y = np.fft.ifft(x)
+    y = ifft_tp(x, False)
 
     print("y fft")
     print(y)
@@ -164,20 +167,21 @@ if __name__ == '__main__':
     print("y")
     print(y)
 
-    N = 16
+    N = 8
 
     # Random complex vector
-    x = np.random.rand(N) + 1j * np.random.rand(N)
+    x = np.random.rand(N//2) + 1j * np.random.rand(N//2)
+    x = np.concatenate([x, np.conj(x[::-1])])
 
     print("x")
     print(x)
 
-    y = ifft_tp2(x, input_in_bitrev=False)
+    y = ifft_tp(x, input_in_bitrev=False)
     #
     print("y_tp")
     print(y)
 
-    x2 = fft_tp2(y, output_in_bitrev=False)
+    x2 = fft_tp(y, output_in_bitrev=False)
     #
     print("x_tp")
     print(x2)

@@ -72,7 +72,7 @@ void check_polynomials(const poly m, const poly m2, uint64_t scale,
     int64_t diff = m[i] - m2[i];
     if ((diff > (int64_t)scale / 2) | (diff < -(int64_t)scale / 2)) {
       correct = 0;
-      printf("m[%d]: %lx, m[%d]: %lx\n", i, m[i], i, m2[i]);
+      printf("m[%d]: %lx, m2[%d]: %lx\n", i, m[i], i, m2[i]);
     }
   }
   if (correct) {
@@ -82,9 +82,33 @@ void check_polynomials(const poly m, const poly m2, uint64_t scale,
   }
 }
 
+void check_vectors(const vec* v, const vec* v2, uint32_t n) {
+  printf("---------- VERIFY VECTORS ----------\n");
+  uint8_t correct = 1;
+  for (uint32_t i = 0; i < n; i++) {
+    double diff = v->rel[i] - v2->rel[i];
+    // TODO: Better metric
+    if ((diff > 0.01) | (diff < -0.01)) {
+      correct = 0;
+      printf("v_rel[%d]: %lf, v2_rel[%d]: %lf\n", i, v->rel[i], i, v2->rel[i]);
+    }
+    diff = v->img[i] - v2->img[i];
+    // TODO: Better metric
+    if ((diff > 0.01) | (diff < -0.01)) {
+      correct = 0;
+      printf("v_img[%d]: %lf, v2_img[%d]: %lf\n", i, v->img[i], i, v2->img[i]);
+    }
+  }
+  if (correct) {
+    printf("---------- VECTORS CORRECT ----------\n");
+  } else {
+    printf("---------- VECTORS WRONG ----------\n");
+  }
+}
+
 int main() {
   // Parameters Construction
-  uint32_t n = 16;
+  uint32_t n = 128;
   uint32_t l = 2;
   uint64_t q[2] = {534529, 747521};
   uint64_t scale = 10000;
@@ -106,9 +130,11 @@ int main() {
   for (uint32_t i = 0; i < n / 2; i++) {
     v.rel[i] = i / 4;
     v.img[i] = i / 4 + 1;
-    printf("v_rel[%d]: %lf\n", i, v.rel[i]);
-    printf("v_img[%d]: %lf\n", i, v.img[i]);
   }
+  // for (uint32_t i = 0; i < n / 2; i++) {
+  //   printf("v_rel[%d]: %lf\n", i, v.rel[i]);
+  //   printf("v_img[%d]: %lf\n", i, v.img[i]);
+  // }
   poly m;
   poly_new(&m, n);
   ckks_encode(m, &v, &params);
@@ -143,11 +169,12 @@ int main() {
   vec v2;
   vec_new(&v2, n / 2);
   ckks_decode(&v2, m2, &params);
-  printf("---------- DECODED VECTOR ----------\n");
-  for (uint32_t i = 0; i < n / 2; i++) {
-    printf("v2_rel[%d]: %lf\n", i, v2.rel[i]);
-    printf("v2_img[%d]: %lf\n", i, v2.img[i]);
-  }
+  check_vectors(&v, &v2, n / 2);
+  // printf("---------- DECODED VECTOR ----------\n");
+  // for (uint32_t i = 0; i < n / 2; i++) {
+  //   printf("v2_rel[%d]: %lf\n", i, v2.rel[i]);
+  //   printf("v2_img[%d]: %lf\n", i, v2.img[i]);
+  // }
 
   // Free
   ckks_free(&params);
