@@ -218,7 +218,9 @@ void ifft(vec* v, const vec* w, uint32_t n) {
   }
 
   // Merge 2 consecutive layers
-  for (uint32_t len = 16; len < n; len <<= 2) {
+  uint32_t log2_n = floor_log2(n);
+  uint32_t n4 = ((log2_n & 0x1) == 0) ? n : (n / 2);
+  for (uint32_t len = 16; len < n4; len <<= 2) {
     uint32_t klen = n / (2 * len);
     uint32_t k2len = n / (4 * len);
     for (uint32_t start = 0; start < n; start += 4 * len) {
@@ -271,9 +273,52 @@ void ifft(vec* v, const vec* w, uint32_t n) {
     }
   }
 
+  // Final layer for odd log2_n
+  if (n4 < n) {
+    // Only one root for everyone
+    __m256d vw_rel = _mm256_set1_pd(w->rel[1]);
+    __m256d vw_img = _mm256_set1_pd(-w->img[1]);
+    // Unroll two vector iterations
+    for (uint32_t j = 0; j < n / 2; j += 8) {
+      // Load
+      // First Half
+      __m256d vj0_rel = _mm256_loadu_pd(&v->rel[j]);
+      __m256d vj0_img = _mm256_loadu_pd(&v->img[j]);
+      __m256d vk0_rel = _mm256_loadu_pd(&v->rel[j + n / 2]);
+      __m256d vk0_img = _mm256_loadu_pd(&v->img[j + n / 2]);
+      // Second Half
+      __m256d vj1_rel = _mm256_loadu_pd(&v->rel[j + 4]);
+      __m256d vj1_img = _mm256_loadu_pd(&v->img[j + 4]);
+      __m256d vk1_rel = _mm256_loadu_pd(&v->rel[j + 4 + n / 2]);
+      __m256d vk1_img = _mm256_loadu_pd(&v->img[j + 4 + n / 2]);
+      // GS
+      __m256d vt_rel, vt_img;
+      GS_BUTTERFLY(vj0_rel, vj0_img, vk0_rel, vk0_img, vw_rel, vw_img, vt_rel,
+                   vt_img);
+      GS_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw_rel, vw_img, vt_rel,
+                   vt_img);
+      // Store
+      // First Half
+      _mm256_storeu_pd(&v->rel[j], vj0_rel);
+      _mm256_storeu_pd(&v->img[j], vj0_img);
+      _mm256_storeu_pd(&v->rel[j + n / 2], vk0_rel);
+      _mm256_storeu_pd(&v->img[j + n / 2], vk0_img);
+      // Second Half
+      _mm256_storeu_pd(&v->rel[j + 4], vj1_rel);
+      _mm256_storeu_pd(&v->img[j + 4], vj1_img);
+      _mm256_storeu_pd(&v->rel[j + 4 + n / 2], vk1_rel);
+      _mm256_storeu_pd(&v->img[j + 4 + n / 2], vk1_img);
+    }
+  }
+
   double inv_n = 1.0 / n;
-  for (uint32_t i = 0; i < n; i++) {
-    v->rel[i] = v->rel[i] * inv_n;
-    v->img[i] = v->img[i] * inv_n;
+  __m256d vinvn = _mm256_set1_pd(inv_n);
+  for (uint32_t i = 0; i < n; i += 4) {
+    __m256d vj_rel = _mm256_loadu_pd(&v->rel[i]);
+    __m256d vj_img = _mm256_loadu_pd(&v->img[i]);
+    vj_rel = _mm256_mul_pd(vj_rel, vinvn);
+    vj_img = _mm256_mul_pd(vj_img, vinvn);
+    _mm256_storeu_pd(&v->rel[i], vj_rel);
+    _mm256_storeu_pd(&v->img[i], vj_img);
   }
 }
