@@ -92,9 +92,6 @@ void fft(vec* v, const vec* w, uint32_t n) {
   } while (0)
 
 void ifft(vec* v, const vec* w, uint32_t n) {
-  double w_rel, w_img;
-  double t_rel, t_img;
-
   uint32_t k1 = n / 2;
   uint32_t k2 = n / 4;
   uint32_t k3 = n / 8;
@@ -208,37 +205,72 @@ void ifft(vec* v, const vec* w, uint32_t n) {
     GS_BUTTERFLY(vk0_rel, vk0_img, vk1_rel, vk1_img, vw_rel, vw_img, vt1_rel,
                  vt1_img);
     // Store
+    // First Half
     _mm256_storeu_pd(&v->rel[j], vj0_rel);
     _mm256_storeu_pd(&v->img[j], vj0_img);
     _mm256_storeu_pd(&v->rel[j + 4], vk0_rel);
     _mm256_storeu_pd(&v->img[j + 4], vk0_img);
+    // Second Half
     _mm256_storeu_pd(&v->rel[j + 8], vj1_rel);
     _mm256_storeu_pd(&v->img[j + 8], vj1_img);
     _mm256_storeu_pd(&v->rel[j + 12], vk1_rel);
     _mm256_storeu_pd(&v->img[j + 12], vk1_img);
   }
 
-  for (uint32_t len = 16; len < n; len <<= 1) {
-    uint32_t k = n / (2 * len);
-    for (uint32_t start = 0; start < n; start += 2 * len) {
+  // Merge 2 consecutive layers
+  for (uint32_t len = 16; len < n; len <<= 2) {
+    uint32_t klen = n / (2 * len);
+    uint32_t k2len = n / (4 * len);
+    for (uint32_t start = 0; start < n; start += 4 * len) {
       // We only have the upper half roots, so we conjugate here
-      w_rel = w->rel[k];
-      w_img = -w->img[k];
-      k++;
-      for (uint32_t j = start; j < start + len; ++j) {
-        t_rel = v->rel[j];
-        t_img = v->img[j];
-        v->rel[j] = v->rel[j + len] + t_rel;
-        v->img[j] = v->img[j + len] + t_img;
-        v->rel[j + len] = t_rel - v->rel[j + len];
-        v->img[j + len] = t_img - v->img[j + len];
-        t_rel = rel_mul(v->rel[j + len], v->img[j + len], w_rel, w_img);
-        t_img = img_mul(v->rel[j + len], v->img[j + len], w_rel, w_img);
-        v->rel[j + len] = t_rel;
-        v->img[j + len] = t_img;
+      // First Layer: two roots
+      __m256d vw10_rel = _mm256_set1_pd(w->rel[klen]);
+      __m256d vw10_img = _mm256_set1_pd(-w->img[klen]);
+      __m256d vw11_rel = _mm256_set1_pd(w->rel[klen + 1]);
+      __m256d vw11_img = _mm256_set1_pd(-w->img[klen + 1]);
+      klen += 2;
+      // Second Layer: one root
+      __m256d vw2_rel = _mm256_set1_pd(w->rel[k2len]);
+      __m256d vw2_img = _mm256_set1_pd(-w->img[k2len]);
+      k2len += 1;
+      for (uint32_t j = start; j < start + len; j += 4) {
+        // Load
+        // First Half
+        __m256d vj0_rel = _mm256_loadu_pd(&v->rel[j]);
+        __m256d vj0_img = _mm256_loadu_pd(&v->img[j]);
+        __m256d vk0_rel = _mm256_loadu_pd(&v->rel[j + len]);
+        __m256d vk0_img = _mm256_loadu_pd(&v->img[j + len]);
+        // Second Half
+        __m256d vj1_rel = _mm256_loadu_pd(&v->rel[j + 2 * len]);
+        __m256d vj1_img = _mm256_loadu_pd(&v->img[j + 2 * len]);
+        __m256d vk1_rel = _mm256_loadu_pd(&v->rel[j + 3 * len]);
+        __m256d vk1_img = _mm256_loadu_pd(&v->img[j + 3 * len]);
+        // First Layer (len)
+        __m256d vt_rel, vt_img;
+        GS_BUTTERFLY(vj0_rel, vj0_img, vk0_rel, vk0_img, vw10_rel, vw10_img,
+                     vt_rel, vt_img);
+        GS_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw11_rel, vw11_img,
+                     vt_rel, vt_img);
+        // Second layer (2*len)
+        GS_BUTTERFLY(vj0_rel, vj0_img, vj1_rel, vj1_img, vw2_rel, vw2_img,
+                     vt_rel, vt_img);
+        GS_BUTTERFLY(vk0_rel, vk0_img, vk1_rel, vk1_img, vw2_rel, vw2_img,
+                     vt_rel, vt_img);
+        // Store
+        // First Half
+        _mm256_storeu_pd(&v->rel[j], vj0_rel);
+        _mm256_storeu_pd(&v->img[j], vj0_img);
+        _mm256_storeu_pd(&v->rel[j + len], vk0_rel);
+        _mm256_storeu_pd(&v->img[j + len], vk0_img);
+        // Second Half
+        _mm256_storeu_pd(&v->rel[j + 2 * len], vj1_rel);
+        _mm256_storeu_pd(&v->img[j + 2 * len], vj1_img);
+        _mm256_storeu_pd(&v->rel[j + 3 * len], vk1_rel);
+        _mm256_storeu_pd(&v->img[j + 3 * len], vk1_img);
       }
     }
   }
+
   double inv_n = 1.0 / n;
   for (uint32_t i = 0; i < n; i++) {
     v->rel[i] = v->rel[i] * inv_n;
