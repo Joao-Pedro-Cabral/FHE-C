@@ -4,6 +4,12 @@
 
 // We do static inline here for remove function call overhead
 
+static inline uint64_t ceil64_log2(uint64_t n) {
+  if (n == 1) return 0;
+
+  return (uint64_t)(64 - __builtin_clzll(n - 1));
+}
+
 static inline uint32_t ceil_log2(uint32_t n) {
   if (n == 1) return 0;
 

@@ -173,7 +173,7 @@ void poly_add(poly a, const poly b, uint64_t q, int64_t qR, int64_t qinv,
   // R^2/n from INTT
   for (uint32_t i = 0; i < n; i++) {
     a[i] = mod_mul_ct(a[i], qn, (int64_t)q, qinv);
-    a[i] = mod_ct(a[i] + b[i], (int64_t)q, qR, qinv);
+    a[i] = mod_ct_exact(a[i] + b[i], (int64_t)q, qR, qinv);
   }
 }
 
@@ -182,7 +182,7 @@ void poly_rsub(poly a, const poly b, uint64_t q, int64_t qR, int64_t qinv,
   // R^2/n from INTT
   for (uint32_t i = 0; i < n; i++) {
     a[i] = mod_mul_ct(a[i], qn, (int64_t)q, qinv);
-    a[i] = mod_ct(b[i] - a[i], (int64_t)q, qR, qinv);
+    a[i] = mod_ct_exact(b[i] - a[i], (int64_t)q, qR, qinv);
   }
 }
 
@@ -236,16 +236,7 @@ void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qR,
                     int64_t qinv) {
   // Find one primitive root (n > 2)
   uint32_t log2_n = floor_log2(n);
-  int64_t root0;  // our primitive root
-  for (root0 = 2; root0 < q - 2; root0++) {
-    int64_t x = root0;
-    for (uint32_t j = 0; j < log2_n; j++) {
-      x = mod_mul(x, x, q);
-    }
-    if (x != -1) continue;  // x^(n) = -1
-    x = mod_mul(x, x, q);
-    if (x == 1) break;  // x^(2n) = 1
-  }
+  int64_t root0 = find_smallest_nth_root(n, q);
   root0 = mod_mul(root0, qR, q);  // montgomery factor
   roots[0] = 1;
   roots[bit_reverse32(1, log2_n)] = root0;

@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "mod.h"
-
 void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qinv,
                  const int64_t* qn, uint32_t l) {
   printf("---------- VERIFY Q AUXILIARIES ROOTS ----------\n");

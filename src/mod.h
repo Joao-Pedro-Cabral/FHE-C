@@ -13,7 +13,8 @@ int64_t mod_inverse(uint64_t a, uint64_t q);
 int64_t mod_inverse_big(__uint128_t a, __uint128_t q);
 
 // Modular Multiplication (ct: constant-time)
-static inline int64_t mod_mul_ct(int64_t a, int64_t b, int64_t q, int64_t qinv) {
+static inline int64_t mod_mul_ct(int64_t a, int64_t b, int64_t q,
+                                 int64_t qinv) {
   int64_t c0 = a * b;
   int64_t c1 = (int64_t)((__int128_t)a * b >> 64);
   int64_t t = c0 * qinv;
@@ -28,7 +29,7 @@ static inline int64_t mod_ct(int64_t a, int64_t q, int64_t qR, int64_t qinv) {
 }
 
 static inline int64_t mod_mul_ct_exact(int64_t a, int64_t b, int64_t q,
-                                    int64_t qinv) {
+                                       int64_t qinv) {
   int64_t c = mod_mul_ct(a, b, q, qinv);
 
   int64_t diff1 = (q / 2) - c;
@@ -45,7 +46,7 @@ static inline int64_t mod_mul_ct_exact(int64_t a, int64_t b, int64_t q,
 }
 
 static inline int64_t mod_ct_exact(int64_t a, int64_t q, int64_t qR,
-                                int64_t qinv) {
+                                   int64_t qinv) {
   return mod_mul_ct_exact(a, qR, q, qinv);
 }
 
@@ -63,5 +64,13 @@ static inline int64_t mod_mul(int64_t a, int64_t b, int64_t q) {
   if (a < -q / 2) a += q;
   return a;
 }
+
+static inline uint64_t mod_mulu(uint64_t a, uint64_t b, uint64_t q) {
+  __uint128_t prod = (__uint128_t)a * b;
+  a = (uint64_t)(prod % q);
+  return a;
+}
+
+int64_t find_smallest_nth_root(uint64_t n, int64_t q);
 
 #endif  // __MOD_H__
