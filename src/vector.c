@@ -522,14 +522,5 @@ void ifft(vec* v, const vec* w, uint32_t n) {
     }
   }
 
-  double inv_n = 1.0 / n;
-  __m256d vinvn = _mm256_set1_pd(inv_n);
-  for (uint32_t i = 0; i < n; i += 4) {
-    __m256d vj_rel = _mm256_loadu_pd(&v->rel[i]);
-    __m256d vj_img = _mm256_loadu_pd(&v->img[i]);
-    vj_rel = _mm256_mul_pd(vj_rel, vinvn);
-    vj_img = _mm256_mul_pd(vj_img, vinvn);
-    _mm256_storeu_pd(&v->rel[i], vj_rel);
-    _mm256_storeu_pd(&v->img[i], vj_img);
-  }
+  // 1/n performed in vector_to_poly
 }

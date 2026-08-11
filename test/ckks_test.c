@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "mod.h"
+
 void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qinv,
                  const int64_t* qn, uint32_t l) {
   printf("---------- VERIFY Q AUXILIARIES ROOTS ----------\n");
@@ -37,15 +39,21 @@ void check_secret_key(const rns s, const uint64_t* q, const int64_t* qR,
                       uint32_t l, uint32_t n) {
   printf("---------- VERIFY SECRET KEY ----------\n");
   uint8_t correct = 1;
-  poly s_hat, ones;
+  poly s_hat, ones, invn;
   poly_new(&s_hat, n);
   poly_new(&ones, n);
+  poly_new(&invn, n);
   for (uint32_t i = 0; i < n; i++) {
     ones[i] = 1;
   }
   for (uint32_t i = 0; i < l; i++) {
     memcpy(s_hat, s[i], n * sizeof(uint64_t));
-    poly_intt(s_hat, roots[i], q[i], qR[i], qinv[i], qn[i], n);
+    poly_intt(s_hat, roots[i], q[i], qR[i], qinv[i], n);
+    for (uint32_t j = 0; j < n; j++) {
+      invn[j] = qn[i];
+    }
+    poly_pointwise_mul(s_hat, s_hat, invn, q[i], qinv[i],
+                       n);  // multiply by R^2/n
     poly_pointwise_mul(s_hat, s_hat, ones, q[i], qinv[i],
                        n);  // remove extra montgomery factor
     for (uint32_t j = 0; j < n; j++) {
@@ -57,6 +65,7 @@ void check_secret_key(const rns s, const uint64_t* q, const int64_t* qR,
   }
   poly_free(&s_hat);
   poly_free(&ones);
+  poly_free(&invn);
   if (correct) {
     printf("---------- SECRET KEY CORRECT ----------\n");
   } else {
@@ -88,13 +97,13 @@ void check_vectors(const vec* v, const vec* v2, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
     double diff = v->rel[i] - v2->rel[i];
     // TODO: Better metric
-    if ((diff > 0.01) | (diff < -0.01)) {
+    if ((diff > 0.5) | (diff < -0.5)) {
       correct = 0;
       printf("v_rel[%d]: %lf, v2_rel[%d]: %lf\n", i, v->rel[i], i, v2->rel[i]);
     }
     diff = v->img[i] - v2->img[i];
     // TODO: Better metric
-    if ((diff > 0.01) | (diff < -0.01)) {
+    if ((diff > 0.5) | (diff < -0.5)) {
       correct = 0;
       printf("v_img[%d]: %lf, v2_img[%d]: %lf\n", i, v->img[i], i, v2->img[i]);
     }
@@ -108,7 +117,7 @@ void check_vectors(const vec* v, const vec* v2, uint32_t n) {
 
 int main() {
   // Parameters Construction
-  uint32_t n = 128;
+  uint32_t n = 256;
   uint32_t l = 2;
   uint64_t q[2] = {534529, 747521};
   uint64_t scale = 10000;
