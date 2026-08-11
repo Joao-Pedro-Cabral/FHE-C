@@ -42,19 +42,19 @@ void vec_input(vec* v2, const vec* v1, uint32_t n) {
 
 void vec_gen_roots(vec* w, uint32_t n) {
   uint32_t log2_n = floor_log2(n);
-  // 1st quadrant
-  w->rel[bit_reverse32(0, log2_n)] = 1.0;
-  w->img[bit_reverse32(0, log2_n)] = 0.0;
+  w->rel[0] = 1.0;  // bit_reverse32(0, log2_n)
+  w->img[0] = 0.0;
+  w->rel[1] = 0.0;  // bit_reverse32(n / 2, log2_n)
+  w->img[1] = 1.0;
   for (uint32_t i = 1; i < n / 2; i++) {
-    w->rel[bit_reverse32(i, log2_n)] = cos(i * M_PI / n);
-    w->img[bit_reverse32(i, log2_n)] = sin(i * M_PI / n);
-  }
-  // 2nd quadrant
-  w->rel[bit_reverse32(n / 2, log2_n)] = 0.0;
-  w->img[bit_reverse32(n / 2, log2_n)] = 1.0;
-  for (uint32_t i = 1; i < n / 2; i++) {
-    w->rel[bit_reverse32(n - i, log2_n)] = -w->rel[bit_reverse32(i, log2_n)];
-    w->img[bit_reverse32(n - i, log2_n)] = w->img[bit_reverse32(i, log2_n)];
+    double cosw = cos(i * M_PI / n);
+    double sinw = sin(i * M_PI / n);
+    // 1st quadrant
+    w->rel[bit_reverse32(i, log2_n)] = cosw;
+    w->img[bit_reverse32(i, log2_n)] = sinw;
+    // 2nd quadrant
+    w->rel[bit_reverse32(n - i, log2_n)] = -cosw;
+    w->img[bit_reverse32(n - i, log2_n)] = sinw;
   }
 }
 
