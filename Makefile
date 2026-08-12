@@ -5,7 +5,8 @@ CFLAGS := -O3 -mavx2 -mfma -march=native \
           -Wshadow -Wconversion \
           -Wundef -Wdouble-promotion \
           -Wformat=2 \
-          -Isrc -Isrc/blake3
+          -Isrc -Isrc/blake3 \
+          $(CFLAGS_EXTRA)
 LDLIBS = -lm
 
 VALGRIND_OPTIONS := -s --leak-check=full --track-origins=yes --show-leak-kinds=all
