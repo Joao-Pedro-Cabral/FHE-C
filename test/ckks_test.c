@@ -82,7 +82,7 @@ void check_cyphertext(const cyphertext* ct, const int64_t* q) {
       }
       if ((ct->b[i][j] > (int64_t)q[i] / 2) | (ct->b[i][j] < -(int64_t)q[i] / 2)) {
         correct = 0;
-        printf("a[%d][%d]: %ld mod %ld\n", i, j, ct->b[i][j], q[i]);
+        printf("b[%d][%d]: %ld mod %ld\n", i, j, ct->b[i][j], q[i]);
       }
     }
   }
@@ -93,21 +93,38 @@ void check_cyphertext(const cyphertext* ct, const int64_t* q) {
   }
 }
 
-void check_polynomials(const poly m, const poly m2, uint64_t scale,
+void check_encoded_polynomial(const poly m, const int64_t * q, uint32_t n) {
+  printf("---------- VERIFY ENCODED POLYNOMIAL ----------\n");
+  uint8_t correct = 1;
+  int64_t q0 = q[0];
+  for (uint32_t i = 0; i < n; i++) {
+    if ((m[i] > (int64_t)q0 / 2) | (m[i] < -(int64_t)q0 / 2)) {
+      correct = 0;
+      printf("m[%d]: %ld mod %ld\n", i, m[i], q0);
+    }
+  }
+  if (correct) {
+    printf("---------- ENCODED POLYNOMIAL CORRECT ----------\n");
+  } else {
+    printf("---------- ENCODED POLYNOMIAL WRONG ----------\n");
+  }
+}
+
+void check_decoded_polynomial(const poly m, const poly m2, uint64_t scale,
                        uint32_t n) {
-  printf("---------- VERIFY POLYNOMIALS ----------\n");
+  printf("---------- VERIFY DECODED POLYNOMIAL ----------\n");
   uint8_t correct = 1;
   for (uint32_t i = 0; i < n; i++) {
     int64_t diff = m[i] - m2[i];
     if ((diff > (int64_t)scale / 2) | (diff < -(int64_t)scale / 2)) {
       correct = 0;
-      printf("m[%d]: %lx, m2[%d]: %lx\n", i, m[i], i, m2[i]);
+      printf("m[%d]: %ld, m2[%d]: %ld\n", i, m[i], i, m2[i]);
     }
   }
   if (correct) {
-    printf("---------- POLYNOMIALS CORRECT ----------\n");
+    printf("---------- DECODED POLYNOMIAL CORRECT ----------\n");
   } else {
-    printf("---------- POLYNOMIALS WRONG ----------\n");
+    printf("---------- DECODED POLYNOMIAL WRONG ----------\n");
   }
 }
 
@@ -167,6 +184,7 @@ int main() {
   poly m;
   poly_new(&m, n);
   ckks_encode(m, &v, &params);
+  check_encoded_polynomial(m, (int64_t*)params.q, n);
   // printf("---------- ENCODE POLYNOMIAL ----------\n");
   // for (uint32_t i = 0; i < n; i++) {
   //   printf("m[%d]: %ld\n", i, m[i]);
@@ -189,7 +207,7 @@ int main() {
   poly m2;
   poly_new(&m2, n);
   ckks_decrypt(m2, &ct, &params);
-  check_polynomials(m, m2, scale, n);
+  check_decoded_polynomial(m, m2, scale, n);
   // printf("---------- DECRYPTED POLYNOMIAL ----------\n");
   // for (uint32_t i = 0; i < n; i++) {
   //   printf("m2[%d]: %ld\n", i, m2[i]);

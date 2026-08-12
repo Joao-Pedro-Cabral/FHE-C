@@ -67,8 +67,6 @@ void rns_gen_q_aux(int64_t* qR2n, int64_t* qR, int64_t* qRq, int64_t* qinv, cons
     if (qR2n[i] > (int64_t)(q[i] / 2)) qR2n[i] -= (int64_t)q[i];
     if (qR2n[i] < (int64_t) - (q[i] / 2)) qR2n[i] += (int64_t)q[i];
     qRq[i] = (int64_t)((((__uint128_t)1 << 64) + q[i]/2)/q[i]);
-    qRq[i] = qRq[i] % (int64_t)q[i];
-    if (qRq[i] > (int64_t)(q[i] / 2)) qRq[i] -= (int64_t)q[i];
   }
 }
 
