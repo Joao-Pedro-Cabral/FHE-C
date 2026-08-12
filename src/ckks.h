@@ -11,7 +11,8 @@ typedef struct {
   const uint64_t* q;  // l modulus
   int64_t* qinv;      // inverse of the l q's mod 2^64
   int64_t* qR;        // R=2^64 in the l modulis
-  int64_t* qn;        // R^2/n, R=2^64 in q modulis
+  int64_t* qRq;        // R/q, round even
+  int64_t* qR2n;        // R^2/n, R=2^64 in q modulis
   rns roots;          // moduli primitive roots for l NTT domains
   rns s;              // secret key in l NTT domains
   uint32_t l;         // size of the rms

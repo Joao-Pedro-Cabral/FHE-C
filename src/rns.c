@@ -47,29 +47,34 @@ void rns_gen_inverse_roots(rns roots, const uint64_t* q, const int64_t* qinv,
   }
 }
 
-void rns_gen_q_new(int64_t** qn, int64_t** qR, int64_t** qinv, uint32_t l) {
-  *qn = malloc(sizeof(int64_t) * l);
+void rns_gen_q_new(int64_t** qR2n, int64_t** qR, int64_t** qRq, int64_t** qinv, uint32_t l) {
+  *qR2n = malloc(sizeof(int64_t) * l);
   *qR = malloc(sizeof(int64_t) * l);
+  *qRq = malloc(sizeof(int64_t) * l);
   *qinv = malloc(sizeof(int64_t) * l);
 }
 
-void rns_gen_q_aux(int64_t* qn, int64_t* qR, int64_t* qinv, const uint64_t* q,
+void rns_gen_q_aux(int64_t* qR2n, int64_t* qR, int64_t* qRq, int64_t* qinv, const uint64_t* q,
                    uint32_t n, uint32_t l) {
   for (uint32_t i = 0; i < l; i++) {
     qinv[i] = mod_inverse_big(q[i], ((__uint128_t)1 << 64));
     uint64_t R = (uint64_t)(((__uint128_t)1 << 64) - q[i]);
     qR[i] = (int64_t)(R % q[i]);
     if (qR[i] > (int64_t)(q[i] / 2)) qR[i] -= (int64_t)q[i];
-    qn[i] = mod_inverse(n, q[i]);                               // 1/n
-    qn[i] = (int64_t)((((__int128_t)1 << 64) * qn[i]) % q[i]);  // R/n
-    qn[i] = (int64_t)((((__int128_t)1 << 64) * qn[i]) % q[i]);  // R^2/n
-    if (qn[i] > (int64_t)(q[i] / 2)) qn[i] -= (int64_t)q[i];
-    if (qn[i] < (int64_t) - (q[i] / 2)) qn[i] += (int64_t)q[i];
+    qR2n[i] = mod_inverse(n, q[i]);                               // 1/n
+    qR2n[i] = (int64_t)((((__int128_t)1 << 64) * qR2n[i]) % q[i]);  // R/n
+    qR2n[i] = (int64_t)((((__int128_t)1 << 64) * qR2n[i]) % q[i]);  // R^2/n
+    if (qR2n[i] > (int64_t)(q[i] / 2)) qR2n[i] -= (int64_t)q[i];
+    if (qR2n[i] < (int64_t) - (q[i] / 2)) qR2n[i] += (int64_t)q[i];
+    qRq[i] = (int64_t)((((__uint128_t)1 << 64) + q[i]/2)/q[i]);
+    qRq[i] = qRq[i] % (int64_t)q[i];
+    if (qRq[i] > (int64_t)(q[i] / 2)) qRq[i] -= (int64_t)q[i];
   }
 }
 
-void rns_gen_q_free(int64_t** qn, int64_t** qR, int64_t** qinv) {
+void rns_gen_q_free(int64_t** qR2n, int64_t** qR, int64_t** qRq, int64_t** qinv) {
   free((*qinv));
+  free((*qRq));
   free((*qR));
-  free((*qn));
+  free((*qR2n));
 }

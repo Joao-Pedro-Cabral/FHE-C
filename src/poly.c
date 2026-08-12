@@ -113,7 +113,7 @@ void poly_ternary_sampler(poly s, uint32_t n) {
 }
 
 // AVX2 doesn't support int64_t multiplication
-void poly_uniform_sampler(poly a, uint64_t q, int64_t qR, int64_t qinv,
+void poly_uniform_sampler(poly a, uint64_t q, int64_t qRq,
                           uint32_t n) {
   uint8_t seed[SEED_BYTES];
   randombytes(seed, SEED_BYTES);
@@ -141,7 +141,7 @@ void poly_uniform_sampler(poly a, uint64_t q, int64_t qR, int64_t qinv,
     }
     uint64_t x = buf[j];
     if (x < bound) {
-      int64_t y = mod_ct((int64_t)x, (int64_t)q, qR, qinv);
+      int64_t y = mod_ct_exact((int64_t)x, (int64_t)q, qRq);
       a[i] = y;
       i++;
     }
@@ -168,21 +168,21 @@ void poly_cbd24_sampler_add(poly e, const poly m, uint32_t n) {
   free(buf);
 }
 
-void poly_add(poly a, const poly b, uint64_t q, int64_t qR, int64_t qinv,
-              int64_t qn, uint32_t n) {
+void poly_add(poly a, const poly b, uint64_t q, int64_t qRq, int64_t qinv,
+              int64_t qR2n, uint32_t n) {
   // R^2/n from INTT
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod_mul_ct(a[i], qn, (int64_t)q, qinv);
-    a[i] = mod_ct_exact(a[i] + b[i], (int64_t)q, qR, qinv);
+    a[i] = mod_mul_ct(a[i], qR2n, (int64_t)q, qinv);
+    a[i] = mod_ct_exact(a[i] + b[i], (int64_t)q, qRq);
   }
 }
 
-void poly_rsub(poly a, const poly b, uint64_t q, int64_t qR, int64_t qinv,
-               int64_t qn, uint32_t n) {
+void poly_rsub(poly a, const poly b, uint64_t q, int64_t qRq, int64_t qinv,
+               int64_t qR2n, uint32_t n) {
   // R^2/n from INTT
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod_mul_ct(a[i], qn, (int64_t)q, qinv);
-    a[i] = mod_ct_exact(b[i] - a[i], (int64_t)q, qR, qinv);
+    a[i] = mod_mul_ct(a[i], qR2n, (int64_t)q, qinv);
+    a[i] = mod_ct_exact(b[i] - a[i], (int64_t)q, qRq);
   }
 }
 
@@ -193,7 +193,7 @@ void poly_pointwise_mul(poly c, const poly a, const poly b, uint64_t q,
   }
 }
 
-void poly_ntt(poly a, const poly roots, uint64_t q, int64_t qR, int64_t qinv,
+void poly_ntt(poly a, const poly roots, uint64_t q, int64_t qRq, int64_t qinv,
               uint32_t n) {
   int64_t zeta, t;
 
@@ -204,14 +204,14 @@ void poly_ntt(poly a, const poly roots, uint64_t q, int64_t qR, int64_t qinv,
       k++;
       for (uint32_t j = start; j < start + len; ++j) {
         t = mod_mul_ct(zeta, a[j + len], (int64_t)q, qinv);
-        a[j + len] = mod_ct(a[j] - t, (int64_t)q, qR, qinv);
-        a[j] = mod_ct(a[j] + t, (int64_t)q, qR, qinv);
+        a[j + len] = mod_ct(a[j] - t, (int64_t)q, qRq);
+        a[j] = mod_ct(a[j] + t, (int64_t)q, qRq);
       }
     }
   }
 }
 
-void poly_intt(poly a, const poly roots, uint64_t q, int64_t qR, int64_t qinv,
+void poly_intt(poly a, const poly roots, uint64_t q, int64_t qRq, int64_t qinv,
                uint32_t n) {
   int64_t t, zeta;
 
@@ -222,8 +222,8 @@ void poly_intt(poly a, const poly roots, uint64_t q, int64_t qR, int64_t qinv,
       k++;
       for (uint32_t j = start; j < start + len; ++j) {
         t = a[j];
-        a[j] = mod_ct(t + a[j + len], (int64_t)q, qR, qinv);
-        a[j + len] = mod_ct(t - a[j + len], (int64_t)q, qR, qinv);
+        a[j] = mod_ct(t + a[j + len], (int64_t)q, qRq);
+        a[j + len] = mod_ct(t - a[j + len], (int64_t)q, qRq);
         a[j + len] = mod_mul_ct(zeta, a[j + len], (int64_t)q, qinv);
       }
     }

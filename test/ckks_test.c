@@ -4,11 +4,11 @@
 #include <stdio.h>
 #include <string.h>
 
-void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qinv,
-                 const int64_t* qn, uint32_t l) {
+void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qRq, const int64_t* qinv,
+                 const int64_t* qR2n, uint32_t l) {
   printf("---------- VERIFY Q AUXILIARIES ROOTS ----------\n");
   for (uint32_t i = 0; i < l; i++) {
-    printf("qR: %ld, qinv: %ld, qn: %ld mod %ld\n", qR[i], qinv[i], qn[i],
+    printf("qR: %ld, qinv: %ld, qRq: %ld, qR2n: %ld mod %ld\n", qR[i], qinv[i], qRq[i], qR2n[i],
            q[i]);
   }
 }
@@ -33,7 +33,7 @@ void check_roots(const rns roots, const uint64_t* q, uint32_t l, uint32_t n) {
 }
 
 void check_secret_key(const rns s, const uint64_t* q, const int64_t* qR,
-                      const int64_t* qinv, const int64_t* qn, const rns roots,
+                      const int64_t* qinv, const int64_t* qR2n, const rns roots,
                       uint32_t l, uint32_t n) {
   printf("---------- VERIFY SECRET KEY ----------\n");
   uint8_t correct = 1;
@@ -48,7 +48,7 @@ void check_secret_key(const rns s, const uint64_t* q, const int64_t* qR,
     memcpy(s_hat, s[i], n * sizeof(uint64_t));
     poly_intt(s_hat, roots[i], q[i], qR[i], qinv[i], n);
     for (uint32_t j = 0; j < n; j++) {
-      invn[j] = qn[i];
+      invn[j] = qR2n[i];
     }
     poly_pointwise_mul(s_hat, s_hat, invn, q[i], qinv[i],
                        n);  // multiply by R^2/n
@@ -68,6 +68,28 @@ void check_secret_key(const rns s, const uint64_t* q, const int64_t* qR,
     printf("---------- SECRET KEY CORRECT ----------\n");
   } else {
     printf("---------- SECRET KEY WRONG ----------\n");
+  }
+}
+
+void check_cyphertext(const cyphertext* ct, const int64_t* q) {
+  printf("---------- VERIFY CYPHERTEXT ----------\n");
+  uint8_t correct = 1;
+  for (uint32_t i = 0; i < ct->l; i++) {
+    for (uint32_t j = 0; j < ct->n; j++) {
+      if ((ct->a[i][j] > (int64_t)q[i] / 2) | (ct->a[i][j] < -(int64_t)q[i] / 2)) {
+        correct = 0;
+        printf("a[%d][%d]: %ld mod %ld\n", i, j, ct->a[i][j], q[i]);
+      }
+      if ((ct->b[i][j] > (int64_t)q[i] / 2) | (ct->b[i][j] < -(int64_t)q[i] / 2)) {
+        correct = 0;
+        printf("a[%d][%d]: %ld mod %ld\n", i, j, ct->b[i][j], q[i]);
+      }
+    }
+  }
+  if (correct) {
+    printf("---------- CYPHERTEXT CORRECT ----------\n");
+  } else {
+    printf("---------- CYPHERTEXT WRONG ----------\n");
   }
 }
 
@@ -124,9 +146,9 @@ int main() {
 
   printf("---------- INIT ----------\n");
   ckks_new(&params, n, l, q, scale);
-  check_q_aux(params.q, params.qR, params.qinv, params.qn, params.l);
+  check_q_aux(params.q, params.qR, params.qRq, params.qinv, params.qR2n, params.l);
   check_roots(params.roots, params.q, params.l, params.n);
-  check_secret_key(params.s, params.q, params.qR, params.qinv, params.qn,
+  check_secret_key(params.s, params.q, params.qR, params.qinv, params.qR2n,
                    params.roots, params.l, params.n);
 
   // Encode
@@ -155,6 +177,7 @@ int main() {
   cyphertext ct;
   cyphertext_new(&ct, &params);
   ckks_encrypt(&ct, m, &params);
+  check_cyphertext(&ct, (int64_t*)params.q);
   // printf("---------- ENCRYPTED B ----------\n");
   // for (uint32_t i = 0; i < l; i++) {
   //   for (uint32_t j = 0; j < n; j++) {

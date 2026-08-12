@@ -10,8 +10,8 @@ void ckks_new(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
   params->q = q;
   params->scale = scale;
   // moduli auxiliares
-  rns_gen_q_new(&params->qn, &params->qR, &params->qinv, l);
-  rns_gen_q_aux(params->qn, params->qR, params->qinv, q, n, l);
+  rns_gen_q_new(&params->qR2n, &params->qR, &params->qRq, &params->qinv, l);
+  rns_gen_q_aux(params->qR2n, params->qR, params->qRq, params->qinv, q, n, l);
   // complex roots
   vec_new(&params->w, n);
   vec_gen_roots(&params->w, n);
@@ -27,7 +27,7 @@ void ckks_new(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
 }
 
 void ckks_free(ckks_params* params) {
-  rns_gen_q_free(&params->qn, &params->qR, &params->qinv);
+  rns_gen_q_free(&params->qR2n, &params->qR, &params->qRq, &params->qinv);
   vec_free(&params->w);
   rns_free(&params->roots, params->l);
   rns_free(&params->s, params->l);
@@ -66,14 +66,14 @@ void ckks_encrypt(cyphertext* ct, const poly m, const ckks_params* params) {
   poly_cbd24_sampler_add(e, m, params->n);
   // B = -(-A)S + DeltaM + E
   for (uint32_t i = 0; i < params->l; i++) {
-    poly_uniform_sampler(ct->a[i], params->q[i], params->qR[i], params->qinv[i],
+    poly_uniform_sampler(ct->a[i], params->q[i], params->qRq[i],
                          params->n);  // -A
     poly_pointwise_mul(ct->b[i], ct->a[i], params->s[i], params->q[i],
                        params->qinv[i], params->n);
     poly_intt(ct->b[i], params->roots[i], params->q[i], params->qR[i],
               params->qinv[i], params->n);
     poly_rsub(ct->b[i], e, params->q[i], params->qR[i], params->qinv[i],
-              params->qn[i], params->n);
+              params->qR2n[i], params->n);
   }
   poly_free(&e);
 }
@@ -86,7 +86,7 @@ void ckks_decrypt(poly m, const cyphertext* ct, const ckks_params* params) {
   poly_intt(m, params->roots[0], params->q[0], params->qR[0], params->qinv[0],
             params->n);
   poly_add(m, ct->b[0], params->q[0], params->qR[0], params->qinv[0],
-           params->qn[0], params->n);
+           params->qR2n[0], params->n);
 }
 
 void cyphertext_new(cyphertext* ct, const ckks_params* params) {

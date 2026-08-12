@@ -24,30 +24,36 @@ static inline int64_t mod_mul_ct(int64_t a, int64_t b, int64_t q,
 }
 
 // Modular Reduction
-static inline int64_t mod_ct(int64_t a, int64_t q, int64_t qR, int64_t qinv) {
-  return mod_mul_ct(a, qR, q, qinv);
+static inline int64_t mod_ct(int64_t a, int64_t q, int64_t qRq) {
+  int64_t c = (int64_t)(((__int128_t)a * qRq + (1UL << 63)) >> 64); // Round even
+  return a - c*q;
+}
+
+static inline int64_t q_to_q2(int64_t a, int64_t q) {
+  int64_t diff1 = (q / 2) - a;
+  int64_t diff2 = a - (-q / 2);
+
+  int64_t mask1 = diff1 >> 63;
+  int64_t mask2 = diff2 >> 63;
+
+  // Apply modifications using bitwise AND
+  a -= (mask1 & q);
+  a += (mask2 & q);
+
+  return a;
 }
 
 static inline int64_t mod_mul_ct_exact(int64_t a, int64_t b, int64_t q,
                                        int64_t qinv) {
   int64_t c = mod_mul_ct(a, b, q, qinv);
 
-  int64_t diff1 = (q / 2) - c;
-  int64_t diff2 = c - (-q / 2);
-
-  int64_t mask1 = diff1 >> 63;
-  int64_t mask2 = diff2 >> 63;
-
-  // Apply modifications using bitwise AND
-  c -= (mask1 & q);
-  c += (mask2 & q);
-
-  return c;
+  return q_to_q2(c, q);
 }
 
-static inline int64_t mod_ct_exact(int64_t a, int64_t q, int64_t qR,
-                                   int64_t qinv) {
-  return mod_mul_ct_exact(a, qR, q, qinv);
+static inline int64_t mod_ct_exact(int64_t a, int64_t q, int64_t qRq) {
+  int64_t c = mod_ct(a, q, qRq);
+
+  return q_to_q2(c, q);
 }
 
 static inline int64_t mod(int64_t a, int64_t q) {

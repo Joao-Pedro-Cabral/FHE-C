@@ -49,11 +49,10 @@ void poly_ternary_sampler(poly s, uint32_t n);
 /*
   @param a: output public polynomial
   @param q: input modulus
-  @param qR: input R=2^64 mod q
-  @param qinv: input q^(-1) mod 2^64
+  @param qRq: R/q, round even
   @param n: size of the polynomials
 */
-void poly_uniform_sampler(poly a, uint64_t q, int64_t qR, int64_t qinv,
+void poly_uniform_sampler(poly a, uint64_t q, int64_t qRq,
                           uint32_t n);
 
 /*
@@ -70,24 +69,24 @@ void poly_cbd24_sampler_add(poly e, const poly m, uint32_t n);
   @param a: input/output polynomial
   @param b: input polynomial
   @param q: input moduli
-  @param qR: input R=2^64 mod q
+  @param qRq: R/q, round even
   @param qinv: input q^(-1) mod 2^64
-  @param qn: input R^2/n mod q, R=2^64
+  @param qR2n: input R^2/n mod q, R=2^64
   @param n: size of the polynomials
 */
-void poly_add(poly a, const poly b, uint64_t q, int64_t qR, int64_t qinv,
-              int64_t qn, uint32_t n);
+void poly_add(poly a, const poly b, uint64_t q, int64_t qRq, int64_t qinv,
+              int64_t qR2n, uint32_t n);
 
 /*
   @param a: input/output polynomial
   @param b: input polynomial
   @param q: input moduli
-  @param qR: input R=2^64 mod q
+  @param qRq: R/q, round even
   @param qinv: input q^(-1) mod 2^64
-  @param qn: input R^2/n mod q, R=2^64
+  @param qR2n: input R^2/n mod q, R=2^64
   @param n: size of the polynomials
 */
-void poly_rsub(poly a, poly b, uint64_t q, int64_t qR, int64_t qinv, int64_t qn,
+void poly_rsub(poly a, poly b, uint64_t q, int64_t qRq, int64_t qinv, int64_t qR2n,
                uint32_t n);
 
 /*
@@ -103,21 +102,21 @@ void poly_pointwise_mul(poly c, const poly a, const poly b, uint64_t q,
 /*
   @param a: input/output polynomial
   @param q: input moduli
-  @param qR: input R=2^64 mod q
+  @param qRq: input R=2^64 mod q
   @param qinv: input q^(-1) mod 2^64
   @param n: size of the polynomial
 */
-void poly_ntt(poly a, const poly roots, uint64_t q, int64_t qR, int64_t qinv,
+void poly_ntt(poly a, const poly roots, uint64_t q, int64_t qRq, int64_t qinv,
               uint32_t n);
 
 /*
   @param a: input/output polynomial
   @param q: input moduli
-  @param qR: input R=2^64 mod q
+  @param qRq: input R=2^64 mod q
   @param qinv: input q^(-1) mod 2^64
   @param n: size of the polynomial
 */
-void poly_intt(poly a, const poly roots, uint64_t q, int64_t qR, int64_t qinv,
+void poly_intt(poly a, const poly roots, uint64_t q, int64_t qRq, int64_t qinv,
                uint32_t n);
 
 /*
