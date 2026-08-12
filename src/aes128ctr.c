@@ -16,12 +16,12 @@ static void aesni_encrypt4(uint8_t out[AES128CTR_BLOCKBYTES], __m128i *n,
 
   /* Increase counter in 4 consecutive blocks */
   f0 = _mm_shuffle_epi8(_mm_add_epi64(f, _mm_set_epi64x(0, 0)), idx);
-  f1 = _mm_shuffle_epi8(_mm_add_epi64(f, _mm_set_epi64x(1, 0)), idx);
-  f2 = _mm_shuffle_epi8(_mm_add_epi64(f, _mm_set_epi64x(2, 0)), idx);
-  f3 = _mm_shuffle_epi8(_mm_add_epi64(f, _mm_set_epi64x(3, 0)), idx);
+  f1 = _mm_shuffle_epi8(_mm_add_epi64(f, _mm_set_epi64x(0, 1)), idx);
+  f2 = _mm_shuffle_epi8(_mm_add_epi64(f, _mm_set_epi64x(0, 2)), idx);
+  f3 = _mm_shuffle_epi8(_mm_add_epi64(f, _mm_set_epi64x(0, 3)), idx);
 
   /* Write counter for next iteration, increased by 4 */
-  _mm_store_si128(n, _mm_add_epi64(f, _mm_set_epi64x(4, 0)));
+  _mm_store_si128(n, _mm_add_epi64(f, _mm_set_epi64x(0, 4)));
 
   /* Actual AES encryption, 4x interleaved */
   f = _mm_load_si128(&rkeys[0]);
@@ -59,7 +59,6 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
   key0 = _mm_loadu_si128((__m128i *)(key));
   state->n = _mm_loadl_epi64((__m128i *)&nonce);
 
-  state->rkeys[idx++] = key0;
   temp0 = key0;
   temp4 = _mm_setzero_si128();
 
@@ -91,6 +90,7 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
 
   BLOCK1(0x1B);
 
+  BLOCK1(0x36);
   state->rkeys[idx++] = temp0;
 }
 

@@ -7,7 +7,7 @@ CFLAGS := -O3 -mavx2 -mfma -march=native \
           -Wformat=2 \
           -Isrc -Isrc/blake3 \
           $(CFLAGS_EXTRA)
-LDLIBS = -lm
+LDLIBS = -lm -lcrypto
 
 VALGRIND_OPTIONS := -s --leak-check=full --track-origins=yes --show-leak-kinds=all
 
