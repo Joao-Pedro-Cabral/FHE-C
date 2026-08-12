@@ -20,7 +20,7 @@ void ckks_new(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
   rns_gen_roots(params->roots, q, params->qR, params->qinv, n, l);
   // s
   rns_new(&params->s, n, l);
-  rns_gen_secret_key(params->s, params->roots, q, params->qR, params->qinv, n,
+  rns_gen_secret_key(params->s, params->roots, q, params->qRq, params->qinv, n,
                      l);
   // roots for INTT
   rns_gen_inverse_roots(params->roots, q, params->qinv, n, l);
@@ -70,7 +70,7 @@ void ckks_encrypt(cyphertext* ct, const poly m, const ckks_params* params) {
                          params->n);  // -A
     poly_pointwise_mul(ct->b[i], ct->a[i], params->s[i], params->q[i],
                        params->qinv[i], params->n);
-    poly_intt(ct->b[i], params->roots[i], params->q[i], params->qR[i],
+    poly_intt(ct->b[i], params->roots[i], params->q[i], params->qRq[i],
               params->qinv[i], params->n);
     poly_rsub(ct->b[i], e, params->q[i], params->qR[i], params->qinv[i],
               params->qR2n[i], params->n);
@@ -83,7 +83,7 @@ void ckks_decrypt(poly m, const cyphertext* ct, const ckks_params* params) {
   // B + (-A)S = DeltaM + E
   poly_pointwise_mul(m, ct->a[0], params->s[0], params->q[0], params->qinv[0],
                      params->n);
-  poly_intt(m, params->roots[0], params->q[0], params->qR[0], params->qinv[0],
+  poly_intt(m, params->roots[0], params->q[0], params->qRq[0], params->qinv[0],
             params->n);
   poly_add(m, ct->b[0], params->q[0], params->qR[0], params->qinv[0],
            params->qR2n[0], params->n);

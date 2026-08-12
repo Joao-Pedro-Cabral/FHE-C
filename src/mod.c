@@ -15,6 +15,16 @@ uint64_t mod_pow(uint64_t a, uint64_t b, uint64_t q) {
   return c;
 }
 
+uint64_t mod64_pow(uint64_t a, uint64_t b) {
+  uint64_t c = 1, d = a;
+  while (b > 0) {
+    if ((b & 0x1) == 1) c = c*d;
+    d = d*d;
+    b >>= 1;
+  }
+  return c;
+}
+
 static uint32_t find_primes_factors(uint64_t* s, uint64_t m) {
   uint32_t k = 0;
   for (uint64_t i = 2; i * i < m; i++) {
@@ -54,7 +64,7 @@ static uint64_t find_primitive_root(int64_t q) {
   return r;
 }
 
-int64_t find_smallest_nth_root(uint64_t n, int64_t q) {
+int64_t find_smallest_2nth_root(uint64_t n, int64_t q) {
   uint64_t q_1th_root = find_primitive_root(q);
   uint64_t nth_root =
       mod_pow(q_1th_root, ((uint64_t)q - 1) / (2 * n), (uint64_t)q);

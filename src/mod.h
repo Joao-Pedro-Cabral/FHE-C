@@ -9,6 +9,8 @@
 
 uint64_t mod_pow(uint64_t a, uint64_t b, uint64_t q);
 
+uint64_t mod64_pow(uint64_t a, uint64_t b);
+
 // Modular Multiplication (ct: constant-time)
 static inline int64_t mod_mul_ct(int64_t a, int64_t b, int64_t q,
                                  int64_t qinv) {
@@ -74,6 +76,6 @@ static inline uint64_t mod_mulu(uint64_t a, uint64_t b, uint64_t q) {
   return a;
 }
 
-int64_t find_smallest_nth_root(uint64_t n, int64_t q);
+int64_t find_smallest_2nth_root(uint64_t n, int64_t q);
 
 #endif  // __MOD_H__

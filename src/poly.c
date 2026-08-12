@@ -127,16 +127,16 @@ void poly_uniform_sampler(poly a, uint64_t q, int64_t qRq,
   // extremely small, so I just fetch n int64_t plus the XOF rate rounding
   size_t blocks = (n * sizeof(int64_t));
   blocks = (blocks + XOF_RATE - 1) / XOF_RATE;
-  size_t buflen = blocks * XOF_RATE;
+  size_t bufbytes = blocks * XOF_RATE;
   // The rate is multiple of 8 so it's fine
-  uint64_t* buf = (uint64_t*)malloc(buflen);  // Initial guess
-  xof_squeeze((uint8_t*)buf, buflen, &state);
+  uint64_t* buf = (uint64_t*)malloc(bufbytes);  // Initial guess
+  xof_squeeze((uint8_t*)buf, bufbytes, &state);
   uint32_t i = 0, j = 0;
   while (i < n) {
     // We're probably almost at the end so just fetch one more block
-    if (j == buflen) {
-      buflen = XOF_RATE;
-      xof_squeeze((uint8_t*)buf, buflen, &state);
+    if (j == bufbytes/sizeof(int64_t)) {
+      bufbytes = XOF_RATE;
+      xof_squeeze((uint8_t*)buf, bufbytes, &state);
       j = 0;
     }
     uint64_t x = buf[j];
@@ -236,10 +236,10 @@ void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qR,
                     int64_t qinv) {
   // Find one primitive root (n > 2)
   uint32_t log2_n = floor_log2(n);
-  int64_t root0 = find_smallest_nth_root(n, q);
+  int64_t root0 = find_smallest_2nth_root(n, q);
   root0 = mod_mul(root0, qR, q);  // montgomery factor
   roots[0] = 1;
-  roots[bit_reverse32(1, log2_n)] = root0;
+  roots[n/2] = root0;
   for (uint32_t i = 2; i < n; i++) {
     roots[bit_reverse32(i, log2_n)] =
         mod_mul_ct_exact(roots[bit_reverse32(i - 1, log2_n)], root0, q, qinv);
@@ -250,8 +250,7 @@ void poly_gen_inverse_roots(poly roots, uint32_t n, int64_t q, int64_t qinv) {
   // Find one primitive root (n > 2)
   uint32_t log2_n = floor_log2(n);
   int64_t etan = -1;  // x^n
-  int64_t root0 =
-      roots[bit_reverse32(1, log2_n)];  // Previously poly_gen_roots output
+  int64_t root0 = roots[n/2];  // Previously poly_gen_roots output
   roots[0] = 1;
   etan = mod_mul(etan, root0, q);
   roots[bit_reverse32(n - 1, log2_n)] = etan;

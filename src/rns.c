@@ -21,14 +21,14 @@ void rns_free(rns* a, uint32_t l) {
 }
 
 void rns_gen_secret_key(rns s, const rns roots, const uint64_t* q,
-                        const int64_t* qR, const int64_t* qinv, uint32_t n,
+                        const int64_t* qRq, const int64_t* qinv, uint32_t n,
                         uint32_t l) {
   poly s_hat;
   poly_new(&s_hat, n);
   poly_ternary_sampler(s_hat, n);
   for (uint32_t i = 0; i < l; i++) {
     memcpy(s[i], s_hat, sizeof(int64_t) * n);
-    poly_ntt(s[i], roots[i], q[i], qR[i], qinv[i], n);
+    poly_ntt(s[i], roots[i], q[i], qRq[i], qinv[i], n);
   }
   poly_free(&s_hat);
 }
@@ -57,8 +57,7 @@ void rns_gen_q_new(int64_t** qR2n, int64_t** qR, int64_t** qRq, int64_t** qinv, 
 void rns_gen_q_aux(int64_t* qR2n, int64_t* qR, int64_t* qRq, int64_t* qinv, const uint64_t* q,
                    uint32_t n, uint32_t l) {
   for (uint32_t i = 0; i < l; i++) {
-    qinv[i] = (int64_t)mod_pow(1UL << 32, 2*q[i]-4, q[i]); // (1/2^64) = (2^64)^(q-2) = (2^32)^(2q-4)
-    if (qinv[i] > (int64_t)(q[i] / 2)) qinv[i] -= (int64_t)q[i];
+    qinv[i] = (int64_t)mod64_pow(q[i], (1UL << 63)-1); // q-1 = q^(phi-1) mod 2^64
     uint64_t R = (uint64_t)(((__uint128_t)1 << 64) - q[i]);
     qR[i] = (int64_t)(R % q[i]);
     if (qR[i] > (int64_t)(q[i] / 2)) qR[i] -= (int64_t)q[i];

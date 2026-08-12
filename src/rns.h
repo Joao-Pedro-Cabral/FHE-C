@@ -22,14 +22,14 @@ void rns_free(rns* a, uint32_t l);
 /*
   @param roots: input primitive roots of each moduli
   @param q: input modulus
-  @param qR: input R=2^64 in the l modulis
+  @param qRq: R/q, round even
   @param qinv: input inverse of the l q's mod 2^64
   @param n: size of the ring
   @param l: size of the rns
   @param s: output secret key
 */
 void rns_gen_secret_key(rns s, const rns roots, const uint64_t* q,
-                        const int64_t* qR, const int64_t* qinv, uint32_t n,
+                        const int64_t* qRq, const int64_t* qinv, uint32_t n,
                         uint32_t l);
 
 /*
