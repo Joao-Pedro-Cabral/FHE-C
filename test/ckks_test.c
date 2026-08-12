@@ -32,7 +32,7 @@ void check_roots(const rns roots, const uint64_t* q, uint32_t l, uint32_t n) {
   }
 }
 
-void check_secret_key(const rns s, const uint64_t* q, const int64_t* qR,
+void check_secret_key(const rns s, const uint64_t* q, const int64_t* qRq,
                       const int64_t* qinv, const int64_t* qR2n, const rns roots,
                       uint32_t l, uint32_t n) {
   printf("---------- VERIFY SECRET KEY ----------\n");
@@ -46,7 +46,7 @@ void check_secret_key(const rns s, const uint64_t* q, const int64_t* qR,
   }
   for (uint32_t i = 0; i < l; i++) {
     memcpy(s_hat, s[i], n * sizeof(uint64_t));
-    poly_intt(s_hat, roots[i], q[i], qR[i], qinv[i], n);
+    poly_intt(s_hat, roots[i], q[i], qRq[i], qinv[i], n);
     for (uint32_t j = 0; j < n; j++) {
       invn[j] = qR2n[i];
     }
@@ -154,10 +154,9 @@ void check_vectors(const vec* v, const vec* v2, uint32_t n) {
 
 int main() {
   // Parameters Construction
-  uint32_t n = 256;
-  uint32_t l = 2;
-  uint64_t q[2] = {534529, 747521};
-  // uint64_t q[3] = {576460752340123649UL, 576460752368435201UL, 576460752465952769UL};
+  uint32_t n = 65536;
+  uint32_t l = 3;
+  uint64_t q[3] = {2305843009255636993UL, 2305843009322745857UL, 2305843009696038913};
   uint64_t scale = 10000;
 
   ckks_params params;
@@ -166,7 +165,7 @@ int main() {
   ckks_new(&params, n, l, q, scale);
   check_q_aux(params.q, params.qR, params.qRq, params.qinv, params.qR2n, params.l);
   check_roots(params.roots, params.q, params.l, params.n);
-  check_secret_key(params.s, params.q, params.qR, params.qinv, params.qR2n,
+  check_secret_key(params.s, params.q, params.qRq, params.qinv, params.qR2n,
                    params.roots, params.l, params.n);
 
   // Encode

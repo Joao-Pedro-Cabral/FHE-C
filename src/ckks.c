@@ -72,7 +72,7 @@ void ckks_encrypt(cyphertext* ct, const poly m, const ckks_params* params) {
                        params->qinv[i], params->n);
     poly_intt(ct->b[i], params->roots[i], params->q[i], params->qRq[i],
               params->qinv[i], params->n);
-    poly_rsub(ct->b[i], e, params->q[i], params->qR[i], params->qinv[i],
+    poly_rsub(ct->b[i], e, params->q[i], params->qRq[i], params->qinv[i],
               params->qR2n[i], params->n);
   }
   poly_free(&e);
@@ -85,7 +85,7 @@ void ckks_decrypt(poly m, const cyphertext* ct, const ckks_params* params) {
                      params->n);
   poly_intt(m, params->roots[0], params->q[0], params->qRq[0], params->qinv[0],
             params->n);
-  poly_add(m, ct->b[0], params->q[0], params->qR[0], params->qinv[0],
+  poly_add(m, ct->b[0], params->q[0], params->qRq[0], params->qinv[0],
            params->qR2n[0], params->n);
 }
 
