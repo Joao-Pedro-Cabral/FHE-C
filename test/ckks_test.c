@@ -157,6 +157,7 @@ int main() {
   uint32_t n = 256;
   uint32_t l = 2;
   uint64_t q[2] = {534529, 747521};
+  // uint64_t q[3] = {576460752340123649UL, 576460752368435201UL, 576460752465952769UL};
   uint64_t scale = 10000;
 
   ckks_params params;

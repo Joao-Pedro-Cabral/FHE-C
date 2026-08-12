@@ -7,10 +7,7 @@
 
 // We do static inline here for remove function call overhead
 
-// Modular Inverse
-int64_t mod_inverse(uint64_t a, uint64_t q);
-
-int64_t mod_inverse_big(__uint128_t a, __uint128_t q);
+uint64_t mod_pow(uint64_t a, uint64_t b, uint64_t q);
 
 // Modular Multiplication (ct: constant-time)
 static inline int64_t mod_mul_ct(int64_t a, int64_t b, int64_t q,
