@@ -235,13 +235,14 @@ void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qR,
                     int64_t qinv) {
   // Find one primitive root (n > 2)
   uint32_t log2_n = floor_log2(n);
-  int64_t root0 = find_smallest_2nth_root(n, q);
+  int64_t root0 = find_smallest_2nth_root(n, q, qR, qinv);
   root0 = mod_mul(root0, qR, q);  // montgomery factor
   roots[0] = 1;
-  roots[n / 2] = root0;
+  int64_t etan = root0;
+  roots[n / 2] = etan;
   for (uint32_t i = 2; i < n; i++) {
-    roots[bit_reverse32(i, log2_n)] =
-        mod_mul_ct_exact(roots[bit_reverse32(i - 1, log2_n)], root0, q, qinv);
+    etan = mod_mul_ct(etan, root0, q, qinv);
+    roots[bit_reverse32(i, log2_n)] = etan;
   }
 }
 
@@ -254,7 +255,7 @@ void poly_gen_inverse_roots(poly roots, uint32_t n, int64_t q, int64_t qinv) {
   etan = mod_mul(etan, root0, q);
   roots[n - 1] = etan;  // bit_reverse32(n - 1, log2_n)
   for (uint32_t i = 2; i < n; i++) {
-    etan = mod_mul_ct_exact(etan, root0, q, qinv);
+    etan = mod_mul_ct(etan, root0, q, qinv);
     roots[bit_reverse32(n - i, log2_n)] = etan;
   }
 }

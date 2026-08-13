@@ -36,8 +36,8 @@ void check_roots(const rns roots, const uint64_t* q, uint32_t l, uint32_t n) {
   uint8_t correct = 1;
   for (uint32_t i = 0; i < l; i++) {
     for (uint32_t j = 0; j < n; j++) {
-      if ((roots[i][j] > (int64_t)q[i] / 2) |
-          (roots[i][j] < -(int64_t)q[i] / 2)) {
+      if ((roots[i][j] >= (int64_t)q[i]) |
+          (roots[i][j] <= -(int64_t)q[i])) {
         correct = 0;
         printf("roots[%d]: %ld mod %ld\n", j, roots[i][j], q[i]);
       }
