@@ -7,6 +7,13 @@
 
 #ifdef __RUN_MODE__
 #define N_TESTS 100
+#elif __VTUNE_MODE__
+#define N_TESTS 100
+#else
+#define N_TESTS 1
+#endif
+
+#ifdef __RUN_MODE__
 static uint64_t time_ns(void) {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -179,28 +186,32 @@ int main() {
   uint64_t start, end;
 #endif
 
+#ifdef __DEBUG_MODE__
   printf("---------- KEY GENERATION ----------\n");
+#endif
 #ifdef __RUN_MODE__
   start = time_ns();
-  for (uint32_t i = 0; i < N_TESTS; i++) {
 #endif
+  for (uint32_t i = 0; i < N_TESTS; i++) {
     ckks_keygen(&params, n, l, q, scale);
-#ifndef __RUN_MODE__
-    check_q_aux(params.q, params.qR, params.qRq, params.qinv, params.qR2n,
-                params.l);
-    check_roots(params.roots, params.q, params.l, params.n);
-    check_secret_key(params.s, params.q, params.qRq, params.qinv, params.qR2n,
-                     params.roots, params.l, params.n);
+  }
+#ifdef __DEBUG_MODE__
+  check_q_aux(params.q, params.qR, params.qRq, params.qinv, params.qR2n,
+              params.l);
+  check_roots(params.roots, params.q, params.l, params.n);
+  check_secret_key(params.s, params.q, params.qRq, params.qinv, params.qR2n,
+                   params.roots, params.l, params.n);
 #endif
 
 #ifdef __RUN_MODE__
-  }
   end = time_ns();
-  printf("elapsed time = %.3f ms\n", (double)(end - start) / 1000.0);
+  printf("Key Generation: %.3f ms\n", (double)(end - start) / 1000.0);
 #endif
 
   // Encode
+#ifdef __DEBUG_MODE__
   printf("---------- ENCODE ----------\n");
+#endif
   vec v;
   vec_new(&v, n / 2);
   for (uint32_t i = 0; i < n / 2; i++) {
@@ -214,93 +225,99 @@ int main() {
   // }
   poly m;
 #ifdef __RUN_MODE__
-  for (uint32_t i = 0; i < N_TESTS; i++) {
-    start = time_ns();
+  start = time_ns();
 #endif
+  for (uint32_t i = 0; i < N_TESTS; i++) {
     poly_new(&m, n);
     ckks_encode(m, &v, &params);
-#ifndef __RUN_MODE__
-    check_encoded_polynomial(m, (int64_t*)params.q, n);
+  }
+#ifdef __DEBUG_MODE__
+  check_encoded_polynomial(m, (int64_t*)params.q, n);
 #endif
-    // printf("---------- ENCODE POLYNOMIAL ----------\n");
-    // for (uint32_t i = 0; i < n; i++) {
-    //   printf("m[%d]: %ld\n", i, m[i]);
-    // }
+  // printf("---------- ENCODE POLYNOMIAL ----------\n");
+  // for (uint32_t i = 0; i < n; i++) {
+  //   printf("m[%d]: %ld\n", i, m[i]);
+  // }
 
 #ifdef __RUN_MODE__
-  }
   end = time_ns();
-  printf("elapsed time = %.3f ms\n", (double)(end - start) / 1000.0);
+  printf("Encode: %.3f ms\n", (double)(end - start) / 1000.0);
 #endif
 
-  // Encrypt
+// Encrypt
+#ifdef __DEBUG_MODE__
   printf("---------- ENCRYPT ----------\n");
+#endif
   cyphertext ct;
 #ifdef __RUN_MODE__
   start = time_ns();
-  for (uint32_t i = 0; i < N_TESTS; i++) {
 #endif
+  for (uint32_t i = 0; i < N_TESTS; i++) {
     cyphertext_new(&ct, &params);
     ckks_encrypt(&ct, m, &params);
-#ifndef __RUN_MODE__
-    check_cyphertext(&ct, (int64_t*)params.q);
+  }
+#ifdef __DEBUG_MODE__
+  check_cyphertext(&ct, (int64_t*)params.q);
 #endif
-    // printf("---------- ENCRYPTED B ----------\n");
-    // for (uint32_t i = 0; i < l; i++) {
-    //   for (uint32_t j = 0; j < n; j++) {
-    //     printf("b[%d][%d]: %ld\n", i, j, ct.b[i][j]);
-    //   }
-    // }
+  // printf("---------- ENCRYPTED B ----------\n");
+  // for (uint32_t i = 0; i < l; i++) {
+  //   for (uint32_t j = 0; j < n; j++) {
+  //     printf("b[%d][%d]: %ld\n", i, j, ct.b[i][j]);
+  //   }
+  // }
 
 #ifdef __RUN_MODE__
-  }
   end = time_ns();
-  printf("elapsed time = %.3f ms\n", (double)(end - start) / 1000.0);
+  printf("Encrypt: %.3f ms\n", (double)(end - start) / 1000.0);
 #endif
 
+#ifdef __DEBUG_MODE__
   printf("---------- DECRYPT ----------\n");
+#endif
   poly m2;
 #ifdef __RUN_MODE__
   start = time_ns();
-  for (uint32_t i = 0; i < N_TESTS; i++) {
 #endif
+  for (uint32_t i = 0; i < N_TESTS; i++) {
     poly_new(&m2, n);
     ckks_decrypt(m2, &ct, &params);
-#ifndef __RUN_MODE__
-    check_decoded_polynomial(m, m2, scale, n);
+  }
+#ifdef __DEBUG_MODE__
+  check_decoded_polynomial(m, m2, scale, n);
 #endif
-    // printf("---------- DECRYPTED POLYNOMIAL ----------\n");
-    // for (uint32_t i = 0; i < n; i++) {
-    //   printf("m2[%d]: %ld\n", i, m2[i]);
-    // }
+  // printf("---------- DECRYPTED POLYNOMIAL ----------\n");
+  // for (uint32_t i = 0; i < n; i++) {
+  //   printf("m2[%d]: %ld\n", i, m2[i]);
+  // }
 
 #ifdef __RUN_MODE__
-  }
   end = time_ns();
-  printf("elapsed time = %.3f ms\n", (double)(end - start) / 1000.0);
+  printf("Decrypt: %.3f ms\n", (double)(end - start) / 1000.0);
 #endif
 
+#ifdef __DEBUG_MODE__
   printf("---------- DECODE ----------\n");
+#endif
   vec v2;
 #ifdef __RUN_MODE__
   start = time_ns();
-  for (uint32_t i = 0; i < N_TESTS; i++) {
 #endif
+  for (uint32_t i = 0; i < N_TESTS; i++) {
     vec_new(&v2, n / 2);
     ckks_decode(&v2, m2, &params);
-#ifndef __RUN_MODE__
-    check_vectors(&v, &v2, n / 2);
+  }
+#ifdef __DEBUG_MODE__
+  check_vectors(&v, &v2, n / 2);
 #endif
-    // printf("---------- DECODED VECTOR ----------\n");
-    // for (uint32_t i = 0; i < n / 2; i++) {
-    //   printf("v2_rel[%d]: %lf\n", i, v2.rel[i]);
-    //   printf("v2_img[%d]: %lf\n", i, v2.img[i]);
-    // }
+  // printf("---------- DECODED VECTOR ----------\n");
+  // for (uint32_t i = 0; i < n / 2; i++) {
+  //   printf("v2_rel[%d]: %lf\n", i, v2.rel[i]);
+  //   printf("v2_img[%d]: %lf\n", i, v2.img[i]);
+  // }
 
 #ifdef __RUN_MODE__
-  }
   end = time_ns();
-  printf("elapsed time = %.3f ms\n", (double)(end - start) / 1000.0);
+  printf("Decode: %.3f ms\n", (double)(end - start) / 1000.0);
 #endif
 
   // Free
@@ -311,7 +328,9 @@ int main() {
   poly_free(&m);
   poly_free(&m2);
 
+#ifdef __DEBUG_MODE__
   printf("---------- END OF TESTS ----------\n");
+#endif
 
   return 0;
 }

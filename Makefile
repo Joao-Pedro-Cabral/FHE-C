@@ -5,11 +5,9 @@ CFLAGS := -O3 -mavx2 -mfma -march=native \
           -Wshadow -Wconversion \
           -Wundef -Wdouble-promotion \
           -Wformat=2 \
-          -Isrc -Isrc/blake3 \
-          $(CFLAGS_EXTRA)
-LDLIBS = -lm
+          -Isrc -Isrc/blake3
 
-VALGRIND_OPTIONS := -s --leak-check=full --track-origins=yes --show-leak-kinds=all
+LDLIBS := -lm
 
 SRC_DIR := src
 BLAKE3_DIR := $(SRC_DIR)/blake3
@@ -28,38 +26,73 @@ TARGET := $(BUILD_DIR)/$(TEST)
 
 SRC_OBJ := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SRC_C)) \
            $(patsubst %.S,$(BUILD_DIR)/%.o,$(SRC_S))
+
 TEST_OBJ := $(BUILD_DIR)/$(TEST).o
 
-.PHONY: all build run valgrind clean
+.PHONY: all build run debug vtune clean FORCE
 
-# Compile and run
+
+# Default: compile and run in normal mode
 all: run
 
 # Compile only
 build: $(TARGET)
 
-$(TARGET): $(SRC_OBJ) $(TEST_OBJ)
-	@mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) $^ -o $@ $(LDLIBS)
+# ----------------------------------------------------------------------
+# Normal run
+# ----------------------------------------------------------------------
 
-$(BUILD_DIR)/%.o: %.c
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/%.o: %.S
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/%.o: $(TEST_DIR)/%.c
-	@mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
-
+run: CFLAGS += -D__RUN_MODE__
 run: $(TARGET)
 	./$(TARGET)
 
-valgrind: CFLAGS += -g
-valgrind: $(TARGET)
-	valgrind $(VALGRIND_OPTIONS) ./$(TARGET)
+# ----------------------------------------------------------------------
+# Debug
+# ----------------------------------------------------------------------
+
+debug: CFLAGS += -D__DEBUG_MODE__ -g
+debug: $(TARGET)
+	./$(TARGET)
+
+# ----------------------------------------------------------------------
+# Intel VTune
+# ----------------------------------------------------------------------
+
+vtune: CFLAGS += -D__VTUNE_MODE__
+vtune: $(TARGET)
+	@result_dir=$$(mktemp -d /tmp/vtune-XXXXXX); \
+	echo "VTune result directory: $$result_dir"; \
+	vtune \
+		-collect hotspots \
+		-result-dir "$$result_dir" \
+		-- \
+		"$(abspath $(TARGET))"
+
+
+# ----------------------------------------------------------------------
+# Build
+# ----------------------------------------------------------------------
+
+$(TARGET): $(SRC_OBJ) $(TEST_OBJ)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDLIBS)
+
+$(BUILD_DIR)/%.o: %.c FORCE
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/%.o: %.S FORCE
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/%.o: $(TEST_DIR)/%.c FORCE
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+
+# FORCE causes the objects to be recompiled for each mode.
+FORCE:
+
 
 clean:
 	rm -rf $(BUILD_DIR)
