@@ -113,8 +113,7 @@ void poly_ternary_sampler(poly s, uint32_t n) {
 }
 
 // AVX2 doesn't support int64_t multiplication
-void poly_uniform_sampler(poly a, uint64_t q, int64_t qRq,
-                          uint32_t n) {
+void poly_uniform_sampler(poly a, uint64_t q, int64_t qRq, uint32_t n) {
   uint8_t seed[SEED_BYTES];
   randombytes(seed, SEED_BYTES);
   // Initialize PRNG
@@ -134,7 +133,7 @@ void poly_uniform_sampler(poly a, uint64_t q, int64_t qRq,
   uint32_t i = 0, j = 0;
   while (i < n) {
     // We're probably almost at the end so just fetch one more block
-    if (j == bufbytes/sizeof(int64_t)) {
+    if (j == bufbytes / sizeof(int64_t)) {
       bufbytes = XOF_RATE;
       xof_squeeze((uint8_t*)buf, bufbytes, &state);
       j = 0;
@@ -223,7 +222,7 @@ void poly_intt(poly a, const poly roots, uint64_t q, int64_t qRq, int64_t qinv,
       for (uint32_t j = start; j < start + len; ++j) {
         t = a[j];
         a[j] = mod_ct(t + a[j + len], (int64_t)q, qRq);
-        a[j + len] = mod_ct(t - a[j + len], (int64_t)q, qRq);
+        a[j + len] = t - a[j + len];  // lazy reduction with the multiplication
         a[j + len] = mod_mul_ct(zeta, a[j + len], (int64_t)q, qinv);
       }
     }
@@ -239,7 +238,7 @@ void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qR,
   int64_t root0 = find_smallest_2nth_root(n, q);
   root0 = mod_mul(root0, qR, q);  // montgomery factor
   roots[0] = 1;
-  roots[n/2] = root0;
+  roots[n / 2] = root0;
   for (uint32_t i = 2; i < n; i++) {
     roots[bit_reverse32(i, log2_n)] =
         mod_mul_ct_exact(roots[bit_reverse32(i - 1, log2_n)], root0, q, qinv);
@@ -249,11 +248,11 @@ void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qR,
 void poly_gen_inverse_roots(poly roots, uint32_t n, int64_t q, int64_t qinv) {
   // Find one primitive root (n > 2)
   uint32_t log2_n = floor_log2(n);
-  int64_t etan = -1;  // x^n
-  int64_t root0 = roots[n/2];  // Previously poly_gen_roots output
+  int64_t etan = -1;             // x^n
+  int64_t root0 = roots[n / 2];  // Previously poly_gen_roots output
   roots[0] = 1;
   etan = mod_mul(etan, root0, q);
-  roots[bit_reverse32(n - 1, log2_n)] = etan;
+  roots[n - 1] = etan;  // bit_reverse32(n - 1, log2_n)
   for (uint32_t i = 2; i < n; i++) {
     etan = mod_mul_ct_exact(etan, root0, q, qinv);
     roots[bit_reverse32(n - i, log2_n)] = etan;
