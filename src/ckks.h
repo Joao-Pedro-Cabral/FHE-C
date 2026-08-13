@@ -5,14 +5,14 @@
 #include "rns.h"
 #include "vector.h"
 
-// Parameters for CKKS usage (should be initialized with ckks_new)
+// Parameters for CKKS usage (should be initialized with ckks_keygen)
 typedef struct {
   vec w;              // odd 2n complex roots of unity
   const uint64_t* q;  // l modulus
   int64_t* qinv;      // inverse of the l q's mod 2^64
   int64_t* qR;        // R=2^64 in the l modulis
-  int64_t* qRq;        // R/q, round even
-  int64_t* qR2n;        // R^2/n, R=2^64 in q modulis
+  int64_t* qRq;       // R/q, round even
+  int64_t* qR2n;      // R^2/n, R=2^64 in q modulis
   rns roots;          // moduli primitive roots for l NTT domains
   rns s;              // secret key in l NTT domains
   uint32_t l;         // size of the rms
@@ -39,8 +39,8 @@ typedef struct {
   @param q: l primes that decompose ring moduli Q
   @param scale: scale factor
 */
-void ckks_new(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
-              uint64_t scale);
+void ckks_keygen(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
+                 uint64_t scale);
 
 /*
   @param params: CKKS params to be set free

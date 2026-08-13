@@ -3,8 +3,8 @@
 
 #include "random.h"
 
-void ckks_new(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
-              uint64_t scale) {
+void ckks_keygen(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
+                 uint64_t scale) {
   params->n = n;
   params->l = l;
   params->q = q;

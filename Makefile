@@ -7,7 +7,7 @@ CFLAGS := -O3 -mavx2 -mfma -march=native \
           -Wformat=2 \
           -Isrc -Isrc/blake3 \
           $(CFLAGS_EXTRA)
-LDLIBS = -lm -lcrypto
+LDLIBS = -lm
 
 VALGRIND_OPTIONS := -s --leak-check=full --track-origins=yes --show-leak-kinds=all
 
@@ -22,13 +22,7 @@ SRC_C := $(wildcard $(SRC_DIR)/*.c) \
 SRC_S := $(wildcard $(SRC_DIR)/*.S) \
          $(wildcard $(BLAKE3_DIR)/*.S)
 
-SRC := $(SRC_C) $(SRC_S)
-
-TEST ?=
-
-ifeq ($(TEST),)
-$(error Usage: make TEST=<test_name>)
-endif
+TEST ?= ckks_test
 
 TARGET := $(BUILD_DIR)/$(TEST)
 
@@ -36,9 +30,13 @@ SRC_OBJ := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SRC_C)) \
            $(patsubst %.S,$(BUILD_DIR)/%.o,$(SRC_S))
 TEST_OBJ := $(BUILD_DIR)/$(TEST).o
 
-.PHONY: all run valgrind clean
+.PHONY: all build run valgrind clean
 
-all: $(TARGET)
+# Compile and run
+all: run
+
+# Compile only
+build: $(TARGET)
 
 $(TARGET): $(SRC_OBJ) $(TEST_OBJ)
 	@mkdir -p $(BUILD_DIR)
