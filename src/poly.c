@@ -192,21 +192,233 @@ void poly_pointwise_mul(poly c, const poly a, const poly b, uint64_t q,
   }
 }
 
+#define CT_BUTTERFLY(aj, ak, zeta, t)                 \
+  do {                                                \
+    (t) = mod_mul_ct((zeta), (ak), (int64_t)q, qinv); \
+    (ak) = mod_ct((aj) - (t), (int64_t)q, qRq);       \
+    (aj) = mod_ct((aj) + (t), (int64_t)q, qRq);       \
+  } while (0)
+
 void poly_ntt(poly a, const poly roots, uint64_t q, int64_t qRq, int64_t qinv,
               uint32_t n) {
   int64_t zeta, t;
 
-  for (uint32_t len = n / 2; len > 0; len >>= 1) {
-    uint32_t k = n / (2 * len);
+  uint32_t log2_n = floor_log2(n / 16);
+  uint32_t n3_rem = log2_n % 3;
+  if (n3_rem == 1) {  // Just First layer
+    // Roots
+    int64_t w = roots[1];
+    for (uint32_t j = 0; j < n / 2; j++) {
+      // Load
+      int64_t aj0 = a[j + 0 * (n / 2)];
+      int64_t aj1 = a[j + 1 * (n / 2)];
+      // First Layer
+      CT_BUTTERFLY(aj0, aj1, w, t);
+      // Store
+      a[j + 0 * (n / 2)] = aj0;
+      a[j + 1 * (n / 2)] = aj1;
+    }
+  } else if (n3_rem == 2) {  // First and Second layer
+    // Roots
+    int64_t w1 = roots[1];
+    int64_t w20 = roots[2];
+    int64_t w21 = roots[3];
+    for (uint32_t j = 0; j < n / 4; j++) {
+      // Load
+      int64_t aj0 = a[j + 0 * (n / 4)];
+      int64_t aj1 = a[j + 1 * (n / 4)];
+      int64_t aj2 = a[j + 2 * (n / 4)];
+      int64_t aj3 = a[j + 3 * (n / 4)];
+      // First layer (len)
+      CT_BUTTERFLY(aj0, aj2, w1, t);
+      CT_BUTTERFLY(aj1, aj3, w1, t);
+      // Second layer (len/2)
+      CT_BUTTERFLY(aj0, aj1, w20, t);
+      CT_BUTTERFLY(aj2, aj3, w21, t);
+      // Store
+      a[j + 0 * (n / 4)] = aj0;
+      a[j + 1 * (n / 4)] = aj1;
+      a[j + 2 * (n / 4)] = aj2;
+      a[j + 3 * (n / 4)] = aj3;
+    }
+  }
+
+  uint32_t n3 = 1 << (log2_n + 4 - n3_rem);
+  // Merge 3 layers using 16+ registers
+  for (uint32_t len = n3 / 2; len > 8; len >>= 3) {
+    uint32_t k1 = n / (2 * len);
+    uint32_t k2 = k1 << 1;
+    uint32_t k3 = k1 << 2;
     for (uint32_t start = 0; start < n; start += 2 * len) {
-      zeta = roots[k];
-      k++;
-      for (uint32_t j = start; j < start + len; ++j) {
-        t = mod_mul_ct(zeta, a[j + len], (int64_t)q, qinv);
-        a[j + len] = mod_ct(a[j] - t, (int64_t)q, qRq);
-        a[j] = mod_ct(a[j] + t, (int64_t)q, qRq);
+      // Roots
+      int64_t w1 = roots[k1];
+      k1 += 1;
+      int64_t w20 = roots[k2];
+      int64_t w21 = roots[k2 + 1];
+      k2 += 2;
+      int64_t w30 = roots[k3];
+      int64_t w31 = roots[k3 + 1];
+      int64_t w32 = roots[k3 + 2];
+      int64_t w33 = roots[k3 + 3];
+      k3 += 4;
+      for (uint32_t j = start; j < start + len / 4; j++) {
+        // Load
+        int64_t aj0 = a[j + 0 * (len / 4)];
+        int64_t aj1 = a[j + 1 * (len / 4)];
+        int64_t aj2 = a[j + 2 * (len / 4)];
+        int64_t aj3 = a[j + 3 * (len / 4)];
+        int64_t aj4 = a[j + 4 * (len / 4)];
+        int64_t aj5 = a[j + 5 * (len / 4)];
+        int64_t aj6 = a[j + 6 * (len / 4)];
+        int64_t aj7 = a[j + 7 * (len / 4)];
+        // First layer (len), one root
+        CT_BUTTERFLY(aj0, aj4, w1, t);
+        CT_BUTTERFLY(aj1, aj5, w1, t);
+        CT_BUTTERFLY(aj2, aj6, w1, t);
+        CT_BUTTERFLY(aj3, aj7, w1, t);
+        // Second layer (len/2), one root per half
+        CT_BUTTERFLY(aj0, aj2, w20, t);
+        CT_BUTTERFLY(aj1, aj3, w20, t);
+        CT_BUTTERFLY(aj4, aj6, w21, t);
+        CT_BUTTERFLY(aj5, aj7, w21, t);
+        // Third layer (len/4), one root per quarter
+        CT_BUTTERFLY(aj0, aj1, w30, t);
+        CT_BUTTERFLY(aj2, aj3, w31, t);
+        CT_BUTTERFLY(aj4, aj5, w32, t);
+        CT_BUTTERFLY(aj6, aj7, w33, t);
+        // Store
+        a[j + 0 * (len / 4)] = aj0;
+        a[j + 1 * (len / 4)] = aj1;
+        a[j + 2 * (len / 4)] = aj2;
+        a[j + 3 * (len / 4)] = aj3;
+        a[j + 4 * (len / 4)] = aj4;
+        a[j + 5 * (len / 4)] = aj5;
+        a[j + 6 * (len / 4)] = aj6;
+        a[j + 7 * (len / 4)] = aj7;
       }
     }
+  }
+
+  // Merge last 4 layers using 16+ registers
+  uint32_t k1 = n / 16;
+  uint32_t k2 = n / 8;
+  uint32_t k3 = n / 4;
+  uint32_t k4 = n / 2;
+  for (uint32_t j = 0; j < n; j += 16) {
+    // Load
+    int64_t aj0 = a[j + 0];
+    int64_t aj1 = a[j + 1];
+    int64_t aj2 = a[j + 2];
+    int64_t aj3 = a[j + 3];
+    int64_t aj4 = a[j + 4];
+    int64_t aj5 = a[j + 5];
+    int64_t aj6 = a[j + 6];
+    int64_t aj7 = a[j + 7];
+    int64_t aj8 = a[j + 8];
+    int64_t aj9 = a[j + 9];
+    int64_t aj10 = a[j + 10];
+    int64_t aj11 = a[j + 11];
+    int64_t aj12 = a[j + 12];
+    int64_t aj13 = a[j + 13];
+    int64_t aj14 = a[j + 14];
+    int64_t aj15 = a[j + 15];
+    // First layer (len = 8), one root
+    zeta = roots[k1];
+    k1 += 1;
+    CT_BUTTERFLY(aj0, aj8, zeta, t);
+    CT_BUTTERFLY(aj1, aj9, zeta, t);
+    CT_BUTTERFLY(aj2, aj10, zeta, t);
+    CT_BUTTERFLY(aj3, aj11, zeta, t);
+    CT_BUTTERFLY(aj4, aj12, zeta, t);
+    CT_BUTTERFLY(aj5, aj13, zeta, t);
+    CT_BUTTERFLY(aj6, aj14, zeta, t);
+    CT_BUTTERFLY(aj7, aj15, zeta, t);
+    // Second layer (len = 4), one root per half
+    // First Half
+    zeta = roots[k2];
+    k2 += 1;
+    CT_BUTTERFLY(aj0, aj4, zeta, t);
+    CT_BUTTERFLY(aj1, aj5, zeta, t);
+    CT_BUTTERFLY(aj2, aj6, zeta, t);
+    CT_BUTTERFLY(aj3, aj7, zeta, t);
+    // Second Half
+    zeta = roots[k2];
+    k2 += 1;
+    CT_BUTTERFLY(aj8, aj12, zeta, t);
+    CT_BUTTERFLY(aj9, aj13, zeta, t);
+    CT_BUTTERFLY(aj10, aj14, zeta, t);
+    CT_BUTTERFLY(aj11, aj15, zeta, t);
+    // Third layer (len = 2), one root per quarter
+    // First Quarter
+    zeta = roots[k3];
+    k3 += 1;
+    CT_BUTTERFLY(aj0, aj2, zeta, t);
+    CT_BUTTERFLY(aj1, aj3, zeta, t);
+    // Second Quarter
+    zeta = roots[k3];
+    k3 += 1;
+    CT_BUTTERFLY(aj4, aj6, zeta, t);
+    CT_BUTTERFLY(aj5, aj7, zeta, t);
+    // Third Quarter
+    zeta = roots[k3];
+    k3 += 1;
+    CT_BUTTERFLY(aj8, aj10, zeta, t);
+    CT_BUTTERFLY(aj9, aj11, zeta, t);
+    // Forth Quarter
+    zeta = roots[k3];
+    k3 += 1;
+    CT_BUTTERFLY(aj12, aj14, zeta, t);
+    CT_BUTTERFLY(aj13, aj15, zeta, t);
+    // Forth layer (len = 1), one root per eigth
+    // First Eigth
+    zeta = roots[k4];
+    k4 += 1;
+    CT_BUTTERFLY(aj0, aj1, zeta, t);
+    // Second Eigth
+    zeta = roots[k4];
+    k4 += 1;
+    CT_BUTTERFLY(aj2, aj3, zeta, t);
+    // Third Eigth
+    zeta = roots[k4];
+    k4 += 1;
+    CT_BUTTERFLY(aj4, aj5, zeta, t);
+    // Forth Eigth
+    zeta = roots[k4];
+    k4 += 1;
+    CT_BUTTERFLY(aj6, aj7, zeta, t);
+    // Fifth Eigth
+    zeta = roots[k4];
+    k4 += 1;
+    CT_BUTTERFLY(aj8, aj9, zeta, t);
+    // Sixth Eigth
+    zeta = roots[k4];
+    k4 += 1;
+    CT_BUTTERFLY(aj10, aj11, zeta, t);
+    // Seventh Eigth
+    zeta = roots[k4];
+    k4 += 1;
+    CT_BUTTERFLY(aj12, aj13, zeta, t);
+    // Eigth Eigth
+    zeta = roots[k4];
+    k4 += 1;
+    CT_BUTTERFLY(aj14, aj15, zeta, t);
+    // Store
+    a[j + 0] = aj0;
+    a[j + 1] = aj1;
+    a[j + 2] = aj2;
+    a[j + 3] = aj3;
+    a[j + 4] = aj4;
+    a[j + 5] = aj5;
+    a[j + 6] = aj6;
+    a[j + 7] = aj7;
+    a[j + 8] = aj8;
+    a[j + 9] = aj9;
+    a[j + 10] = aj10;
+    a[j + 11] = aj11;
+    a[j + 12] = aj12;
+    a[j + 13] = aj13;
+    a[j + 14] = aj14;
+    a[j + 15] = aj15;
   }
 }
 

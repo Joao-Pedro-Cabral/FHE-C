@@ -76,9 +76,9 @@ void vec_gen_roots(vec* w, uint32_t n) {
 
 void fft(vec* v, const vec* w, uint32_t n) {
   uint32_t log2_n = floor_log2(n);
-  uint32_t n4 = ((log2_n & 0x1) == 0) ? n : (n / 2);
+  uint32_t n2 = ((log2_n & 0x1) == 0) ? n : (n / 2);
   // First layer for odd log2_n
-  if (n4 < n) {
+  if (n2 < n) {
     // Only one root for everyone
     __m256d vw_rel = _mm256_set1_pd(w->rel[1]);
     __m256d vw_img = _mm256_set1_pd(w->img[1]);
@@ -116,7 +116,7 @@ void fft(vec* v, const vec* w, uint32_t n) {
   }
 
   // Merge 2 consecutive layers
-  for (uint32_t len = n4 / 2; len > 8; len >>= 2) {
+  for (uint32_t len = n2 / 2; len > 8; len >>= 2) {
     uint32_t klen = n / (2 * len);
     uint32_t klen2 = n / (len);
     for (uint32_t start = 0; start < n; start += 2 * len) {
@@ -435,8 +435,8 @@ void ifft(vec* v, const vec* w, uint32_t n) {
 
   // Merge 2 consecutive layers
   uint32_t log2_n = floor_log2(n);
-  uint32_t n4 = ((log2_n & 0x1) == 0) ? n : (n / 2);
-  for (uint32_t len = 16; len < n4; len <<= 2) {
+  uint32_t n2 = ((log2_n & 0x1) == 0) ? n : (n / 2);
+  for (uint32_t len = 16; len < n2; len <<= 2) {
     uint32_t klen = n / (2 * len);
     uint32_t k2len = n / (4 * len);
     for (uint32_t start = 0; start < n; start += 4 * len) {
@@ -490,7 +490,7 @@ void ifft(vec* v, const vec* w, uint32_t n) {
   }
 
   // Final layer for odd log2_n
-  if (n4 < n) {
+  if (n2 < n) {
     // Only one root for everyone
     __m256d vw_rel = _mm256_set1_pd(w->rel[1]);
     __m256d vw_img = _mm256_set1_pd(-w->img[1]);
