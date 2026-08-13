@@ -7,6 +7,10 @@ CFLAGS := -O3 -mavx2 -mfma -march=native \
           -Wformat=2 \
           -Isrc -Isrc/blake3
 
+ifeq ($(AES),1)
+CFLAGS += -D__AES_AVX2__
+endif
+
 LDLIBS := -lm
 
 SRC_DIR := src
@@ -29,8 +33,7 @@ SRC_OBJ := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SRC_C)) \
 
 TEST_OBJ := $(BUILD_DIR)/$(TEST).o
 
-.PHONY: all build run debug vtune clean FORCE
-
+.PHONY: all build run debug valgrind vtune clean FORCE
 
 # Default: compile and run in normal mode
 all: run
@@ -54,11 +57,17 @@ debug: CFLAGS += -D__DEBUG_MODE__ -g
 debug: $(TARGET)
 	./$(TARGET)
 
+VALGRIND_OPTIONS := -s --leak-check=full --track-origins=yes --show-leak-kinds=all
+
+valgrind: CFLAGS += -D__DEBUG_MODE__ -g
+valgrind: $(TARGET)
+	valgrind $(VALGRIND_OPTIONS) ./$(TARGET)
+
 # ----------------------------------------------------------------------
 # Intel VTune
 # ----------------------------------------------------------------------
 
-vtune: CFLAGS += -D__VTUNE_MODE__
+vtune: CFLAGS += -D__VTUNE_MODE__ -g
 vtune: $(TARGET)
 	@result_dir=$$(mktemp -d /tmp/vtune-XXXXXX); \
 	echo "VTune result directory: $$result_dir"; \
