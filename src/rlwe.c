@@ -1,39 +1,61 @@
 
 #include "rlwe.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 void rlwe_new(rlwe_t* ab, const rns_params_t* params) {
-  rns_new(&(ab->b), params);
-  rns_new(&(ab->a), params);
+  rns_new(&ab->b, params);
+  rns_new(&ab->a, params);
 }
 
 void rlwe_free(rlwe_t* ab, const rns_params_t* params) {
-  rns_free(&(ab->b), params);
-  rns_free(&(ab->a), params);
+  rns_free(&ab->b, params);
+  rns_free(&ab->a, params);
 }
 
-void rlwe_keys_new(keys_t* kkk, const rns_params_t* params) {
-  rns_new(&(kkk->s), params);
+void rlwe_keys_new(keys_t* keys, const rns_params_t* params) {
+  rns_new(&keys->s, params);
+  keys->r = malloc(params->l * sizeof(rlwe_t));
+  for (uint32_t i = 0; i < params->l; i++) {
+    rlwe_new(&keys->r[i], params);
+  }
 }
 
-void rlwe_keys_free(keys_t* kkk, const rns_params_t* params) {
-  rns_free(&(kkk->s), params);
+void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
+  rns_free(&keys->s, params);
+  for (uint32_t i = 0; i < params->l; i++) {
+    rlwe_free(&keys->r[i], params);
+  }
+  free(keys->r);
 }
 
-void rlwe_gen_secret_key(rns s, const rns_params_t* params) {
+void rlwe_gen_secret_key(keys_t* keys, const rns_params_t* params) {
   poly_t s_hat;
   poly_new(&s_hat, params->n);
   poly_ternary_sampler(s_hat, params->n);
   for (uint32_t i = 0; i < params->l; i++) {
-    memcpy(s[i], s_hat, sizeof(int64_t) * params->n);
-    poly_ntt(s[i], params->w[i], params->q[i], params->qRq[i], params->qinv[i],
-             params->n);
+    memcpy(keys->s[i], s_hat, sizeof(int64_t) * params->n);
+    poly_ntt(keys->s[i], params->w[i], params->q[i], params->qRq[i],
+             params->qinv[i], params->n);
   }
   poly_free(&s_hat);
 }
 
-void rlwe_encrypt(rlwe_t* ab, const poly_t m, const keys_t* kkk,
+void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params) {
+  poly_t s2;
+  poly_new(&s2, params->n);
+  for (uint32_t i = 0; i < params->l; i++) {
+    // The terms q/q_i and q_i/q cancel in the RNS representation
+    // NTT domain -> pointwise operations
+    poly_pointwise_mul(s2, keys->s[i], keys->s[i], params->q[i],
+                       params->qinv[i], params->n);
+    rlwe_encrypt(&keys->r[i], s2, keys, params);
+  }
+  poly_free(&s2);
+}
+
+void rlwe_encrypt(rlwe_t* ab, const poly_t m, const keys_t* keys,
                   const rns_params_t* params) {
   // DeltaM + E
   poly_t e;
@@ -43,7 +65,7 @@ void rlwe_encrypt(rlwe_t* ab, const poly_t m, const keys_t* kkk,
   for (uint32_t i = 0; i < params->l; i++) {
     poly_uniform_sampler(ab->a[i], params->q[i], params->qRq[i],
                          params->n);  // -A
-    poly_pointwise_mul(ab->b[i], ab->a[i], kkk->s[i], params->q[i],
+    poly_pointwise_mul(ab->b[i], ab->a[i], keys->s[i], params->q[i],
                        params->qinv[i], params->n);
     poly_intt(ab->b[i], params->w[i], params->q[i], params->qRq[i],
               params->qinv[i], params->n);
@@ -53,11 +75,11 @@ void rlwe_encrypt(rlwe_t* ab, const poly_t m, const keys_t* kkk,
   poly_free(&e);
 }
 
-void rlwe_decrypt(poly_t m, const rlwe_t* ab, const keys_t* kkk,
+void rlwe_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
                   const rns_params_t* params) {
   // For decrypting we only need l = 0 (deltaM + E < q_0/2)
   // B + (-A)S = DeltaM + E
-  poly_pointwise_mul(m, ab->a[0], kkk->s[0], params->q[0], params->qinv[0],
+  poly_pointwise_mul(m, ab->a[0], keys->s[0], params->q[0], params->qinv[0],
                      params->n);
   poly_intt(m, params->w[0], params->q[0], params->qRq[0], params->qinv[0],
             params->n);

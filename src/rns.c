@@ -5,14 +5,14 @@
 
 #include "mod.h"
 
-void rns_new(rns* a, const rns_params_t* params) {
+void rns_new(rns_t* a, const rns_params_t* params) {
   *a = malloc(sizeof(uint64_t*) * params->l);
   for (uint32_t i = 0; i < params->l; i++) {
     poly_new(&(*a)[i], params->n);
   }
 }
 
-void rns_free(rns* a, const rns_params_t* params) {
+void rns_free(rns_t* a, const rns_params_t* params) {
   for (uint32_t i = 0; i < params->l; i++) {
     poly_free(&(*a)[i]);
   }

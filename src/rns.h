@@ -4,7 +4,7 @@
 
 #include "poly.h"
 
-typedef poly_t* rns;  // L polynomials (one per q_i)
+typedef poly_t* rns_t;  // L polynomials (one per q_i)
 
 typedef struct {
   const uint64_t* q;  // l modulus
@@ -14,20 +14,20 @@ typedef struct {
   int64_t* qR2n;      // R^2/n, R=2^64 in q modulis
   uint32_t l;         // size of the rms
   uint32_t n;         // size of the polynomials
-  rns w;              // roots for each ring
+  rns_t w;            // roots for each ring
 } rns_params_t;
 
 /*
-  @param a: rns to be allocated
+  @param a: rns_t to be allocated
   @param params: RNS params
 */
-void rns_new(rns* a, const rns_params_t* params);
+void rns_new(rns_t* a, const rns_params_t* params);
 
 /*
-  @param a: rns to be set free
+  @param a: rns_t to be set free
   @param params: RNS params
 */
-void rns_free(rns* a, const rns_params_t* params);
+void rns_free(rns_t* a, const rns_params_t* params);
 
 /*
   @param params: RNS params

@@ -31,7 +31,7 @@ void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qRq,
   }
 }
 
-void check_roots(const rns roots, const uint64_t* q, uint32_t l, uint32_t n) {
+void check_roots(const rns_t roots, const uint64_t* q, uint32_t l, uint32_t n) {
   printf("---------- VERIFY RNS ROOTS ----------\n");
   uint8_t correct = 1;
   for (uint32_t i = 0; i < l; i++) {
@@ -49,9 +49,9 @@ void check_roots(const rns roots, const uint64_t* q, uint32_t l, uint32_t n) {
   }
 }
 
-void check_secret_key(const rns s, const uint64_t* q, const int64_t* qRq,
-                      const int64_t* qinv, const int64_t* qR2n, const rns roots,
-                      uint32_t l, uint32_t n) {
+void check_secret_key(const rns_t s, const uint64_t* q, const int64_t* qRq,
+                      const int64_t* qinv, const int64_t* qR2n,
+                      const rns_t roots, uint32_t l, uint32_t n) {
   printf("---------- VERIFY SECRET KEY ----------\n");
   uint8_t correct = 1;
   poly_t s_hat, ones, invn;
@@ -193,13 +193,15 @@ int main() {
 #endif
   for (uint32_t i = 0; i < N_TESTS; i++) {
     ckks_keygen(&params, n, l, q, scale);
+    ckks_relinearization_keygen(&params);
   }
 #ifdef __DEBUG_MODE__
-  check_q_aux(params.rns.q, params.rns.qR, params.rns.qRq, params.rns.qinv,
-              params.rns.qR2n, params.rns.l);
-  check_roots(params.rns.w, params.rns.q, params.rns.l, params.rns.n);
-  check_secret_key(params.kkk.s, params.rns.q, params.rns.qRq, params.rns.qinv,
-                   params.rns.qR2n, params.rns.w, params.rns.l, params.rns.n);
+  check_q_aux(params.rns_t.q, params.rns_t.qR, params.rns_t.qRq,
+              params.rns_t.qinv, params.rns_t.qR2n, params.rns_t.l);
+  check_roots(params.rns_t.w, params.rns_t.q, params.rns_t.l, params.rns_t.n);
+  check_secret_key(params.keys.s, params.rns_t.q, params.rns_t.qRq,
+                   params.rns_t.qinv, params.rns_t.qR2n, params.rns_t.w,
+                   params.rns_t.l, params.rns_t.n);
 #endif
 
 #ifdef __RUN_MODE__
@@ -231,7 +233,7 @@ int main() {
     ckks_encode(m, &v, &params);
   }
 #ifdef __DEBUG_MODE__
-  check_encoded_polynomial(m, (int64_t*)params.rns.q, n);
+  check_encoded_polynomial(m, (int64_t*)params.rns_t.q, n);
 #endif
   // printf("---------- ENCODE POLYNOMIAL ----------\n");
   // for (uint32_t i = 0; i < n; i++) {
@@ -256,7 +258,7 @@ int main() {
     ckks_encrypt(&ct, m, &params);
   }
 #ifdef __DEBUG_MODE__
-  check_cyphertext(&ct, (int64_t*)params.rns.q);
+  check_cyphertext(&ct, (int64_t*)params.rns_t.q);
 #endif
   // printf("---------- ENCRYPTED B ----------\n");
   // for (uint32_t i = 0; i < l; i++) {

@@ -7,17 +7,17 @@
 
 // Parameters for CKKS usage (should be initialized with ckks_keygen)
 typedef struct {
-  vec_t w;           // odd 2n complex roots of unity
-  rns_params_t rns;  // RNS parameters
-  keys_t kkk;        // RLWE context (keys_t and roots)
-  uint64_t scale;    // input scale (Delta)
+  vec_t w;             // odd 2n complex roots of unity
+  rns_params_t rns_t;  // RNS parameters
+  keys_t keys;         // RLWE context (keys_t and roots)
+  uint64_t scale;      // input scale (Delta)
 } ckks_params_t;
 
 // OpenFHE cyphertext format
 typedef struct {
   rlwe_t ab;               // RLWE of the ciphertext_t
   uint32_t n;              // size of the ring
-  uint32_t l;              // size of the rns
+  uint32_t l;              // size of the rns_t
   uint64_t scale;          // input scale (Delta)
   uint64_t int_scale;      // not used in CKKS (default: 1)
   uint64_t noise_scale;    // not used in CKKS (default: 1)
@@ -27,12 +27,17 @@ typedef struct {
 /*
   @param params: CKKS params to be initialized
   @param n: size of the ring
-  @param l: size of the rns
+  @param l: size of the rns_t
   @param q: l primes that decompose ring moduli Q
   @param scale: scale factor
 */
 void ckks_keygen(ckks_params_t* params, uint32_t n, uint32_t l,
                  const uint64_t* q, uint64_t scale);
+
+/*
+  @param params: CKKS params
+*/
+void ckks_relinearization_keygen(ckks_params_t* params);
 
 /*
   @param params: CKKS params to be set free
