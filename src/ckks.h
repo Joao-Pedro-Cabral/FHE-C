@@ -2,28 +2,20 @@
 #ifndef __CKKS_H__
 #define __CKKS_H__
 
-#include "rns.h"
+#include "rlwe.h"
 #include "vector.h"
 
 // Parameters for CKKS usage (should be initialized with ckks_keygen)
 typedef struct {
-  vec w;              // odd 2n complex roots of unity
-  const uint64_t* q;  // l modulus
-  int64_t* qinv;      // inverse of the l q's mod 2^64
-  int64_t* qR;        // R=2^64 in the l modulis
-  int64_t* qRq;       // R/q, round even
-  int64_t* qR2n;      // R^2/n, R=2^64 in q modulis
-  rns roots;          // moduli primitive roots for l NTT domains
-  rns s;              // secret key in l NTT domains
-  uint32_t l;         // size of the rms
-  uint32_t n;         // size of the polynomials
-  uint64_t scale;     // input scale (Delta)
+  vec w;           // odd 2n complex roots of unity
+  rns_params rns;  // RNS parameters
+  keys kkk;        // RLWE context (keys and roots)
+  uint64_t scale;  // input scale (Delta)
 } ckks_params;
 
 // OpenFHE cyphertext format
 typedef struct {
-  rns b;                   // ciphertext (b = as + deltam + e)
-  rns a;                   // ciphertext (a = -a)
+  rlwe ab;                 // RLWE of the cyphertext
   uint32_t n;              // size of the ring
   uint32_t l;              // size of the rns
   uint64_t scale;          // input scale (Delta)

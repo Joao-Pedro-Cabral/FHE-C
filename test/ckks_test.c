@@ -36,8 +36,7 @@ void check_roots(const rns roots, const uint64_t* q, uint32_t l, uint32_t n) {
   uint8_t correct = 1;
   for (uint32_t i = 0; i < l; i++) {
     for (uint32_t j = 0; j < n; j++) {
-      if ((roots[i][j] >= (int64_t)q[i]) |
-          (roots[i][j] <= -(int64_t)q[i])) {
+      if ((roots[i][j] >= (int64_t)q[i]) | (roots[i][j] <= -(int64_t)q[i])) {
         correct = 0;
         printf("roots[%d]: %ld mod %ld\n", j, roots[i][j], q[i]);
       }
@@ -94,15 +93,15 @@ void check_cyphertext(const cyphertext* ct, const int64_t* q) {
   uint8_t correct = 1;
   for (uint32_t i = 0; i < ct->l; i++) {
     for (uint32_t j = 0; j < ct->n; j++) {
-      if ((ct->a[i][j] > (int64_t)q[i] / 2) |
-          (ct->a[i][j] < -(int64_t)q[i] / 2)) {
+      if ((ct->ab.a[i][j] > (int64_t)q[i] / 2) |
+          (ct->ab.a[i][j] < -(int64_t)q[i] / 2)) {
         correct = 0;
-        printf("a[%d][%d]: %ld mod %ld\n", i, j, ct->a[i][j], q[i]);
+        printf("a[%d][%d]: %ld mod %ld\n", i, j, ct->ab.a[i][j], q[i]);
       }
-      if ((ct->b[i][j] > (int64_t)q[i] / 2) |
-          (ct->b[i][j] < -(int64_t)q[i] / 2)) {
+      if ((ct->ab.b[i][j] > (int64_t)q[i] / 2) |
+          (ct->ab.b[i][j] < -(int64_t)q[i] / 2)) {
         correct = 0;
-        printf("b[%d][%d]: %ld mod %ld\n", i, j, ct->b[i][j], q[i]);
+        printf("b[%d][%d]: %ld mod %ld\n", i, j, ct->ab.b[i][j], q[i]);
       }
     }
   }
@@ -196,11 +195,11 @@ int main() {
     ckks_keygen(&params, n, l, q, scale);
   }
 #ifdef __DEBUG_MODE__
-  check_q_aux(params.q, params.qR, params.qRq, params.qinv, params.qR2n,
-              params.l);
-  check_roots(params.roots, params.q, params.l, params.n);
-  check_secret_key(params.s, params.q, params.qRq, params.qinv, params.qR2n,
-                   params.roots, params.l, params.n);
+  check_q_aux(params.rns.q, params.rns.qR, params.rns.qRq, params.rns.qinv,
+              params.rns.qR2n, params.rns.l);
+  check_roots(params.rns.w, params.rns.q, params.rns.l, params.rns.n);
+  check_secret_key(params.kkk.s, params.rns.q, params.rns.qRq, params.rns.qinv,
+                   params.rns.qR2n, params.rns.w, params.rns.l, params.rns.n);
 #endif
 
 #ifdef __RUN_MODE__
@@ -232,7 +231,7 @@ int main() {
     ckks_encode(m, &v, &params);
   }
 #ifdef __DEBUG_MODE__
-  check_encoded_polynomial(m, (int64_t*)params.q, n);
+  check_encoded_polynomial(m, (int64_t*)params.rns.q, n);
 #endif
   // printf("---------- ENCODE POLYNOMIAL ----------\n");
   // for (uint32_t i = 0; i < n; i++) {
@@ -257,12 +256,12 @@ int main() {
     ckks_encrypt(&ct, m, &params);
   }
 #ifdef __DEBUG_MODE__
-  check_cyphertext(&ct, (int64_t*)params.q);
+  check_cyphertext(&ct, (int64_t*)params.rns.q);
 #endif
   // printf("---------- ENCRYPTED B ----------\n");
   // for (uint32_t i = 0; i < l; i++) {
   //   for (uint32_t j = 0; j < n; j++) {
-  //     printf("b[%d][%d]: %ld\n", i, j, ct.b[i][j]);
+  //     printf("b[%d][%d]: %ld\n", i, j, ct->ab.b[i][j]);
   //   }
   // }
 
