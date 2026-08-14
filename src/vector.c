@@ -12,15 +12,15 @@
 #include "complex.h"
 #include "utils.h"
 
-void vec_new(vec* v, uint32_t n) {
+void vec_new(vec_t* v, uint32_t n) {
   v->rel = malloc(2 * n * sizeof(double));
   v->img = &v->rel[n];
 }
 
-void vec_free(vec* v) { free(v->rel); }
+void vec_free(vec_t* v) { free(v->rel); }
 
 // TODO: Vectorize only in forward mode
-void vec_hermitian(vec* v2, const vec* v1, uint32_t n) {
+void vec_hermitian(vec_t* v2, const vec_t* v1, uint32_t n) {
   uint32_t log2_n = floor_log2(n);
   // NO -> BO for IFFT
   for (uint32_t i = 0; i < n / 2; i++) {
@@ -33,7 +33,7 @@ void vec_hermitian(vec* v2, const vec* v1, uint32_t n) {
   }
 }
 
-void vec_input(vec* v2, const vec* v1, uint32_t n) {
+void vec_input(vec_t* v2, const vec_t* v1, uint32_t n) {
   uint32_t log2_n = floor_log2(n);
   // BO -> NO for FFT
   for (uint32_t i = 0; i < n / 2; i++) {
@@ -43,7 +43,7 @@ void vec_input(vec* v2, const vec* v1, uint32_t n) {
   }
 }
 
-void vec_gen_roots(vec* w, uint32_t n) {
+void vec_gen_roots(vec_t* w, uint32_t n) {
   uint32_t log2_n = floor_log2(n);
   w->rel[0] = 1.0;  // bit_reverse32(0, log2_n)
   w->img[0] = 0.0;
@@ -74,7 +74,7 @@ void vec_gen_roots(vec* w, uint32_t n) {
     (vj_img) = _mm256_add_pd((vj_img), (vt_img));                            \
   } while (0)
 
-void fft(vec* v, const vec* w, uint32_t n) {
+void fft(vec_t* v, const vec_t* w, uint32_t n) {
   uint32_t log2_n = floor_log2(n);
   uint32_t n2 = ((log2_n & 0x1) == 0) ? n : (n / 2);
   // First layer for odd log2_n
@@ -307,7 +307,7 @@ void fft(vec* v, const vec* w, uint32_t n) {
     (vk_img) = img_vmul((vt_rel), (vt_img), (vw_rel), (vw_img));             \
   } while (0)
 
-void ifft(vec* v, const vec* w, uint32_t n) {
+void ifft(vec_t* v, const vec_t* w, uint32_t n) {
   uint32_t k1 = n / 2;
   uint32_t k2 = n / 4;
   uint32_t k3 = n / 8;

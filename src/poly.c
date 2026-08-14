@@ -9,12 +9,12 @@
 #include "utils.h"
 #include "xof.h"
 
-void poly_new(poly* m, uint32_t n) { *m = malloc(n * sizeof(int64_t)); }
+void poly_new(poly_t* m, uint32_t n) { *m = malloc(n * sizeof(int64_t)); }
 
-void poly_free(poly* m) { free(*m); }
+void poly_free(poly_t* m) { free(*m); }
 
 // AVX2 doesn't support int64_t <-> double conversion
-void vector_to_poly(poly m, const vec* v, uint64_t scale, uint32_t n) {
+void vector_to_poly(poly_t m, const vec_t* v, uint64_t scale, uint32_t n) {
   // 1/n from IFFT
   double inv_n = (double)scale / n;
   for (uint32_t i = 0; i < n; i++) {
@@ -25,7 +25,7 @@ void vector_to_poly(poly m, const vec* v, uint64_t scale, uint32_t n) {
   }
 }
 
-void poly_to_vector(vec* v, const poly m, uint64_t scale, uint32_t n) {
+void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n) {
   // To increase the precision, we first compute (1 << int_part)/scale
   // Instead of /scale and *(1 << int_part)
   double scale2 = 1.0 / (double)scale;
@@ -54,11 +54,11 @@ static const uint32_t perm_table[16][8] = {
     /* 0xE */ {2, 3, 4, 5, 6, 7, 0, 1},
     /* 0xF */ {0, 1, 2, 3, 4, 5, 6, 7}};
 
-void poly_ternary_sampler(poly s, uint32_t n) {
+void poly_ternary_sampler(poly_t s, uint32_t n) {
   // Initialize PRNG
   uint8_t seed[SEED_BYTES];
   randombytes(seed, SEED_BYTES);
-  xof_state state;
+  xof_state_t state;
   xof_absorb(&state, seed, SEED_BYTES);
   // Sample
   size_t blocks = (((4 * (n / 4) + 2) / 3) + XOF_RATE - 1) / XOF_RATE;
@@ -113,11 +113,11 @@ void poly_ternary_sampler(poly s, uint32_t n) {
 }
 
 // AVX2 doesn't support int64_t multiplication
-void poly_uniform_sampler(poly a, uint64_t q, int64_t qRq, uint32_t n) {
+void poly_uniform_sampler(poly_t a, uint64_t q, int64_t qRq, uint32_t n) {
   uint8_t seed[SEED_BYTES];
   randombytes(seed, SEED_BYTES);
   // Initialize PRNG
-  xof_state state;
+  xof_state_t state;
   xof_absorb(&state, seed, SEED_BYTES);
   // Sample
   uint64_t bound = UINT64_C(-1) / q;
@@ -150,7 +150,7 @@ void poly_uniform_sampler(poly a, uint64_t q, int64_t qRq, uint32_t n) {
 }
 
 // AVX2 doesn't support popcnt
-void poly_cbd24_sampler_add(poly e, const poly m, uint32_t n) {
+void poly_cbd24_sampler_add(poly_t e, const poly_t m, uint32_t n) {
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
   uint8_t seed[SEED_BYTES];
   randombytes(seed, SEED_BYTES);
@@ -167,7 +167,7 @@ void poly_cbd24_sampler_add(poly e, const poly m, uint32_t n) {
   free(buf);
 }
 
-void poly_add(poly a, const poly b, uint64_t q, int64_t qRq, int64_t qinv,
+void poly_add(poly_t a, const poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
               int64_t qR2n, uint32_t n) {
   // R^2/n from INTT
   for (uint32_t i = 0; i < n; i++) {
@@ -176,7 +176,7 @@ void poly_add(poly a, const poly b, uint64_t q, int64_t qRq, int64_t qinv,
   }
 }
 
-void poly_rsub(poly a, const poly b, uint64_t q, int64_t qRq, int64_t qinv,
+void poly_rsub(poly_t a, const poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
                int64_t qR2n, uint32_t n) {
   // R^2/n from INTT
   for (uint32_t i = 0; i < n; i++) {
@@ -185,7 +185,7 @@ void poly_rsub(poly a, const poly b, uint64_t q, int64_t qRq, int64_t qinv,
   }
 }
 
-void poly_pointwise_mul(poly c, const poly a, const poly b, uint64_t q,
+void poly_pointwise_mul(poly_t c, const poly_t a, const poly_t b, uint64_t q,
                         int64_t qinv, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
     c[i] = mod_mul_ct(a[i], b[i], (int64_t)q, qinv);
@@ -199,8 +199,8 @@ void poly_pointwise_mul(poly c, const poly a, const poly b, uint64_t q,
     (aj) = mod_ct((aj) + (t), (int64_t)q, qRq);       \
   } while (0)
 
-void poly_ntt(poly a, const poly roots, uint64_t q, int64_t qRq, int64_t qinv,
-              uint32_t n) {
+void poly_ntt(poly_t a, const poly_t roots, uint64_t q, int64_t qRq,
+              int64_t qinv, uint32_t n) {
   int64_t zeta, t;
 
   uint32_t log2_n = floor_log2(n / 16);
@@ -429,8 +429,8 @@ void poly_ntt(poly a, const poly roots, uint64_t q, int64_t qRq, int64_t qinv,
     (ak) = mod_mul_ct((zeta), (t), (int64_t)q, qinv); \
   } while (0)
 
-void poly_intt(poly a, const poly roots, uint64_t q, int64_t qRq, int64_t qinv,
-               uint32_t n) {
+void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t qRq,
+               int64_t qinv, uint32_t n) {
   int64_t t, zeta;
   // Merge first 4 layers using 16+ registers
   uint32_t k1 = n / 2;
@@ -653,7 +653,7 @@ void poly_intt(poly a, const poly roots, uint64_t q, int64_t qRq, int64_t qinv,
   // R^2/n multiplication performed in poly_add/poly_rsub
 }
 
-void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qR,
+void poly_gen_roots(poly_t roots, uint32_t n, int64_t q, int64_t qR,
                     int64_t qinv) {
   // Find one primitive root (n > 2)
   uint32_t log2_n = floor_log2(n);
@@ -668,7 +668,7 @@ void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qR,
   }
 }
 
-void poly_gen_inverse_roots(poly roots, uint32_t n, int64_t q, int64_t qinv) {
+void poly_gen_inverse_roots(poly_t roots, uint32_t n, int64_t q, int64_t qinv) {
   // Find one primitive root (n > 2)
   uint32_t log2_n = floor_log2(n);
   int64_t etan = -1;             // x^n

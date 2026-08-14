@@ -6,7 +6,7 @@
 
 #include "vector.h"
 
-typedef int64_t* poly;  // N integer coefficients
+typedef int64_t* poly_t;  // N integer coefficients
 
 #define SEED_BYTES (128 / 8)
 
@@ -14,14 +14,14 @@ typedef int64_t* poly;  // N integer coefficients
   @param m: polynomial
   @param n: size of the polynomial
 */
-void poly_new(poly* m, uint32_t n);
+void poly_new(poly_t* m, uint32_t n);
 
 /*
   @param m: polynomial
 */
-void poly_free(poly* m);
+void poly_free(poly_t* m);
 
-// Obs: I know that what really performs the vector <-> poly operations is the
+// Obs: I know that what really performs the vector <-> poly_t operations is the
 // FFT, but I name the functions like that because of how the C code works
 
 /*
@@ -30,7 +30,7 @@ void poly_free(poly* m);
   @param scale: input Delta
   @param n: size of the polynomial
 */
-void vector_to_poly(poly m, const vec* v, uint64_t scale, uint32_t n);
+void vector_to_poly(poly_t m, const vec_t* v, uint64_t scale, uint32_t n);
 
 /*
   @param v: output vector
@@ -38,13 +38,13 @@ void vector_to_poly(poly m, const vec* v, uint64_t scale, uint32_t n);
   @param scale: input Delta
   @param n: size of the polynomial
 */
-void poly_to_vector(vec* v, const poly m, uint64_t scale, uint32_t n);
+void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n);
 
 /*
   @param s: output secret polynomial
   @param n: size of the polynomial
 */
-void poly_ternary_sampler(poly s, uint32_t n);
+void poly_ternary_sampler(poly_t s, uint32_t n);
 
 /*
   @param a: output public polynomial
@@ -52,8 +52,7 @@ void poly_ternary_sampler(poly s, uint32_t n);
   @param qRq: R/q, round even
   @param n: size of the polynomials
 */
-void poly_uniform_sampler(poly a, uint64_t q, int64_t qRq,
-                          uint32_t n);
+void poly_uniform_sampler(poly_t a, uint64_t q, int64_t qRq, uint32_t n);
 
 /*
   @param e: output error polynomial
@@ -63,7 +62,7 @@ void poly_uniform_sampler(poly a, uint64_t q, int64_t qRq,
   // The minimal cbd parameter is 21
   // However, for efficiency reasons I do a 24 cbd
 */
-void poly_cbd24_sampler_add(poly e, const poly m, uint32_t n);
+void poly_cbd24_sampler_add(poly_t e, const poly_t m, uint32_t n);
 
 /*
   @param a: input/output polynomial
@@ -74,7 +73,7 @@ void poly_cbd24_sampler_add(poly e, const poly m, uint32_t n);
   @param qR2n: input R^2/n mod q, R=2^64
   @param n: size of the polynomials
 */
-void poly_add(poly a, const poly b, uint64_t q, int64_t qRq, int64_t qinv,
+void poly_add(poly_t a, const poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
               int64_t qR2n, uint32_t n);
 
 /*
@@ -86,8 +85,8 @@ void poly_add(poly a, const poly b, uint64_t q, int64_t qRq, int64_t qinv,
   @param qR2n: input R^2/n mod q, R=2^64
   @param n: size of the polynomials
 */
-void poly_rsub(poly a, poly b, uint64_t q, int64_t qRq, int64_t qinv, int64_t qR2n,
-               uint32_t n);
+void poly_rsub(poly_t a, poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
+               int64_t qR2n, uint32_t n);
 
 /*
   @param a: input/output polynomial
@@ -96,7 +95,7 @@ void poly_rsub(poly a, poly b, uint64_t q, int64_t qRq, int64_t qinv, int64_t qR
   @param qinv: input q^(-1) mod 2^64
   @param n: size of the polynomials
 */
-void poly_pointwise_mul(poly c, const poly a, const poly b, uint64_t q,
+void poly_pointwise_mul(poly_t c, const poly_t a, const poly_t b, uint64_t q,
                         int64_t qinv, uint32_t n);
 
 /*
@@ -106,8 +105,8 @@ void poly_pointwise_mul(poly c, const poly a, const poly b, uint64_t q,
   @param qinv: input q^(-1) mod 2^64
   @param n: size of the polynomial
 */
-void poly_ntt(poly a, const poly roots, uint64_t q, int64_t qRq, int64_t qinv,
-              uint32_t n);
+void poly_ntt(poly_t a, const poly_t roots, uint64_t q, int64_t qRq,
+              int64_t qinv, uint32_t n);
 
 /*
   @param a: input/output polynomial
@@ -116,8 +115,8 @@ void poly_ntt(poly a, const poly roots, uint64_t q, int64_t qRq, int64_t qinv,
   @param qinv: input q^(-1) mod 2^64
   @param n: size of the polynomial
 */
-void poly_intt(poly a, const poly roots, uint64_t q, int64_t qRq, int64_t qinv,
-               uint32_t n);
+void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t qRq,
+               int64_t qinv, uint32_t n);
 
 /*
   @param q: input moduli
@@ -126,7 +125,7 @@ void poly_intt(poly a, const poly roots, uint64_t q, int64_t qRq, int64_t qinv,
   @param n: size of the ring
   @param roots: output primitive roots the moduli
 */
-void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qR,
+void poly_gen_roots(poly_t roots, uint32_t n, int64_t q, int64_t qR,
                     int64_t qinv);
 
 /*
@@ -136,6 +135,6 @@ void poly_gen_roots(poly roots, uint32_t n, int64_t q, int64_t qR,
   @param n: size of the ring
   @param roots: output primitive roots the moduli
 */
-void poly_gen_inverse_roots(poly roots, uint32_t n, int64_t q, int64_t qinv);
+void poly_gen_inverse_roots(poly_t roots, uint32_t n, int64_t q, int64_t qinv);
 
 #endif  // __POLY_H__

@@ -7,22 +7,22 @@
 
 // Parameters for CKKS usage (should be initialized with ckks_keygen)
 typedef struct {
-  vec w;           // odd 2n complex roots of unity
-  rns_params rns;  // RNS parameters
-  keys kkk;        // RLWE context (keys and roots)
-  uint64_t scale;  // input scale (Delta)
-} ckks_params;
+  vec_t w;           // odd 2n complex roots of unity
+  rns_params_t rns;  // RNS parameters
+  keys_t kkk;        // RLWE context (keys_t and roots)
+  uint64_t scale;    // input scale (Delta)
+} ckks_params_t;
 
 // OpenFHE cyphertext format
 typedef struct {
-  rlwe ab;                 // RLWE of the cyphertext
+  rlwe_t ab;               // RLWE of the ciphertext_t
   uint32_t n;              // size of the ring
   uint32_t l;              // size of the rns
   uint64_t scale;          // input scale (Delta)
   uint64_t int_scale;      // not used in CKKS (default: 1)
   uint64_t noise_scale;    // not used in CKKS (default: 1)
   uint32_t encoding_type;  // always 4 (CKKS_PACKED_ENCODING)
-} cyphertext;
+} ciphertext_t;
 
 /*
   @param params: CKKS params to be initialized
@@ -31,20 +31,20 @@ typedef struct {
   @param q: l primes that decompose ring moduli Q
   @param scale: scale factor
 */
-void ckks_keygen(ckks_params* params, uint32_t n, uint32_t l, const uint64_t* q,
-                 uint64_t scale);
+void ckks_keygen(ckks_params_t* params, uint32_t n, uint32_t l,
+                 const uint64_t* q, uint64_t scale);
 
 /*
   @param params: CKKS params to be set free
 */
-void ckks_free(ckks_params* params);
+void ckks_free(ckks_params_t* params);
 
 /*
   @param v: input n/2 complex vector
   @param params: CKKS params
   @param m: output scaled (delta) polynomial m
 */
-void ckks_encode(poly m, const vec* v, const ckks_params* params);
+void ckks_encode(poly_t m, const vec_t* v, const ckks_params_t* params);
 
 /*
   @param m: input scaled (delta) polynomial m
@@ -53,32 +53,34 @@ void ckks_encode(poly m, const vec* v, const ckks_params* params);
   @param n: size of the polynomial m (2x v size)
   @param v: output n/2 complex vector
 */
-void ckks_decode(vec* v, const poly m, const ckks_params* params);
+void ckks_decode(vec_t* v, const poly_t m, const ckks_params_t* params);
 
 /*
   @param m: input polynomial
   @param params: CKKS params
-  @param ct: output cyphertext
+  @param ct: output ciphertext_t
 */
-void ckks_encrypt(cyphertext* ct, const poly m, const ckks_params* params);
+void ckks_encrypt(ciphertext_t* ct, const poly_t m,
+                  const ckks_params_t* params);
 
 /*
-  @param ct: input cyphertext
+  @param ct: input ciphertext_t
   @param params: CKKS params
   @param m: output polynomial
 */
-void ckks_decrypt(poly m, const cyphertext* ct, const ckks_params* params);
+void ckks_decrypt(poly_t m, const ciphertext_t* ct,
+                  const ckks_params_t* params);
 
 /*
   @param params: CKKS params
-  @param ct: cyphertext to be allocated
+  @param ct: ciphertext_t to be allocated
 */
-void cyphertext_new(cyphertext* ct, const ckks_params* params);
+void cyphertext_new(ciphertext_t* ct, const ckks_params_t* params);
 
 /*
   @param params: CKKS params
-  @param ct: cyphertext to be set free
+  @param ct: ciphertext_t to be set free
 */
-void cyphertext_free(cyphertext* ct, const ckks_params* params);
+void cyphertext_free(ciphertext_t* ct, const ckks_params_t* params);
 
 #endif  // __CKKS_H__

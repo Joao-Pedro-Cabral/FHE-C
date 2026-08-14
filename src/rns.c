@@ -5,35 +5,35 @@
 
 #include "mod.h"
 
-void rns_new(rns* a, const rns_params* params) {
+void rns_new(rns* a, const rns_params_t* params) {
   *a = malloc(sizeof(uint64_t*) * params->l);
   for (uint32_t i = 0; i < params->l; i++) {
     poly_new(&(*a)[i], params->n);
   }
 }
 
-void rns_free(rns* a, const rns_params* params) {
+void rns_free(rns* a, const rns_params_t* params) {
   for (uint32_t i = 0; i < params->l; i++) {
     poly_free(&(*a)[i]);
   }
   free(*a);
 }
 
-void rns_gen_roots(rns_params* params) {
+void rns_gen_roots(rns_params_t* params) {
   for (uint32_t i = 0; i < params->l; i++) {
     poly_gen_roots(params->w[i], params->n, (int64_t)params->q[i],
                    params->qR[i], params->qinv[i]);
   }
 }
 
-void rns_gen_inverse_roots(rns_params* params) {
+void rns_gen_inverse_roots(rns_params_t* params) {
   for (uint32_t i = 0; i < params->l; i++) {
     poly_gen_inverse_roots(params->w[i], params->n, (int64_t)params->q[i],
                            params->qinv[i]);
   }
 }
 
-void rns_params_new(rns_params* params, const uint64_t* q, uint32_t n,
+void rns_params_new(rns_params_t* params, const uint64_t* q, uint32_t n,
                     uint32_t l) {
   // Allocate Memory
   params->n = n;
@@ -64,7 +64,7 @@ void rns_params_new(rns_params* params, const uint64_t* q, uint32_t n,
   }
 }
 
-void rns_params_free(rns_params* params) {
+void rns_params_free(rns_params_t* params) {
   free(params->qinv);
   free(params->qRq);
   free(params->qR);

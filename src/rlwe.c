@@ -3,26 +3,26 @@
 
 #include <string.h>
 
-void rlwe_new(rlwe* ab, const rns_params* params) {
+void rlwe_new(rlwe_t* ab, const rns_params_t* params) {
   rns_new(&(ab->b), params);
   rns_new(&(ab->a), params);
 }
 
-void rlwe_free(rlwe* ab, const rns_params* params) {
+void rlwe_free(rlwe_t* ab, const rns_params_t* params) {
   rns_free(&(ab->b), params);
   rns_free(&(ab->a), params);
 }
 
-void rlwe_keys_new(keys* kkk, const rns_params* params) {
+void rlwe_keys_new(keys_t* kkk, const rns_params_t* params) {
   rns_new(&(kkk->s), params);
 }
 
-void rlwe_keys_free(keys* kkk, const rns_params* params) {
+void rlwe_keys_free(keys_t* kkk, const rns_params_t* params) {
   rns_free(&(kkk->s), params);
 }
 
-void rlwe_gen_secret_key(rns s, const rns_params* params) {
-  poly s_hat;
+void rlwe_gen_secret_key(rns s, const rns_params_t* params) {
+  poly_t s_hat;
   poly_new(&s_hat, params->n);
   poly_ternary_sampler(s_hat, params->n);
   for (uint32_t i = 0; i < params->l; i++) {
@@ -33,10 +33,10 @@ void rlwe_gen_secret_key(rns s, const rns_params* params) {
   poly_free(&s_hat);
 }
 
-void rlwe_encrypt(rlwe* ab, const poly m, const keys* kkk,
-                  const rns_params* params) {
+void rlwe_encrypt(rlwe_t* ab, const poly_t m, const keys_t* kkk,
+                  const rns_params_t* params) {
   // DeltaM + E
-  poly e;
+  poly_t e;
   poly_new(&e, params->n);
   poly_cbd24_sampler_add(e, m, params->n);
   // B = -(-A)S + DeltaM + E
@@ -53,8 +53,8 @@ void rlwe_encrypt(rlwe* ab, const poly m, const keys* kkk,
   poly_free(&e);
 }
 
-void rlwe_decrypt(poly m, const rlwe* ab, const keys* kkk,
-                  const rns_params* params) {
+void rlwe_decrypt(poly_t m, const rlwe_t* ab, const keys_t* kkk,
+                  const rns_params_t* params) {
   // For decrypting we only need l = 0 (deltaM + E < q_0/2)
   // B + (-A)S = DeltaM + E
   poly_pointwise_mul(m, ab->a[0], kkk->s[0], params->q[0], params->qinv[0],

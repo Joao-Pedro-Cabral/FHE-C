@@ -54,7 +54,7 @@ void check_secret_key(const rns s, const uint64_t* q, const int64_t* qRq,
                       uint32_t l, uint32_t n) {
   printf("---------- VERIFY SECRET KEY ----------\n");
   uint8_t correct = 1;
-  poly s_hat, ones, invn;
+  poly_t s_hat, ones, invn;
   poly_new(&s_hat, n);
   poly_new(&ones, n);
   poly_new(&invn, n);
@@ -88,7 +88,7 @@ void check_secret_key(const rns s, const uint64_t* q, const int64_t* qRq,
   }
 }
 
-void check_cyphertext(const cyphertext* ct, const int64_t* q) {
+void check_cyphertext(const ciphertext_t* ct, const int64_t* q) {
   printf("---------- VERIFY CYPHERTEXT ----------\n");
   uint8_t correct = 1;
   for (uint32_t i = 0; i < ct->l; i++) {
@@ -112,7 +112,7 @@ void check_cyphertext(const cyphertext* ct, const int64_t* q) {
   }
 }
 
-void check_encoded_polynomial(const poly m, const int64_t* q, uint32_t n) {
+void check_encoded_polynomial(const poly_t m, const int64_t* q, uint32_t n) {
   printf("---------- VERIFY ENCODED POLYNOMIAL ----------\n");
   uint8_t correct = 1;
   int64_t q0 = q[0];
@@ -129,7 +129,7 @@ void check_encoded_polynomial(const poly m, const int64_t* q, uint32_t n) {
   }
 }
 
-void check_decoded_polynomial(const poly m, const poly m2, uint64_t scale,
+void check_decoded_polynomial(const poly_t m, const poly_t m2, uint64_t scale,
                               uint32_t n) {
   printf("---------- VERIFY DECODED POLYNOMIAL ----------\n");
   uint8_t correct = 1;
@@ -147,7 +147,7 @@ void check_decoded_polynomial(const poly m, const poly m2, uint64_t scale,
   }
 }
 
-void check_vectors(const vec* v, const vec* v2, uint32_t n) {
+void check_vectors(const vec_t* v, const vec_t* v2, uint32_t n) {
   printf("---------- VERIFY VECTORS ----------\n");
   uint8_t correct = 1;
   for (uint32_t i = 0; i < n; i++) {
@@ -179,7 +179,7 @@ int main() {
                    2305843009696038913UL};
   uint64_t scale = 10000;
 
-  ckks_params params;
+  ckks_params_t params;
 
 #ifdef __RUN_MODE__
   uint64_t start, end;
@@ -211,7 +211,7 @@ int main() {
 #ifdef __DEBUG_MODE__
   printf("---------- ENCODE ----------\n");
 #endif
-  vec v;
+  vec_t v;
   vec_new(&v, n / 2);
   for (uint32_t i = 0; i < n / 2; i++) {
     v.rel[i] = i / 4;
@@ -222,7 +222,7 @@ int main() {
   //   printf("v_rel[%d]: %lf\n", i, v.rel[i]);
   //   printf("v_img[%d]: %lf\n", i, v.img[i]);
   // }
-  poly m;
+  poly_t m;
 #ifdef __RUN_MODE__
   start = time_ns();
 #endif
@@ -247,7 +247,7 @@ int main() {
 #ifdef __DEBUG_MODE__
   printf("---------- ENCRYPT ----------\n");
 #endif
-  cyphertext ct;
+  ciphertext_t ct;
 #ifdef __RUN_MODE__
   start = time_ns();
 #endif
@@ -273,7 +273,7 @@ int main() {
 #ifdef __DEBUG_MODE__
   printf("---------- DECRYPT ----------\n");
 #endif
-  poly m2;
+  poly_t m2;
 #ifdef __RUN_MODE__
   start = time_ns();
 #endif
@@ -297,7 +297,7 @@ int main() {
 #ifdef __DEBUG_MODE__
   printf("---------- DECODE ----------\n");
 #endif
-  vec v2;
+  vec_t v2;
 #ifdef __RUN_MODE__
   start = time_ns();
 #endif
