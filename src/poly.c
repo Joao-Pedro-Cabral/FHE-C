@@ -192,6 +192,14 @@ void poly_pointwise_mul(poly_t c, const poly_t a, const poly_t b, uint64_t q,
   }
 }
 
+void poly_pointwise_mulx(poly_t c, const poly_t a, const poly_t b, int64_t x,
+                         uint64_t q, int64_t qinv, uint32_t n) {
+  for (uint32_t i = 0; i < n; i++) {
+    c[i] = mod_mul_ct(mod_mul_ct(a[i], b[i], (int64_t)q, qinv), x, (int64_t)q,
+                      qinv);
+  }
+}
+
 #define CT_BUTTERFLY(aj, ak, zeta, t)                 \
   do {                                                \
     (t) = mod_mul_ct((zeta), (ak), (int64_t)q, qinv); \

@@ -45,11 +45,15 @@ void rlwe_gen_secret_key(keys_t* keys, const rns_params_t* params) {
 void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params) {
   poly_t s2;
   poly_new(&s2, params->n);
+  // Compute S^2 in the first (biggest) NTT domain
+  // The pointwise removes the INTT R^2/n factor
+  poly_pointwise_mulx(s2, keys->s[0], keys->s[0], params->qR2n[0], params->q[0],
+                      params->qinv[0], params->n);
+  poly_intt(s2, params->w[0], params->q[0], params->qRq[0], params->qinv[0],
+            params->n);
   for (uint32_t i = 0; i < params->l; i++) {
     // The terms q/q_i and q_i/q cancel in the RNS representation
     // NTT domain -> pointwise operations
-    poly_pointwise_mul(s2, keys->s[i], keys->s[i], params->q[i],
-                       params->qinv[i], params->n);
     rlwe_encrypt(&keys->r[i], s2, keys, params);
   }
   poly_free(&s2);

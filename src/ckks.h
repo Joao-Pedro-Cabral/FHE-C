@@ -7,10 +7,10 @@
 
 // Parameters for CKKS usage (should be initialized with ckks_keygen)
 typedef struct {
-  vec_t w;             // odd 2n complex roots of unity
-  rns_params_t rns_t;  // RNS parameters
-  keys_t keys;         // RLWE context (keys_t and roots)
-  uint64_t scale;      // input scale (Delta)
+  vec_t w;           // odd 2n complex roots of unity
+  rns_params_t rns;  // RNS parameters
+  keys_t keys;       // RLWE context (keys_t and roots)
+  uint64_t scale;    // input scale (Delta)
 } ckks_params_t;
 
 // OpenFHE cyphertext format

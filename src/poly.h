@@ -100,6 +100,17 @@ void poly_pointwise_mul(poly_t c, const poly_t a, const poly_t b, uint64_t q,
 
 /*
   @param a: input/output polynomial
+  @param b: input polynomial
+  @param x: input multiplicative constant
+  @param q: input moduli
+  @param qinv: input q^(-1) mod 2^64
+  @param n: size of the polynomials
+*/
+void poly_pointwise_mulx(poly_t c, const poly_t a, const poly_t b, int64_t x,
+                         uint64_t q, int64_t qinv, uint32_t n);
+
+/*
+  @param a: input/output polynomial
   @param q: input moduli
   @param qRq: input R=2^64 mod q
   @param qinv: input q^(-1) mod 2^64
