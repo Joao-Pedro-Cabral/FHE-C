@@ -49,13 +49,13 @@ void check_roots(const rns_t roots, const uint64_t* q, uint32_t l, uint32_t n) {
   }
 }
 
-void check_secret_key(poly_t s_hat, const rns_t s, const uint64_t* q,
-                      const int64_t* qRq, const int64_t* qinv,
-                      const int64_t* qR2n, const rns_t roots, uint32_t l,
-                      uint32_t n) {
+void check_secret_key(const rns_t s, const uint64_t* q, const int64_t* qRq,
+                      const int64_t* qinv, const int64_t* qR2n,
+                      const rns_t roots, uint32_t l, uint32_t n) {
   printf("---------- VERIFY SECRET KEY ----------\n");
   uint8_t correct = 1;
-  poly_t ones, invn;
+  poly_t ones, invn, s_hat;
+  poly_new(&s_hat, n);
   poly_new(&ones, n);
   poly_new(&invn, n);
   for (uint32_t i = 0; i < n; i++) {
@@ -78,6 +78,7 @@ void check_secret_key(poly_t s_hat, const rns_t s, const uint64_t* q,
       }
     }
   }
+  poly_free(&s_hat);
   poly_free(&ones);
   poly_free(&invn);
   if (correct) {
@@ -87,8 +88,7 @@ void check_secret_key(poly_t s_hat, const rns_t s, const uint64_t* q,
   }
 }
 
-void check_relinearization_key(const poly_t s_hat,
-                               const ckks_params_t* params) {
+void check_relinearization_key(const ckks_params_t* params) {
   printf("---------- VERIFY RELINEARIZATION KEY ----------\n");
   uint8_t correct = 1;
   poly_t s2_hat, s2, s2_aux;
@@ -101,7 +101,7 @@ void check_relinearization_key(const poly_t s_hat,
   // Then the products/sums will never wrap around on any moduli
   for (size_t i = 0; i < params->rns.n; i++) {
     for (size_t j = 0; j < params->rns.n; j++) {
-      s2_hat[i + j] += s_hat[i] * s_hat[j];
+      s2_hat[i + j] += params->keys.s_hat[i] * params->keys.s_hat[j];
     }
   }
   // Reduction over X^n + 1
@@ -109,11 +109,12 @@ void check_relinearization_key(const poly_t s_hat,
     s2_hat[i] = s2_hat[i] - s2_hat[params->rns.n + i];
   }
   for (uint32_t i = 0; i < params->rns.l; i++) {
-    rlwe_relinearization_key_decrypt(s2, i, &params->keys.r[i], &params->keys, &params->rns);
+    rlwe_relinearization_key_decrypt(s2, i, &params->keys.r[i], &params->keys,
+                                     &params->rns);
     for (uint32_t j = 0; j < params->rns.n; j++) {
       if (s2[j] != s2_hat[j]) {
         correct = 0;
-        printf("Invalid secret key! s2[%d]: %ld, s2_hat[%d]: %ld mod %ld\n", j,
+        printf("Invalid reli. key! s2[%d]: %ld, s2_hat[%d]: %ld mod %ld\n", j,
                s2[j], j, s2_hat[j], params->rns.q[i]);
       }
     }
@@ -129,13 +130,10 @@ void check_relinearization_key(const poly_t s_hat,
 }
 
 void check_keys(const ckks_params_t* params) {
-  poly_t s_hat;
-  poly_new(&s_hat, params->rns.n);
-  check_secret_key(s_hat, params->keys.s, params->rns.q, params->rns.qRq,
+  check_secret_key(params->keys.s, params->rns.q, params->rns.qRq,
                    params->rns.qinv, params->rns.qR2n, params->rns.w,
                    params->rns.l, params->rns.n);
-  check_relinearization_key(s_hat, params);
-  poly_free(&s_hat);
+  check_relinearization_key(params);
 }
 
 void check_cyphertext(const ciphertext_t* ct, const int64_t* q) {

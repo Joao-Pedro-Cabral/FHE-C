@@ -15,6 +15,7 @@ void rlwe_free(rlwe_t* ab, const rns_params_t* params) {
 }
 
 void rlwe_keys_new(keys_t* keys, const rns_params_t* params) {
+  poly_new(&keys->s_hat, params->n);
   rns_new(&keys->s, params);
   keys->r = malloc(params->l * sizeof(rlwe_t));
   for (uint32_t i = 0; i < params->l; i++) {
@@ -23,6 +24,7 @@ void rlwe_keys_new(keys_t* keys, const rns_params_t* params) {
 }
 
 void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
+  poly_free(&keys->s_hat);
   rns_free(&keys->s, params);
   for (uint32_t i = 0; i < params->l; i++) {
     rlwe_free(&keys->r[i], params);
@@ -31,15 +33,12 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
 }
 
 void rlwe_gen_secret_key(keys_t* keys, const rns_params_t* params) {
-  poly_t s_hat;
-  poly_new(&s_hat, params->n);
-  poly_ternary_sampler(s_hat, params->n);
+  poly_ternary_sampler(keys->s_hat, params->n);
   for (uint32_t i = 0; i < params->l; i++) {
-    memcpy(keys->s[i], s_hat, sizeof(int64_t) * params->n);
+    memcpy(keys->s[i], keys->s_hat, sizeof(int64_t) * params->n);
     poly_ntt(keys->s[i], params->w[i], params->q[i], params->qRq[i],
              params->qinv[i], params->n);
   }
-  poly_free(&s_hat);
 }
 
 void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params) {

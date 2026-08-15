@@ -11,8 +11,9 @@ typedef struct {
 
 // RLWE Keys
 typedef struct {
-  rns_t s;    // secret key in l NTT domains
-  rlwe_t* r;  // relinearization key (l RLWE's)
+  poly_t s_hat;  // secrt key in normal domain
+  rns_t s;       // secret key in l NTT domains
+  rlwe_t* r;     // relinearization key (l RLWE's)
 } keys_t;
 
 /*
