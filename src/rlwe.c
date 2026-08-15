@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "mod.h"
+#include "utils.h"
+
 void rlwe_new(rlwe_t* ab, const rns_params_t* params) {
   rns_new(&ab->b, params);
   rns_new(&ab->a, params);
@@ -21,6 +24,14 @@ void rlwe_keys_new(keys_t* keys, const rns_params_t* params) {
   for (uint32_t i = 0; i < params->l; i++) {
     rlwe_new(&keys->r[i], params);
   }
+  uint32_t log2_n = floor_log2(params->n) - 1;
+  keys->h = malloc(log2_n * sizeof(switch_t));
+  for (uint32_t i = 0; i < log2_n; i++) {
+    keys->h[i] = malloc(params->l * sizeof(rlwe_t));
+    for (uint32_t j = 0; j < params->l; j++) {
+      rlwe_new(&keys->h[i][j], params);
+    }
+  }
 }
 
 void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
@@ -30,6 +41,14 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
     rlwe_free(&keys->r[i], params);
   }
   free(keys->r);
+  uint32_t log2_n = floor_log2(params->n) - 1;
+  for (uint32_t i = 0; i < log2_n; i++) {
+    for (uint32_t j = 0; j < params->l; j++) {
+      rlwe_free(&keys->h[i][j], params);
+    }
+    free(keys->h[i]);
+  }
+  free(keys->h);
 }
 
 void rlwe_gen_secret_key(keys_t* keys, const rns_params_t* params) {
@@ -52,6 +71,25 @@ void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params) {
             params->n);
   for (uint32_t i = 0; i < params->l; i++) {
     rlwe_key_switch_encrypt(&keys->r[i], i, s2, keys, params);
+  }
+  poly_free(&s2);
+}
+
+// Trade-off memory/performance for inner-product:
+// (log2_n - 1) keys + (log2_n - 1) rotations for reduction
+// log2_n - 1 because we work with complex vector slots
+void rlwe_gen_rotation_key(keys_t* keys, const rns_params_t* params) {
+  poly_t s2;
+  poly_new(&s2, params->n);
+  uint32_t log2_n = floor_log2(params->n) - 1;
+  uint32_t g = 5;
+  uint32_t n2 = 2 * params->n;
+  for (uint32_t i = 0; i < log2_n; i++) {
+    poly_permute(s2, keys->s_hat, g, params->n);
+    for (uint32_t j = 0; j < params->l; j++) {
+      rlwe_key_switch_encrypt(&keys->h[i][j], j, s2, keys, params);
+    }
+    g = (g * g) & (n2 - 1);  // mod 2n
   }
   poly_free(&s2);
 }

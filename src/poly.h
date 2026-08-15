@@ -108,8 +108,16 @@ void poly_add(poly_t a, const poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
   @param qR2n: input R^2/n mod q, R=2^64
   @param n: size of the polynomials
 */
-void poly_rsub(poly_t a, poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
+void poly_rsub(poly_t a, const poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
                int64_t qR2n, uint32_t n);
+
+/*
+  @param a: input/output polynomial
+  @param b: input polynomial
+  @param h: permute from X to X^h
+  @param n: size of the polynomials
+*/
+void poly_permute(poly_t a, const poly_t b, uint32_t h, uint32_t n);
 
 /*
   @param a: input/output polynomial

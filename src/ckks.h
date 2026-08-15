@@ -40,6 +40,11 @@ void ckks_keygen(ckks_params_t* params, uint32_t n, uint32_t l,
 void ckks_relinearization_keygen(ckks_params_t* params);
 
 /*
+  @param params: CKKS params
+*/
+void ckks_rotation_keygen(ckks_params_t* params);
+
+/*
   @param params: CKKS params to be set free
 */
 void ckks_free(ckks_params_t* params);

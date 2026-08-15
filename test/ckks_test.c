@@ -5,6 +5,8 @@
 #include <string.h>
 #include <time.h>
 
+#include "utils.h"
+
 #ifdef __RUN_MODE__
 #define N_TESTS 100
 #elif __VTUNE_MODE__
@@ -129,11 +131,60 @@ void check_relinearization_key(const ckks_params_t* params) {
   poly_free(&s2);
 }
 
+void check_rotation_key(const ckks_params_t* params) {
+  printf("---------- VERIFY ROTATION KEY ----------\n");
+  uint8_t correct = 1;
+  poly_t s2;
+  poly_new(&s2, params->rns.n);
+  // Since the rotation is just a permutation the number of 0, 1 and -1 must be
+  // equal
+  uint32_t cnt0 = 0, cnt1 = 0, cnt_1 = 0;
+  uint32_t cnt20 = 0, cnt21 = 0, cnt2_1 = 0;
+  for (size_t i = 0; i < params->rns.n; i++) {
+    if (params->keys.s_hat[i] == 0)
+      cnt0++;
+    else if (params->keys.s_hat[i] == 1)
+      cnt1++;
+    else if (params->keys.s_hat[i] == -1)
+      cnt_1++;
+  }
+  uint32_t log2_n = floor_log2(params->rns.n) - 1;
+  for (uint32_t i = 0; i < log2_n; i++) {
+    for (uint32_t j = 0; j < params->rns.l; j++) {
+      cnt20 = cnt21 = cnt2_1 = 0;
+      rlwe_key_switch_decrypt(s2, j, &params->keys.h[i][j], &params->keys,
+                              &params->rns);
+      for (uint32_t k = 0; k < params->rns.n; k++) {
+        if (s2[k] == 0)
+          cnt20++;
+        else if (s2[k] == 1)
+          cnt21++;
+        else if (s2[k] == -1)
+          cnt2_1++;
+      }
+      if ((cnt20 != cnt0) || (cnt21 != cnt1) || (cnt2_1 != cnt_1)) {
+        correct = 0;
+        printf(
+            "Invalid rot. key count! cnt0: %d, cnt20: %d, cnt1: %d, cnt21: %d, "
+            "cnt-1: %d, cnt2-1: %d for %d left rotation mod %ld\n",
+            cnt0, cnt20, cnt1, cnt21, cnt_1, cnt2_1, 1 << i, params->rns.q[i]);
+      }
+    }
+  }
+  if (correct) {
+    printf("---------- ROTATION KEY CORRECT ----------\n");
+  } else {
+    printf("---------- ROTATION KEY WRONG ----------\n");
+  }
+  poly_free(&s2);
+}
+
 void check_keys(const ckks_params_t* params) {
   check_secret_key(params->keys.s, params->rns.q, params->rns.qRq,
                    params->rns.qinv, params->rns.qR2n, params->rns.w,
                    params->rns.l, params->rns.n);
   check_relinearization_key(params);
+  check_rotation_key(params);
 }
 
 void check_cyphertext(const ciphertext_t* ct, const int64_t* q) {
@@ -221,7 +272,7 @@ void check_vectors(const vec_t* v, const vec_t* v2, uint32_t n) {
 
 int main() {
   // Parameters Construction
-  uint32_t n = 1024;
+  uint32_t n = 16;
   uint32_t l = 3;
   uint64_t q[3] = {2305843009255636993UL, 2305843009322745857UL,
                    2305843009696038913UL};
@@ -242,6 +293,7 @@ int main() {
   for (uint32_t i = 0; i < N_TESTS; i++) {
     ckks_keygen(&params, n, l, q, scale);
     ckks_relinearization_keygen(&params);
+    ckks_rotation_keygen(&params);
   }
 #ifdef __DEBUG_MODE__
   check_q_aux(params.rns.q, params.rns.qR, params.rns.qRq, params.rns.qinv,

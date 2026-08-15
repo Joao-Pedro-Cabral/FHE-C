@@ -24,6 +24,10 @@ void ckks_relinearization_keygen(ckks_params_t* params) {
   rlwe_gen_relinearization_key(&params->keys, &params->rns);
 }
 
+void ckks_rotation_keygen(ckks_params_t* params) {
+  rlwe_gen_rotation_key(&params->keys, &params->rns);
+}
+
 void ckks_free(ckks_params_t* params) {
   vec_free(&params->w);
   rns_params_free(&params->rns);
