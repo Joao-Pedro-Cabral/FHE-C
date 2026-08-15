@@ -65,6 +65,29 @@ void poly_uniform_sampler(poly_t a, uint64_t q, int64_t qRq, uint32_t n);
 void poly_cbd24_sampler_add(poly_t e, const poly_t m, uint32_t n);
 
 /*
+  @param e: output error polynomial
+  @param n: size of the polynomial
+  // To mimic a gaussian with std deviation 3.2 with a cbd
+  // The minimal cbd parameter is 21
+  // However, for efficiency reasons I do a 24 cbd
+*/
+void poly_cbd24_sampler(poly_t e, uint32_t n);
+
+/*
+  @param a: input/output polynomial
+  @param b: input polynomial
+  @param n: size of the polynomials
+*/
+void poly_add_no_mod(poly_t a, const poly_t b, uint32_t n);
+
+/*
+  @param a: input/output polynomial
+  @param b: input polynomial
+  @param n: size of the polynomials
+*/
+void poly_sub_no_mod(poly_t a, const poly_t b, uint32_t n);
+
+/*
   @param a: input/output polynomial
   @param b: input polynomial
   @param q: input moduli

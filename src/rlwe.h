@@ -56,7 +56,7 @@ void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params);
   @param params: RNS params
   @param ab: output encrypted RLWE
 */
-void rlwe_encrypt(rlwe_t* ab, const poly_t m, const keys_t* keys,
+void rlwe_plaintext_encrypt(rlwe_t* ab, const poly_t m, const keys_t* keys,
                   const rns_params_t* params);
 
 /*
@@ -65,7 +65,25 @@ void rlwe_encrypt(rlwe_t* ab, const poly_t m, const keys_t* keys,
   @param ab: input encrypted RLWE
   @param m: output polynomial
 */
-void rlwe_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
+void rlwe_plaintext_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
+                  const rns_params_t* params);
+
+/*
+  @param params: RNS params
+  @param keys: RLWE context
+  @param ab: input encrypted RLWE
+  @param m: output polynomial
+*/
+void rlwe_relinearization_key_encrypt(rlwe_t* ab, uint32_t index, const poly_t m, const keys_t* keys,
+                  const rns_params_t* params);
+
+/*
+  @param params: RNS params
+  @param keys: RLWE context
+  @param ab: input encrypted RLWE
+  @param m: output polynomial
+*/
+void rlwe_relinearization_key_decrypt(poly_t m, uint32_t index, const rlwe_t* ab, const keys_t* keys,
                   const rns_params_t* params);
 
 #endif  // __RLWE_H__

@@ -167,6 +167,37 @@ void poly_cbd24_sampler_add(poly_t e, const poly_t m, uint32_t n) {
   free(buf);
 }
 
+void poly_cbd24_sampler(poly_t e, uint32_t n) {
+  uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
+  uint8_t seed[SEED_BYTES];
+  randombytes(seed, SEED_BYTES);
+  xof(buf, 6 * n, seed, SEED_BYTES);
+  for (uint32_t i = 0; i < n; i++) {
+    int b1 = __builtin_popcount(buf[6 * i]);
+    b1 += __builtin_popcount(buf[6 * i + 1]);
+    b1 += __builtin_popcount(buf[6 * i + 2]);
+    int b2 = __builtin_popcount(buf[6 * i + 3]);
+    b2 += __builtin_popcount(buf[6 * i + 4]);
+    b2 += __builtin_popcount(buf[6 * i + 5]);
+    e[i] = b1 - b2;
+  }
+  free(buf);
+}
+
+void poly_add_no_mod(poly_t a, const poly_t b, uint32_t n) {
+  // No reduction
+  for (uint32_t i = 0; i < n; i++) {
+    a[i] = a[i] + b[i];
+  }
+}
+
+void poly_sub_no_mod(poly_t a, const poly_t b, uint32_t n) {
+  // No reduction
+  for (uint32_t i = 0; i < n; i++) {
+    a[i] = a[i] - b[i];
+  }
+}
+
 void poly_add(poly_t a, const poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
               int64_t qR2n, uint32_t n) {
   // R^2/n from INTT

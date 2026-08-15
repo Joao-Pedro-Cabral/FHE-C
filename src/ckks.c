@@ -58,12 +58,12 @@ void ckks_decode(vec_t* v, const poly_t m, const ckks_params_t* params) {
 
 void ckks_encrypt(ciphertext_t* ct, const poly_t m,
                   const ckks_params_t* params) {
-  rlwe_encrypt(&ct->ab, m, &params->keys, &params->rns);
+  rlwe_plaintext_encrypt(&ct->ab, m, &params->keys, &params->rns);
 }
 
 void ckks_decrypt(poly_t m, const ciphertext_t* ct,
                   const ckks_params_t* params) {
-  rlwe_decrypt(m, &ct->ab, &params->keys, &params->rns);
+  rlwe_plaintext_decrypt(m, &ct->ab, &params->keys, &params->rns);
 }
 
 void cyphertext_new(ciphertext_t* ct, const ckks_params_t* params) {

@@ -91,9 +91,10 @@ void check_relinearization_key(const poly_t s_hat,
                                const ckks_params_t* params) {
   printf("---------- VERIFY RELINEARIZATION KEY ----------\n");
   uint8_t correct = 1;
-  poly_t s2_hat, s2;
+  poly_t s2_hat, s2, s2_aux;
   poly_new(&s2_hat, 2 * params->rns.n);
   poly_new(&s2, params->rns.n);
+  poly_new(&s2_aux, params->rns.n);
   memset(s2_hat, 0, 2 * params->rns.n * sizeof(int64_t));
   // S^2
   // Since the coefficients are ternary and q_0 >> N ( > 2*N)
@@ -108,7 +109,7 @@ void check_relinearization_key(const poly_t s_hat,
     s2_hat[i] = s2_hat[i] - s2_hat[params->rns.n + i];
   }
   for (uint32_t i = 0; i < params->rns.l; i++) {
-    rlwe_decrypt(s2, &params->keys.r[i], &params->keys, &params->rns);
+    rlwe_relinearization_key_decrypt(s2, i, &params->keys.r[i], &params->keys, &params->rns);
     for (uint32_t j = 0; j < params->rns.n; j++) {
       if (s2[j] != s2_hat[j]) {
         correct = 0;
@@ -123,6 +124,7 @@ void check_relinearization_key(const poly_t s_hat,
     printf("---------- RELINEARIZATION KEY WRONG ----------\n");
   }
   poly_free(&s2_hat);
+  poly_free(&s2_aux);
   poly_free(&s2);
 }
 
@@ -221,7 +223,7 @@ void check_vectors(const vec_t* v, const vec_t* v2, uint32_t n) {
 
 int main() {
   // Parameters Construction
-  uint32_t n = 16;
+  uint32_t n = 32768;
   uint32_t l = 3;
   uint64_t q[3] = {2305843009255636993UL, 2305843009322745857UL,
                    2305843009696038913UL};
