@@ -109,8 +109,8 @@ void check_relinearization_key(const ckks_params_t* params) {
     s2_hat[i] = s2_hat[i] - s2_hat[params->rns.n + i];
   }
   for (uint32_t i = 0; i < params->rns.l; i++) {
-    rlwe_relinearization_key_decrypt(s2, i, &params->keys.r[i], &params->keys,
-                                     &params->rns);
+    rlwe_key_switch_decrypt(s2, i, &params->keys.r[i], &params->keys,
+                            &params->rns);
     for (uint32_t j = 0; j < params->rns.n; j++) {
       if (s2[j] != s2_hat[j]) {
         correct = 0;
@@ -221,7 +221,7 @@ void check_vectors(const vec_t* v, const vec_t* v2, uint32_t n) {
 
 int main() {
   // Parameters Construction
-  uint32_t n = 32768;
+  uint32_t n = 1024;
   uint32_t l = 3;
   uint64_t q[3] = {2305843009255636993UL, 2305843009322745857UL,
                    2305843009696038913UL};
