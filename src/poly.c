@@ -238,7 +238,7 @@ void poly_permute(poly_t a, const poly_t b, uint32_t h, uint32_t n) {
   uint32_t log2_n = floor_log2(n);
   int32_t sign;
   for (uint32_t i = 0; i < n; i++) {
-    sign = -(int32_t)(j >> log2_n);
+    sign = 1 - 2 * (int32_t)(j >> log2_n);
     a[j & (n - 1)] = sign * b[i];
     j = (j + h) & (n2 - 1);  // mod 2n
   }

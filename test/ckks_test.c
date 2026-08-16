@@ -136,38 +136,33 @@ void check_rotation_key(const ckks_params_t* params) {
   uint8_t correct = 1;
   poly_t s2;
   poly_new(&s2, params->rns.n);
-  // Since the rotation is just a permutation the number of 0, 1 and -1 must be
-  // equal
-  uint32_t cnt0 = 0, cnt1 = 0, cnt_1 = 0;
-  uint32_t cnt20 = 0, cnt21 = 0, cnt2_1 = 0;
+  // Since the rotation multiplies by +-1 the number of -+1 and 0 is constant
+  uint32_t cnt0 = 0, cnt1 = 0;
+  uint32_t cnt20 = 0, cnt21 = 0;
   for (size_t i = 0; i < params->rns.n; i++) {
     if (params->keys.s_hat[i] == 0)
       cnt0++;
-    else if (params->keys.s_hat[i] == 1)
+    else
       cnt1++;
-    else if (params->keys.s_hat[i] == -1)
-      cnt_1++;
   }
   uint32_t log2_n = floor_log2(params->rns.n) - 1;
   for (uint32_t i = 0; i < log2_n; i++) {
     for (uint32_t j = 0; j < params->rns.l; j++) {
-      cnt20 = cnt21 = cnt2_1 = 0;
+      cnt20 = cnt21 = 0;
       rlwe_key_switch_decrypt(s2, j, &params->keys.h[i][j], &params->keys,
                               &params->rns);
       for (uint32_t k = 0; k < params->rns.n; k++) {
         if (s2[k] == 0)
           cnt20++;
-        else if (s2[k] == 1)
+        else
           cnt21++;
-        else if (s2[k] == -1)
-          cnt2_1++;
       }
-      if ((cnt20 != cnt0) || (cnt21 != cnt1) || (cnt2_1 != cnt_1)) {
+      if ((cnt20 != cnt0) || (cnt21 != cnt1)) {
         correct = 0;
         printf(
             "Invalid rot. key count! cnt0: %d, cnt20: %d, cnt1: %d, cnt21: %d, "
-            "cnt-1: %d, cnt2-1: %d for %d left rotation mod %ld\n",
-            cnt0, cnt20, cnt1, cnt21, cnt_1, cnt2_1, 1 << i, params->rns.q[i]);
+            "for %d left rotation mod %ld\n",
+            cnt0, cnt20, cnt1, cnt21, 1 << i, params->rns.q[i]);
       }
     }
   }
