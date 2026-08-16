@@ -4,8 +4,8 @@
 #include "random.h"
 
 void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
-                 uint32_t l, uint64_t scale) {
-  params->scale = scale;
+                 uint32_t l) {
+  params->scale = (1UL << (scale_bits - 1)) + (1UL << (scale_bits - 2));
   // RNS construction
   rns_params_new(&params->rns, q0_bits, scale_bits, l);
   // complex roots

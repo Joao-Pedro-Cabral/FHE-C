@@ -10,7 +10,7 @@ typedef struct {
   vec_t w;           // odd 2n complex roots of unity
   rns_params_t rns;  // RNS parameters
   keys_t keys;       // RLWE context (keys_t and roots)
-  uint64_t scale;    // input scale (Delta)
+  uint64_t scale;    // scale for q_0 (encode/decode)
 } ckks_params_t;
 
 // OpenFHE cyphertext format
@@ -27,12 +27,11 @@ typedef struct {
 /*
   @param params: CKKS params to be initialized
   @param q0_bits: number of bits of q0
-  @param scale_bits: number of bits of the other moduli (<= q0_bits)
+  @param scale_bits: number of bits of the scale and the other moduli
   @param l: size of the rns_t
-  @param scale: scale factor
 */
 void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
-                 uint32_t l, uint64_t scale);
+                 uint32_t l);
 
 /*
   @param params: CKKS params

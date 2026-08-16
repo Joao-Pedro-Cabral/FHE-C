@@ -263,10 +263,9 @@ void check_vectors(const vec_t* v, const vec_t* v2, uint32_t n) {
 
 int main() {
   // Parameters Construction
-  uint32_t l = 2;
-  uint32_t q0_bits = 60;
-  uint32_t scale_bits = 60;
-  uint64_t scale = 10000;
+  uint32_t l = 4;
+  uint32_t q0_bits = 62;
+  uint32_t scale_bits = 50;
 
   ckks_params_t params;
 
@@ -282,7 +281,7 @@ int main() {
 #endif
   // 10x less tests because it takes too long
   for (uint32_t i = 0; i < (N_TESTS + 9) / 10; i++) {
-    ckks_keygen(&params, q0_bits, scale_bits, l, scale);
+    ckks_keygen(&params, q0_bits, scale_bits, l);
     ckks_relinearization_keygen(&params);
     ckks_rotation_keygen(&params);
   }
@@ -373,7 +372,7 @@ int main() {
     ckks_decrypt(m2, &ct, &params);
   }
 #ifdef __DEBUG_MODE__
-  check_decoded_polynomial(m, m2, scale, params.rns.n);
+  check_decoded_polynomial(m, m2, params.scale, params.rns.n);
 #endif
   // printf("---------- DECRYPTED POLYNOMIAL ----------\n");
   // for (uint32_t i = 0; i < n; i++) {
