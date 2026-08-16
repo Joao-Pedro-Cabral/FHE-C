@@ -118,6 +118,7 @@ static bool miller_rabin_primality_test(uint64_t p) {
       x = mod_mul(x, x, (int64_t)p);
       if (x == 1 && composity) return false;
     }
+    if (x != 1) return false;
   }
   return true;
 }

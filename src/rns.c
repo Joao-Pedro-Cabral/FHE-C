@@ -99,6 +99,7 @@ void rns_params_free(rns_params_t* params) {
   free(params->qinv);
   free(params->qRq);
   free(params->qR);
+  free(params->q);
   free(params->qR2n);
   rns_free(&params->w, params);
 }
