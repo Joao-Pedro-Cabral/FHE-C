@@ -70,7 +70,8 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   params->qRq = malloc(sizeof(int64_t) * l);
   params->qinv = malloc(sizeof(int64_t) * l);
   rns_new(&params->w, params);
-  find_primes(params->q, q0_bits, scale_bits, n, l);
+  // 2n: negacyclic
+  find_primes(params->q, q0_bits, scale_bits, 2 * n, l);
   // Init data (less roots)
   for (uint32_t i = 0; i < l; i++) {
     params->qinv[i] = (int64_t)mod64_pow(
