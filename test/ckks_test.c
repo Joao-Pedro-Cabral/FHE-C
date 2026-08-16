@@ -263,10 +263,9 @@ void check_vectors(const vec_t* v, const vec_t* v2, uint32_t n) {
 
 int main() {
   // Parameters Construction
-  uint32_t n = 16;
-  uint32_t l = 3;
-  uint64_t q[3] = {2305843009255636993UL, 2305843009322745857UL,
-                   2305843009696038913UL};
+  uint32_t l = 2;
+  uint32_t q0_bits = 60;
+  uint32_t scale_bits = 60;
   uint64_t scale = 10000;
 
   ckks_params_t params;
@@ -281,8 +280,9 @@ int main() {
 #ifdef __RUN_MODE__
   start = time_ns();
 #endif
-  for (uint32_t i = 0; i < N_TESTS; i++) {
-    ckks_keygen(&params, n, l, q, scale);
+  // 10x less tests because it takes too long
+  for (uint32_t i = 0; i < (N_TESTS + 9) / 10; i++) {
+    ckks_keygen(&params, q0_bits, scale_bits, l, scale);
     ckks_relinearization_keygen(&params);
     ckks_rotation_keygen(&params);
   }
@@ -303,8 +303,8 @@ int main() {
   printf("---------- ENCODE ----------\n");
 #endif
   vec_t v;
-  vec_new(&v, n / 2);
-  for (uint32_t i = 0; i < n / 2; i++) {
+  vec_new(&v, params.rns.n / 2);
+  for (uint32_t i = 0; i < params.rns.n / 2; i++) {
     v.rel[i] = i / 4;
     v.img[i] = i / 4 + 1;
   }
@@ -318,11 +318,11 @@ int main() {
   start = time_ns();
 #endif
   for (uint32_t i = 0; i < N_TESTS; i++) {
-    poly_new(&m, n);
+    poly_new(&m, params.rns.n);
     ckks_encode(m, &v, &params);
   }
 #ifdef __DEBUG_MODE__
-  check_encoded_polynomial(m, (int64_t*)params.rns.q, n);
+  check_encoded_polynomial(m, (int64_t*)params.rns.q, params.rns.n);
 #endif
   // printf("---------- ENCODE POLYNOMIAL ----------\n");
   // for (uint32_t i = 0; i < n; i++) {
@@ -369,11 +369,11 @@ int main() {
   start = time_ns();
 #endif
   for (uint32_t i = 0; i < N_TESTS; i++) {
-    poly_new(&m2, n);
+    poly_new(&m2, params.rns.n);
     ckks_decrypt(m2, &ct, &params);
   }
 #ifdef __DEBUG_MODE__
-  check_decoded_polynomial(m, m2, scale, n);
+  check_decoded_polynomial(m, m2, scale, params.rns.n);
 #endif
   // printf("---------- DECRYPTED POLYNOMIAL ----------\n");
   // for (uint32_t i = 0; i < n; i++) {
@@ -393,11 +393,11 @@ int main() {
   start = time_ns();
 #endif
   for (uint32_t i = 0; i < N_TESTS; i++) {
-    vec_new(&v2, n / 2);
+    vec_new(&v2, params.rns.n / 2);
     ckks_decode(&v2, m2, &params);
   }
 #ifdef __DEBUG_MODE__
-  check_vectors(&v, &v2, n / 2);
+  check_vectors(&v, &v2, params.rns.n / 2);
 #endif
   // printf("---------- DECODED VECTOR ----------\n");
   // for (uint32_t i = 0; i < n / 2; i++) {

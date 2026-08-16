@@ -24,8 +24,9 @@ static inline int64_t mod_mul_ct(int64_t a, int64_t b, int64_t q,
 
 // Modular Reduction
 static inline int64_t mod_ct(int64_t a, int64_t q, int64_t qRq) {
-  int64_t c = (int64_t)(((__int128_t)a * qRq + (1UL << 63)) >> 64); // Round even
-  return a - c*q;
+  int64_t c =
+      (int64_t)(((__int128_t)a * qRq + (1UL << 63)) >> 64);  // Round even
+  return a - c * q;
 }
 
 static inline int64_t q_to_q2(int64_t a, int64_t q) {
@@ -56,6 +57,10 @@ static inline int64_t mod_mul(int64_t a, int64_t b, int64_t q) {
   return a;
 }
 
-int64_t find_smallest_2nth_root(uint64_t n, int64_t q, int64_t qR, int64_t qinv);
+int64_t find_smallest_2nth_root(uint64_t n, int64_t q, int64_t qR,
+                                int64_t qinv);
+
+void find_primes(uint64_t* q, uint32_t q0_bits, uint32_t scale_bits, uint32_t n,
+                 uint32_t l);
 
 #endif  // __MOD_H__

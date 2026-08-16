@@ -7,14 +7,14 @@
 typedef poly_t* rns_t;  // L polynomials (one per q_i)
 
 typedef struct {
-  const uint64_t* q;  // l modulus
-  int64_t* qinv;      // inverse of the l q's mod 2^64
-  int64_t* qR;        // R=2^64 in the l modulis
-  int64_t* qRq;       // R/q, round even
-  int64_t* qR2n;      // R^2/n, R=2^64 in q modulis
-  uint32_t l;         // size of the rms
-  uint32_t n;         // size of the polynomials
-  rns_t w;            // roots for each ring
+  uint64_t* q;    // l modulus
+  int64_t* qinv;  // inverse of the l q's mod 2^64
+  int64_t* qR;    // R=2^64 in the l modulis
+  int64_t* qRq;   // R/q, round even
+  int64_t* qR2n;  // R^2/n, R=2^64 in q modulis
+  uint32_t l;     // size of the rms
+  uint32_t n;     // size of the polynomials
+  rns_t w;        // roots for each ring
 } rns_params_t;
 
 /*
@@ -43,7 +43,7 @@ void rns_gen_inverse_roots(rns_params_t* params);
 /*
   @param params: RNS params
 */
-void rns_params_new(rns_params_t* params, const uint64_t* q, uint32_t n,
+void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
                     uint32_t l);
 
 /*

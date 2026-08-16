@@ -3,14 +3,14 @@
 
 #include "random.h"
 
-void ckks_keygen(ckks_params_t* params, uint32_t n, uint32_t l,
-                 const uint64_t* q, uint64_t scale) {
+void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
+                 uint32_t l, uint64_t scale) {
   params->scale = scale;
   // RNS construction
-  rns_params_new(&params->rns, q, n, l);
+  rns_params_new(&params->rns, q0_bits, scale_bits, l);
   // complex roots
-  vec_new(&params->w, n);
-  vec_gen_roots(&params->w, n);
+  vec_new(&params->w, params->rns.n);
+  vec_gen_roots(&params->w, params->rns.n);
   // roots for RLWE
   rns_gen_roots(&params->rns);
   // secret key for RLWE

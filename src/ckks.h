@@ -26,13 +26,13 @@ typedef struct {
 
 /*
   @param params: CKKS params to be initialized
-  @param n: size of the ring
+  @param q0_bits: number of bits of q0
+  @param scale_bits: number of bits of the other moduli (<= q0_bits)
   @param l: size of the rns_t
-  @param q: l primes that decompose ring moduli Q
   @param scale: scale factor
 */
-void ckks_keygen(ckks_params_t* params, uint32_t n, uint32_t l,
-                 const uint64_t* q, uint64_t scale);
+void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
+                 uint32_t l, uint64_t scale);
 
 /*
   @param params: CKKS params
