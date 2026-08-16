@@ -33,12 +33,11 @@ void rns_gen_inverse_roots(rns_params_t* params) {
   }
 }
 
-void rns_params_new(rns_params_t* params, const uint64_t* q, uint32_t n,
-                    uint32_t l) {
+void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits, uint32_t l) {
   // Allocate Memory
   params->n = n;
-  params->l = l;
-  params->q = q;
+  params->l = l + 1; // q0 prime + l for multiplicative depth
+  params->q = malloc(sizeof(int64_t) * l);
   params->qR2n = malloc(sizeof(int64_t) * l);
   params->qR = malloc(sizeof(int64_t) * l);
   params->qRq = malloc(sizeof(int64_t) * l);
@@ -47,20 +46,20 @@ void rns_params_new(rns_params_t* params, const uint64_t* q, uint32_t n,
   // Init data (less roots)
   for (uint32_t i = 0; i < l; i++) {
     params->qinv[i] =
-        (int64_t)mod64_pow(q[i], (1UL << 63) - 1);  // q-1 = q^(phi-1) mod 2^64
-    uint64_t R = (uint64_t)(((__uint128_t)1 << 64) - q[i]);
-    params->qR[i] = (int64_t)(R % q[i]);
-    if (params->qR[i] > (int64_t)(q[i] / 2)) params->qR[i] -= (int64_t)q[i];
-    params->qR2n[i] = (int64_t)mod_pow(n, q[i] - 2, (int64_t)q[i],
+        (int64_t)mod64_pow(params->q[i], (1UL << 63) - 1);  // q-1 = q^(phi-1) mod 2^64
+    uint64_t R = (uint64_t)(((__uint128_t)1 << 64) - params->q[i]);
+    params->qR[i] = (int64_t)(R % params->q[i]);
+    if (params->qR[i] > (int64_t)(params->q[i] / 2)) params->qR[i] -= (int64_t)params->q[i];
+    params->qR2n[i] = (int64_t)mod_pow(n, params->q[i] - 2, (int64_t)params->q[i],
                                        params->qR[i], params->qinv[i]);  // 1/n
     params->qR2n[i] =
-        (int64_t)((((__int128_t)1 << 64) * params->qR2n[i]) % q[i]);  // R/n
+        (int64_t)((((__int128_t)1 << 64) * params->qR2n[i]) % params->q[i]);  // R/n
     params->qR2n[i] =
-        (int64_t)((((__int128_t)1 << 64) * params->qR2n[i]) % q[i]);  // R^2/n
-    if (params->qR2n[i] > (int64_t)(q[i] / 2)) params->qR2n[i] -= (int64_t)q[i];
-    if (params->qR2n[i] < (int64_t) - (q[i] / 2))
-      params->qR2n[i] += (int64_t)q[i];
-    params->qRq[i] = (int64_t)((((__uint128_t)1 << 64) + q[i] / 2) / q[i]);
+        (int64_t)((((__int128_t)1 << 64) * params->qR2n[i]) % params->q[i]);  // R^2/n
+    if (params->qR2n[i] > (int64_t)(params->q[i] / 2)) params->qR2n[i] -= (int64_t)params->q[i];
+    if (params->qR2n[i] < (int64_t) - (params->q[i] / 2))
+      params->qR2n[i] += (int64_t)params->q[i];
+    params->qRq[i] = (int64_t)((((__uint128_t)1 << 64) + params->q[i] / 2) / params->q[i]);
   }
 }
 

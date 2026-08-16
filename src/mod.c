@@ -87,3 +87,66 @@ int64_t find_smallest_2nth_root(uint64_t n, int64_t q, int64_t qR, int64_t qinv)
   if (smallest > q / 2) smallest -= q;
   return smallest;
 }
+
+#define MILLER_N_TESTS 7
+
+// Enough for p < 2^64
+uint64_t miller_primes [MILLER_N_TESTS] = {
+  2UL,
+  325UL,
+  9375UL,
+  28178UL,
+  450775UL,
+  9780504UL,
+  1795265022UL
+};
+
+// We suppose that the input is on the form d2^s+1
+static bool miller_rabin_primality_test(uint64_t p) {
+  uint64_t s = __builtin_ctzll(p-1);
+  uint64_t d = (p-1) >> s;
+  // Check some base cases
+  if ((p % 2 == 0) || (p % 3 == 0) || (p % 5 == 0))
+    return false;
+  // Auxiliar values for fast modular operations
+  int64_t pinv = (int64_t)mod64_pow(p, (1UL << 63) - 1);
+  uint64_t R = (uint64_t)(((__uint128_t)1 << 64) - p);
+  int64_t pR = (int64_t)(R % p);
+  if (pR > (int64_t)(p / 2)) pR -= (int64_t)p;
+  // Test
+  for (uint32_t i = 0; i < MILLER_N_TESTS; i++) {
+    uint64_t a = miller_primes[i];
+    int64_t x = mod_pow(a, d, p, pR, pinv);
+    bool composity = false;
+    for (uint32_t j = 0; j < s; j ++) {
+      // p-1 and -p+1 are impossible because 4*p < 2^64
+      composity = (x != 1 && x != -1);
+      x = mod_mul_ct(x, x, p, pinv);
+    }
+  }
+    IntType mod  = a.ModExp(d, p);
+    bool prevMod = false;
+    for (usint i = 0; i < s; ++i) {
+        prevMod = (mod != IntType(1) && mod != p - IntType(1));
+        mod.ModMulFastEq(mod, p);
+        if (mod == IntType(1) && prevMod)
+            return true;
+    }
+    return (mod != IntType(1));
+  return false;
+}
+
+// p_bits: number of bits of p
+static uint64_t find_prime(uint32_t p_bits, uint32_t n) {
+  // Since n is a power of two smaller than p_bits
+  // Our initial guess is p = 1 mod n
+  uint64_t p = (1UL << p_bits) + 1;
+  while (!miller_rabin_primality_test(p)) {
+    p += n;
+  }
+  return p;
+}
+
+void find_primes(uint64_t* q, uint32_t q0_bits, uint32_t scale_bits, uint32_t n, uint32_t l) {
+
+}
