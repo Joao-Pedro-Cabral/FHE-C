@@ -93,10 +93,11 @@ void check_secret_key(const rns_t s, const uint64_t* q, const int64_t* qRq,
 void check_relinearization_key(const ckks_params_t* params) {
   printf("---------- VERIFY RELINEARIZATION KEY ----------\n");
   uint8_t correct = 1;
-  poly_t s2_hat, s2, s2_aux;
+  poly_t s2_hat, s2, s2_aux, e;
   poly_new(&s2_hat, 2 * params->rns.n);
   poly_new(&s2, params->rns.n);
   poly_new(&s2_aux, params->rns.n);
+  poly_new(&e, params->rns.n);
   memset(s2_hat, 0, 2 * params->rns.n * sizeof(int64_t));
   // S^2
   // Since the coefficients are ternary and q_0 >> N ( > 2*N)
@@ -110,15 +111,12 @@ void check_relinearization_key(const ckks_params_t* params) {
   for (size_t i = 0; i < params->rns.n; i++) {
     s2_hat[i] = s2_hat[i] - s2_hat[params->rns.n + i];
   }
-  for (uint32_t i = 0; i < params->rns.l; i++) {
-    rlwe_key_switch_decrypt(s2, i, &params->keys.r[i], &params->keys,
-                            &params->rns);
-    for (uint32_t j = 0; j < params->rns.n; j++) {
-      if (s2[j] != s2_hat[j]) {
-        correct = 0;
-        printf("Invalid reli. key! s2[%d]: %ld, s2_hat[%d]: %ld mod %ld\n", j,
-               s2[j], j, s2_hat[j], params->rns.q[i]);
-      }
+  rlwe_key_switch_decrypt(s2, params->keys.r, &params->keys, &params->rns);
+  for (uint32_t j = 0; j < params->rns.n; j++) {
+    if (s2[j] != s2_hat[j]) {
+      correct = 0;
+      printf("Invalid reli. key! s2[%d]: %ld, s2_hat[%d]: %ld mod %ld\n", j,
+             s2[j], j, s2_hat[j], params->rns.q[0]);
     }
   }
   if (correct) {
@@ -129,6 +127,7 @@ void check_relinearization_key(const ckks_params_t* params) {
   poly_free(&s2_hat);
   poly_free(&s2_aux);
   poly_free(&s2);
+  poly_free(&e);
 }
 
 void check_rotation_key(const ckks_params_t* params) {
@@ -147,23 +146,20 @@ void check_rotation_key(const ckks_params_t* params) {
   }
   uint32_t log2_n = floor_log2(params->rns.n) - 1;
   for (uint32_t i = 0; i < log2_n; i++) {
-    for (uint32_t j = 0; j < params->rns.l; j++) {
-      cnt20 = cnt21 = 0;
-      rlwe_key_switch_decrypt(s2, j, &params->keys.h[i][j], &params->keys,
-                              &params->rns);
-      for (uint32_t k = 0; k < params->rns.n; k++) {
-        if (s2[k] == 0)
-          cnt20++;
-        else
-          cnt21++;
-      }
-      if ((cnt20 != cnt0) || (cnt21 != cnt1)) {
-        correct = 0;
-        printf(
-            "Invalid rot. key count! cnt0: %d, cnt20: %d, cnt1: %d, cnt21: %d, "
-            "for %d left rotation mod %ld\n",
-            cnt0, cnt20, cnt1, cnt21, 1 << i, params->rns.q[i]);
-      }
+    cnt20 = cnt21 = 0;
+    rlwe_key_switch_decrypt(s2, params->keys.h[i], &params->keys, &params->rns);
+    for (uint32_t k = 0; k < params->rns.n; k++) {
+      if (s2[k] == 0)
+        cnt20++;
+      else
+        cnt21++;
+    }
+    if ((cnt20 != cnt0) || (cnt21 != cnt1)) {
+      correct = 0;
+      printf(
+          "Invalid rot. key count! cnt0: %d, cnt20: %d, cnt1: %d, cnt21: %d, "
+          "for %d left rotation mod %ld\n",
+          cnt0, cnt20, cnt1, cnt21, 1 << i, params->rns.q[i]);
     }
   }
   if (correct) {

@@ -61,37 +61,49 @@ void rlwe_gen_secret_key(keys_t* keys, const rns_params_t* params) {
 }
 
 void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params) {
-  poly_t s2;
+  poly_t s2, e;
   poly_new(&s2, params->n);
+  poly_new(&e, params->n);
   // Compute S^2 in the first (biggest) NTT domain
   // The pointwise removes the INTT R^2/n factor
   poly_pointwise_mulx(s2, keys->s[0], keys->s[0], params->qR2n[0], params->q[0],
                       params->qinv[0], params->n);
   poly_intt(s2, params->w[0], params->q[0], params->qRq[0], params->qinv[0],
             params->n);
-  for (uint32_t i = 0; i < params->l; i++) {
-    rlwe_key_switch_encrypt(&keys->r[i], i, s2, keys, params);
-  }
+  rlwe_key_switch_encrypt(keys->r, s2, e, keys, params);
   poly_free(&s2);
+  poly_free(&e);
 }
 
 // Trade-off memory/performance for inner-product:
 // (log2_n - 1) keys + (log2_n - 1) rotations for reduction
 // log2_n - 1 because we work with complex vector slots
 void rlwe_gen_rotation_key(keys_t* keys, const rns_params_t* params) {
-  poly_t s2;
+  poly_t s2, e;
   poly_new(&s2, params->n);
+  poly_new(&e, params->n);
   uint32_t log2_n = floor_log2(params->n) - 1;
   uint32_t g = 5;
   uint32_t n2 = 2 * params->n;
   for (uint32_t i = 0; i < log2_n; i++) {
     poly_permute(s2, keys->s_hat, g, params->n);
-    for (uint32_t j = 0; j < params->l; j++) {
-      rlwe_key_switch_encrypt(&keys->h[i][j], j, s2, keys, params);
-    }
+    rlwe_key_switch_encrypt(keys->h[i], s2, e, keys, params);
     g = (g * g) & (n2 - 1);  // mod 2n
   }
   poly_free(&s2);
+  poly_free(&e);
+}
+
+// RLWE encryption step (one of the l polynomials)
+static void rlwe_encrypt_step(poly_t a, poly_t b, const poly_t m,
+                              const poly_t s, const poly_t w, uint64_t q,
+                              int64_t qRq, int64_t qinv, int64_t qR2n,
+                              uint32_t n) {
+  // B = -(-A)S + DeltaM + E
+  poly_uniform_sampler(a, q, qRq, n);  // -A
+  poly_pointwise_mul(b, a, s, q, qinv, n);
+  poly_intt(b, w, q, qRq, qinv, n);
+  poly_rsub(b, m, q, qRq, qinv, qR2n, n);
 }
 
 void rlwe_plaintext_encrypt(rlwe_t* ab, const poly_t m, const keys_t* keys,
@@ -102,84 +114,67 @@ void rlwe_plaintext_encrypt(rlwe_t* ab, const poly_t m, const keys_t* keys,
   poly_cbd24_sampler_add(e, m, params->n);
   // B = -(-A)S + DeltaM + E
   for (uint32_t i = 0; i < params->l; i++) {
-    poly_uniform_sampler(ab->a[i], params->q[i], params->qRq[i],
-                         params->n);  // -A
-    poly_pointwise_mul(ab->b[i], ab->a[i], keys->s[i], params->q[i],
-                       params->qinv[i], params->n);
-    poly_intt(ab->b[i], params->w[i], params->q[i], params->qRq[i],
-              params->qinv[i], params->n);
-    poly_rsub(ab->b[i], e, params->q[i], params->qRq[i], params->qinv[i],
-              params->qR2n[i], params->n);
+    rlwe_encrypt_step(ab->a[i], ab->b[i], e, keys->s[i], params->w[i],
+                      params->q[i], params->qRq[i], params->qinv[i],
+                      params->qR2n[i], params->n);
   }
   poly_free(&e);
+}
+
+// RLWE decryption step
+static void rlwe_decrypt_step(poly_t m, const poly_t a, const poly_t b,
+                              const poly_t s, const poly_t w, uint64_t q,
+                              int64_t qRq, int64_t qinv, int64_t qR2n,
+                              uint32_t n) {
+  // B + (-A)S = DeltaM + E
+  poly_pointwise_mul(m, a, s, q, qinv, n);
+  poly_intt(m, w, q, qRq, qinv, n);
+  poly_add(m, b, q, qRq, qinv, qR2n, n);
 }
 
 void rlwe_plaintext_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
                             const rns_params_t* params) {
   // For decrypting we only need l = 0 (deltaM + E < q_0/2)
-  // B + (-A)S = DeltaM + E
-  poly_pointwise_mul(m, ab->a[0], keys->s[0], params->q[0], params->qinv[0],
-                     params->n);
-  poly_intt(m, params->w[0], params->q[0], params->qRq[0], params->qinv[0],
-            params->n);
-  poly_add(m, ab->b[0], params->q[0], params->qRq[0], params->qinv[0],
-           params->qR2n[0], params->n);
+  rlwe_decrypt_step(m, ab->a[0], ab->b[0], keys->s[0], params->w[0],
+                    params->q[0], params->qRq[0], params->qinv[0],
+                    params->qR2n[0], params->n);
 }
 
-void rlwe_key_switch_encrypt(switch_t key_switch, uint32_t index,
-                             const poly_t m, const keys_t* keys,
-                             const rns_params_t* params) {
-  // DeltaM + E
-  poly_t e;
-  poly_new(&e, params->n);
+// Since this function is normally called several times by other primitives,
+// we ask them to allocate e
+void rlwe_key_switch_encrypt(switch_t key_switch, const poly_t m, poly_t e,
+                             const keys_t* keys, const rns_params_t* params) {
+  // E
   poly_cbd24_sampler(e, params->n);
   // B = -(-A)S + DeltaM + E
-  // Encrypt 0
-  for (uint32_t i = 0; i < params->l; i++) {
-    if (i == index) continue;
-    poly_uniform_sampler(key_switch->a[i], params->q[i], params->qRq[i],
-                         params->n);  // -A
-    poly_pointwise_mul(key_switch->b[i], key_switch->a[i], keys->s[i],
-                       params->q[i], params->qinv[i], params->n);
-    poly_intt(key_switch->b[i], params->w[i], params->q[i], params->qRq[i],
-              params->qinv[i], params->n);
-    poly_rsub(key_switch->b[i], e, params->q[i], params->qRq[i],
-              params->qinv[i], params->qR2n[i], params->n);
+  for (uint32_t k = 0; k < params->l; k++) {
+    // Encrypt 0
+    for (uint32_t i = 0; i < params->l; i++) {
+      if (i == k) continue;
+      rlwe_encrypt_step(key_switch[k].a[i], key_switch[k].b[i], e, keys->s[i],
+                        params->w[i], params->q[i], params->qRq[i],
+                        params->qinv[i], params->qR2n[i], params->n);
+    }
+    // k level (Encrypt s^2)
+    poly_add_no_mod(e, m, params->n);
+    rlwe_encrypt_step(key_switch[k].a[k], key_switch[k].b[k], e, keys->s[k],
+                      params->w[k], params->q[k], params->qRq[k],
+                      params->qinv[k], params->qR2n[k], params->n);
   }
-  // index level (Encrypt s^2)
-  poly_add_no_mod(e, m, params->n);
-  poly_uniform_sampler(key_switch->a[index], params->q[index],
-                       params->qRq[index],
-                       params->n);  // -A
-  poly_pointwise_mul(key_switch->b[index], key_switch->a[index], keys->s[index],
-                     params->q[index], params->qinv[index], params->n);
-  poly_intt(key_switch->b[index], params->w[index], params->q[index],
-            params->qRq[index], params->qinv[index], params->n);
-  poly_rsub(key_switch->b[index], e, params->q[index], params->qRq[index],
-            params->qinv[index], params->qR2n[index], params->n);
-  poly_free(&e);
 }
 
-void rlwe_key_switch_decrypt(poly_t m, uint32_t index,
-                             const switch_t key_switch, const keys_t* keys,
-                             const rns_params_t* params) {
-  // For decrypting we only need l = index and any other index
+void rlwe_key_switch_decrypt(poly_t m, const switch_t key_switch,
+                             const keys_t* keys, const rns_params_t* params) {
+  // For decrypting we only need k = 0, l = 0 and any other index
   // Subtract both of them and completely remove the error
-  poly_pointwise_mul(m, key_switch->a[index], keys->s[index], params->q[index],
-                     params->qinv[index], params->n);
-  poly_intt(m, params->w[index], params->q[index], params->qRq[index],
-            params->qinv[index], params->n);
-  poly_add(m, key_switch->b[index], params->q[index], params->qRq[index],
-           params->qinv[index], params->qR2n[index], params->n);
-  uint32_t index2 = (index + 1) % params->l;
+  rlwe_decrypt_step(m, key_switch[0].a[0], key_switch[0].b[0], keys->s[0],
+                    params->w[0], params->q[0], params->qRq[0], params->qinv[0],
+                    params->qR2n[0], params->n);
   poly_t m2;
   poly_new(&m2, params->n);
-  poly_pointwise_mul(m2, key_switch->a[index2], keys->s[index2],
-                     params->q[index2], params->qinv[index2], params->n);
-  poly_intt(m2, params->w[index2], params->q[index2], params->qRq[index2],
-            params->qinv[index2], params->n);
-  poly_add(m2, key_switch->b[index2], params->q[index2], params->qRq[index2],
-           params->qinv[index2], params->qR2n[index2], params->n);
+  rlwe_decrypt_step(m2, key_switch[0].a[1], key_switch[0].b[1], keys->s[1],
+                    params->w[1], params->q[1], params->qRq[1], params->qinv[1],
+                    params->qR2n[1], params->n);
   poly_sub_no_mod(m, m2, params->n);
   poly_free(&m2);
 }
