@@ -372,7 +372,8 @@ int main() {
     ckks_decrypt(m2, &ct, &params);
   }
 #ifdef __DEBUG_MODE__
-  check_decoded_polynomial(m, m2, params.scale, params.rns.n);
+  check_decoded_polynomial(m, m2, params.rns.scales[ct.level - 1],
+                           params.rns.n);
 #endif
   // printf("---------- DECRYPTED POLYNOMIAL ----------\n");
   // for (uint32_t i = 0; i < n; i++) {
@@ -393,7 +394,7 @@ int main() {
 #endif
   for (uint32_t i = 0; i < N_TESTS; i++) {
     vec_new(&v2, params.rns.n / 2);
-    ckks_decode(&v2, m2, &params);
+    ckks_decode(&v2, m2, ct.level, &params);
   }
 #ifdef __DEBUG_MODE__
   check_vectors(&v, &v2, params.rns.n / 2);

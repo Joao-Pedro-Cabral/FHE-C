@@ -5,7 +5,6 @@
 
 void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
                  uint32_t l) {
-  params->scale = (1UL << (scale_bits - 1)) + (1UL << (scale_bits - 2));
   // RNS construction
   rns_params_new(&params->rns, q0_bits, scale_bits, l);
   // complex roots
@@ -41,17 +40,18 @@ void ckks_encode(poly_t m, const vec_t* v, const ckks_params_t* params) {
   vec_hermitian(&v2, v, params->rns.n);
   // Second step: IFFT
   ifft(&v2, &params->w, params->rns.n);
-  // Third step: Rescale
-  vector_to_poly(m, &v2, params->scale, params->rns.n);
+  // Third step: Rescale (with base scale)
+  vector_to_poly(m, &v2, params->rns.scales[params->rns.l - 1], params->rns.n);
   // Free
   vec_free(&v2);
 }
 
-void ckks_decode(vec_t* v, const poly_t m, const ckks_params_t* params) {
-  // First step: Rescale
+void ckks_decode(vec_t* v, const poly_t m, uint32_t level,
+                 const ckks_params_t* params) {
+  // First step: Rescale (accordingly to the current level)
   vec_t v2;
   vec_new(&v2, params->rns.n);
-  poly_to_vector(&v2, m, params->scale, params->rns.n);
+  poly_to_vector(&v2, m, params->rns.scales[level - 1], params->rns.n);
   // Second step: FFT
   fft(&v2, &params->w, params->rns.n);
   // Third step: Convert into input complex vector
@@ -74,10 +74,7 @@ void cyphertext_new(ciphertext_t* ct, const ckks_params_t* params) {
   rlwe_new(&ct->ab, &params->rns);
   ct->n = params->rns.n;
   ct->l = params->rns.l;
-  ct->scale = params->scale;
-  ct->int_scale = 1;
-  ct->noise_scale = 1;
-  ct->encoding_type = 4;  // OpenFHE: CKKS_PACKED_ENCODING
+  ct->level = params->rns.l;
 }
 
 void cyphertext_free(ciphertext_t* ct, const ckks_params_t* params) {

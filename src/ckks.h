@@ -10,18 +10,14 @@ typedef struct {
   vec_t w;           // odd 2n complex roots of unity
   rns_params_t rns;  // RNS parameters
   keys_t keys;       // RLWE context (keys_t and roots)
-  uint64_t scale;    // scale for q_0 (encode/decode)
 } ckks_params_t;
 
 // OpenFHE cyphertext format
 typedef struct {
-  rlwe_t ab;               // RLWE of the ciphertext_t
-  uint32_t n;              // size of the ring
-  uint32_t l;              // size of the rns_t
-  uint64_t scale;          // input scale (Delta)
-  uint64_t int_scale;      // not used in CKKS (default: 1)
-  uint64_t noise_scale;    // not used in CKKS (default: 1)
-  uint32_t encoding_type;  // always 4 (CKKS_PACKED_ENCODING)
+  rlwe_t ab;       // RLWE of the ciphertext_t
+  uint32_t n;      // size of the ring
+  uint32_t l;      // size of the rns_t
+  uint32_t level;  // current level (1 to l)
 } ciphertext_t;
 
 /*
@@ -56,13 +52,13 @@ void ckks_free(ckks_params_t* params);
 void ckks_encode(poly_t m, const vec_t* v, const ckks_params_t* params);
 
 /*
-  @param m: input scaled (delta) polynomial m
-  @param w: input odd 2n roots of unity
-  @param scale: input Delta
-  @param n: size of the polynomial m (2x v size)
+  @param m: input scaled polynomial m
+  @param level: current multiplicative depth
+  @param params: CKKS params
   @param v: output n/2 complex vector
 */
-void ckks_decode(vec_t* v, const poly_t m, const ckks_params_t* params);
+void ckks_decode(vec_t* v, const poly_t m, uint32_t level,
+                 const ckks_params_t* params);
 
 /*
   @param m: input polynomial
