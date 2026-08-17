@@ -61,18 +61,18 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
   // Rescaling (ModSwitch)
   ct3->level = ct1->level - 1;  // We lost one level at each multiplication
   // For ModSwitch we need to come back to the normal domain
-  poly_intt(ct3->ab.a[ct1->level], params->w_1[ct1->level],
-            params->q[ct1->level], params->qRq[ct1->level],
-            params->qinv[ct1->level], params->n);  // R
-  poly_mulx(ct3->ab.a[ct1->level], params->qRn[ct1->level],
-            params->q[ct1->level], params->qinv[ct1->level],
+  poly_intt(ct3->ab.a[ct3->level], params->w_1[ct3->level],
+            params->q[ct3->level], params->qRq[ct3->level],
+            params->qinv[ct3->level], params->n);  // R
+  poly_mulx(ct3->ab.a[ct3->level], params->qRn[ct3->level],
+            params->q[ct3->level], params->qinv[ct3->level],
             params->n);  // R
   for (uint32_t i = 0; i < ct3->level; i++) {
     poly_intt(ct3->ab.a[i], params->w_1[i], params->q[i], params->qRq[i],
               params->qinv[i], params->n);  // R
     poly_mulx(ct3->ab.a[i], params->qRn[i], params->q[i], params->qinv[i],
               params->n);  // R
-    poly_mod(tmp, ct3->ab.a[ct1->level], params->q[i], params->qRq[i],
+    poly_mod(tmp, ct3->ab.a[ct3->level], params->q[i], params->qRq[i],
              params->n);
     poly_sub(ct3->ab.a[i], tmp, params->q[i], params->qRq[i], params->n);
     poly_mulx(ct3->ab.a[i], params->qinvq[ct3->level * params->l + i],
@@ -80,18 +80,18 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
     poly_ntt(ct3->ab.a[i], params->w[i], params->q[i], params->qRq[i],
              params->qinv[i], params->n);  // R
   }
-  poly_intt(ct3->ab.b[ct1->level], params->w_1[ct1->level],
-            params->q[ct1->level], params->qRq[ct1->level],
-            params->qinv[ct1->level], params->n);  // 1
-  poly_mulx(ct3->ab.b[ct1->level], params->qRn[ct1->level],
-            params->q[ct1->level], params->qinv[ct1->level],
+  poly_intt(ct3->ab.b[ct3->level], params->w_1[ct3->level],
+            params->q[ct3->level], params->qRq[ct3->level],
+            params->qinv[ct3->level], params->n);  // 1
+  poly_mulx(ct3->ab.b[ct3->level], params->qRn[ct3->level],
+            params->q[ct3->level], params->qinv[ct3->level],
             params->n);  // 1
   for (uint32_t i = 0; i < ct3->level; i++) {
     poly_intt(ct3->ab.b[i], params->w_1[i], params->q[i], params->qRq[i],
               params->qinv[i], params->n);  // R
     poly_mulx(ct3->ab.b[i], params->qRn[i], params->q[i], params->qinv[i],
               params->n);  // 1
-    poly_mod(tmp, ct3->ab.b[ct1->level], params->q[i], params->qRq[i],
+    poly_mod(tmp, ct3->ab.b[ct3->level], params->q[i], params->qRq[i],
              params->n);
     poly_sub(ct3->ab.b[i], tmp, params->q[i], params->qRq[i], params->n);
     poly_mulx(ct3->ab.b[i], params->qinvq[ct3->level * params->l + i],

@@ -339,7 +339,7 @@ int main() {
     ckks_encrypt(&ct, m, &params);
   }
 #ifdef __DEBUG_MODE__
-  check_ciphertext(&ct, (int64_t*)params.rns.q);
+  check_ciphertext(&ct, &params.rns);
 #endif
   // printf("---------- ENCRYPTED B ----------\n");
   // for (uint32_t i = 0; i < l; i++) {
@@ -431,6 +431,7 @@ int main() {
   // Free
   ckks_free(&params);
   ciphertext_free(&ct, &params.rns);
+  ciphertext_free(&ct2, &params.rns);
   vec_free(&v);
   vec_free(&v2);
   poly_free(&m);
