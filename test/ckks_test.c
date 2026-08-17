@@ -51,32 +51,34 @@ void check_roots(const rns_t roots, const uint64_t* q, uint32_t l, uint32_t n) {
   }
 }
 
-void check_secret_key(const rns_t s, const uint64_t* q, const int64_t* qRq,
-                      const int64_t* qinv, const int64_t* qR2n,
-                      const rns_t roots, uint32_t l, uint32_t n) {
+void check_secret_key(const ckks_params_t* params) {
   printf("---------- VERIFY SECRET KEY ----------\n");
   uint8_t correct = 1;
   poly_t ones, invn, s_hat;
-  poly_new(&s_hat, n);
-  poly_new(&ones, n);
-  poly_new(&invn, n);
-  for (uint32_t i = 0; i < n; i++) {
+  poly_new(&s_hat, params->rns.n);
+  poly_new(&ones, params->rns.n);
+  poly_new(&invn, params->rns.n);
+  for (uint32_t i = 0; i < params->rns.n; i++) {
     ones[i] = 1;
   }
-  for (uint32_t i = 0; i < l; i++) {
-    memcpy(s_hat, s[i], n * sizeof(uint64_t));
-    poly_intt(s_hat, roots[i], q[i], qRq[i], qinv[i], n);
-    for (uint32_t j = 0; j < n; j++) {
-      invn[j] = qR2n[i];
+  for (uint32_t i = 0; i < params->rns.l; i++) {
+    memcpy(s_hat, params->keys.s[i], params->rns.n * sizeof(uint64_t));
+    poly_intt(s_hat, params->rns.w[i], params->rns.q[i], params->rns.qRq[i],
+              params->rns.qinv[i], params->rns.n);
+    for (uint32_t j = 0; j < params->rns.n; j++) {
+      invn[j] = params->rns.qR2n[i];
     }
-    poly_pointwise_mul(s_hat, s_hat, invn, q[i], qinv[i],
-                       n);  // multiply by R^2/n
-    poly_pointwise_mul(s_hat, s_hat, ones, q[i], qinv[i],
-                       n);  // remove extra montgomery factor
-    for (uint32_t j = 0; j < n; j++) {
-      if (s_hat[j] * s_hat[j] > 1) {
+    poly_pointwise_mul(s_hat, s_hat, invn, params->rns.q[i],
+                       params->rns.qinv[i],
+                       params->rns.n);  // multiply by R^2/n
+    poly_pointwise_mul(s_hat, s_hat, ones, params->rns.q[i],
+                       params->rns.qinv[i],
+                       params->rns.n);  // remove extra montgomery factor
+    for (uint32_t j = 0; j < params->rns.n; j++) {
+      if (s_hat[j] != params->keys.s_hat[j]) {
         correct = 0;
-        printf("Invalid secret key! s[%d]: %ld mod %ld\n", j, s_hat[j], q[i]);
+        printf("Invalid secret key! s[%d]: %ld instead of %ld mod %ld\n", j,
+               s_hat[j], params->keys.s_hat[j], params->rns.q[i]);
       }
     }
   }
@@ -171,9 +173,7 @@ void check_rotation_key(const ckks_params_t* params) {
 }
 
 void check_keys(const ckks_params_t* params) {
-  check_secret_key(params->keys.s, params->rns.q, params->rns.qRq,
-                   params->rns.qinv, params->rns.qR2n, params->rns.w,
-                   params->rns.l, params->rns.n);
+  check_secret_key(params);
   check_relinearization_key(params);
   check_rotation_key(params);
 }

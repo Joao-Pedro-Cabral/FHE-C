@@ -76,7 +76,7 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   // Init data (less roots)
   for (uint32_t i = 0; i < l; i++) {
     // qinv
-    params->qinv[i] = (int64_t)mod64_pow(
+    params->qinv[i] = (int64_t)mod64_pow_ct(
         params->q[i], (1UL << 63) - 1);  // q-1 = q^(phi-1) mod 2^64
     // qR
     uint64_t R = (uint64_t)(((__uint128_t)1 << 64) - params->q[i]);
@@ -85,8 +85,8 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
       params->qR[i] -= (int64_t)params->q[i];
     // qR2n
     params->qR2n[i] =
-        (int64_t)mod_pow(n, params->q[i] - 2, (int64_t)params->q[i],
-                         params->qR[i], params->qinv[i]);  // 1/n
+        (int64_t)mod_pow_ct(n, params->q[i] - 2, (int64_t)params->q[i],
+                            params->qR[i], params->qinv[i]);  // 1/n
     params->qR2n[i] = (int64_t)((((__int128_t)1 << 64) * params->qR2n[i]) %
                                 params->q[i]);  // R/n
     params->qR2n[i] = (int64_t)((((__int128_t)1 << 64) * params->qR2n[i]) %
@@ -103,7 +103,8 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   params->scales[l - 1] = (1UL << (scale_bits - 1)) + (1UL << (scale_bits - 2));
   for (uint32_t i = l - 1; i > 0; i--) {
     double scale2 = (double)params->scales[i] * (double)params->scales[i];
-    params->scales[i - 1] = (uint64_t)(scale2 / (double)params->q[i]);
+    params->scales[i - 1] = (uint64_t)((scale2 + (double)(params->q[i] / 2)) /
+                                       (double)params->q[i]);
   }
 }
 

@@ -6,7 +6,7 @@
 
 #include "utils.h"
 
-int64_t mod_pow(int64_t a, uint64_t b, int64_t q, int64_t qR, int64_t qinv) {
+int64_t mod_pow_ct(int64_t a, uint64_t b, int64_t q, int64_t qR, int64_t qinv) {
   int64_t c = 1, d = mod_mul(a, qR, q);
   while (b > 0) {
     if ((b & 0x1) == 1) c = mod_mul_ct(c, d, q, qinv);
@@ -16,7 +16,7 @@ int64_t mod_pow(int64_t a, uint64_t b, int64_t q, int64_t qR, int64_t qinv) {
   return c;
 }
 
-uint64_t mod64_pow(uint64_t a, uint64_t b) {
+uint64_t mod64_pow_ct(uint64_t a, uint64_t b) {
   uint64_t c = 1, d = a;
   while (b > 0) {
     if ((b & 0x1) == 1) c = c * d;
@@ -26,22 +26,144 @@ uint64_t mod64_pow(uint64_t a, uint64_t b) {
   return c;
 }
 
-static uint32_t find_primes_factors(uint64_t* s, uint64_t m) {
-  uint32_t k = 0;
-  for (uint64_t i = 2; i * i < m; i++) {
-    if (m % i == 0) {
-      s[k] = i;
-      k++;
-      do {
-        m /= i;
-      } while (m % i == 0);
-    }
+static uint64_t mod_pow0(uint64_t a, uint64_t b, uint64_t q) {
+  uint64_t c = 1, d = a;
+  while (b > 0) {
+    if ((b & 0x1) == 1) c = mod_mul0(c, d, q);
+    d = mod_mul0(d, d, q);
+    b >>= 1;
   }
-  if (m > 1) {
+  return c;
+}
+
+static inline uint64_t gcd(uint64_t a, uint64_t b) {
+  while (b != 0) {
+    uint64_t r = a % b;
+    a = b;
+    b = r;
+  }
+  return a;
+}
+
+#define MILLER_N_TESTS 7
+
+// Enough for p < 2^64
+static const uint64_t miller_primes[MILLER_N_TESTS] = {
+    2UL, 325UL, 9375UL, 28178UL, 450775UL, 9780504UL, 1795265022UL};
+
+// We suppose that the input is on the form d2^s+1
+static bool miller_rabin_primality_test(uint64_t p) {
+  uint32_t s = (uint32_t)__builtin_ctzll(p - 1);
+  uint64_t d = (p - 1) >> s;
+  // Check some base cases
+  if ((p % 2 == 0) || (p % 3 == 0) || (p % 5 == 0)) return false;
+  // Test
+  for (uint32_t i = 0; i < MILLER_N_TESTS; i++) {
+    uint64_t a = miller_primes[i];
+    uint64_t x = mod_pow0(a, d, p);
+    bool composity;
+    for (uint32_t j = 0; j < s; j++) {
+      // p-1 and -p+1 are impossible because 4*p < 2^64
+      composity = (x != 1 && x != p - 1);
+      x = mod_mul0(x, x, p);
+      if (x == 1 && composity) return false;
+    }
+    if (x != 1) return false;
+  }
+  return true;
+}
+
+static inline uint64_t pollard_func(uint64_t y, uint64_t a, uint64_t p) {
+  // y = y^2 + a mod p
+  y = mod_mul0(y, y, p);
+  y += a;
+  if (y > p) y -= p;
+  return y;
+}
+
+static uint64_t brent_pollard_factor(uint64_t p) {
+  const uint64_t m = 1000;
+  uint64_t a, x, y, ys, r, q, g;
+  a = 1;
+  y = 1;
+  r = 1;
+  q = 1;
+
+  do {
+    x = y;
+    for (uint64_t i = 0; i < r; i++) {
+      y = pollard_func(y, a, p);
+    }
+
+    uint64_t k = 0;
+    do {
+      for (uint64_t i = 0; i < m && i < r - k; i++) {
+        ys = y;
+        y = pollard_func(y, a, p);
+        // q = q |x-y| mod p
+        q = mod_mul0(q, (x > y) ? x - y : y - x, p);
+      }
+      g = gcd(q, p);
+      k += m;
+    } while (k < r && g == 1);
+
+    r <<= 1;
+  } while (g == 1);
+
+  if (g == p) {
+    do {
+      ys = pollard_func(ys, a, p);
+      g = gcd((x > ys) ? x - ys : ys - x, p);
+    } while (g == 1);
+  }
+
+  return g;
+}
+
+static uint32_t find_primes_factors_rec(uint64_t* s, uint32_t k, uint64_t m) {
+  if (m == 1) {
+    return k;
+  }
+  if (miller_rabin_primality_test(m)) {
     s[k] = m;
     k++;
+    return k;
   }
+
+  uint64_t factor = brent_pollard_factor(m);
+  k = find_primes_factors_rec(s, k, factor);
+  k = find_primes_factors_rec(s, k, m / factor);
   return k;
+}
+
+#define BASE_FACTORS_TESTS 7
+
+static const uint32_t prime_factors[BASE_FACTORS_TESTS] = {3,  5,  7, 11,
+                                                           13, 17, 19};
+
+static uint32_t find_primes_factors(uint64_t* s, uint64_t m) {
+  if (m == 0 || m == 1) return 0;
+  // Remove 2 factors
+  uint32_t k = 0;
+  if ((m & 0x1) == 0) {
+    uint32_t m2 = (uint32_t)__builtin_ctzll(m);
+    m = m >> m2;
+    s[0] = 2;
+    k = 1;
+  }
+  // Remove some other base cases
+  for (uint64_t i = 0; i < BASE_FACTORS_TESTS; i++) {
+    uint32_t prime = (uint64_t)prime_factors[i];
+    if (m % prime == 0) {
+      s[k] = prime;
+      k++;
+      do {
+        m /= prime;
+      } while (m % prime == 0);
+    }
+  }
+  // Find larger factors
+  return find_primes_factors_rec(s, k, m);
 }
 
 static uint64_t find_primitive_root(int64_t q, int64_t qR, int64_t qinv) {
@@ -57,7 +179,7 @@ static uint64_t find_primitive_root(int64_t q, int64_t qR, int64_t qinv) {
   for (r = 2; r <= phi; r++) {
     bool find = true;
     for (uint32_t j = 0; j < k; j++) {
-      if (mod_pow(r, primes[j], q, qR, qinv) == 1) {
+      if (mod_pow_ct(r, primes[j], q, qR, qinv) == 1) {
         find = false;
         break;
       }
@@ -72,7 +194,7 @@ int64_t find_smallest_2nth_root(uint64_t n, int64_t q, int64_t qR,
                                 int64_t qinv) {
   uint64_t q_1th_root = find_primitive_root(q, qR, qinv);
   int64_t smallest =
-      mod_pow((int64_t)q_1th_root, ((uint64_t)q - 1) / (2 * n), q, qR, qinv);
+      mod_pow_ct((int64_t)q_1th_root, ((uint64_t)q - 1) / (2 * n), q, qR, qinv);
   // To [0, 2q[
   if (smallest < 0) smallest += q;
   int64_t root2 = (int64_t)(((__int128_t)smallest * qR) % q);  // xR
@@ -80,7 +202,7 @@ int64_t find_smallest_2nth_root(uint64_t n, int64_t q, int64_t qR,
   int64_t root = smallest;
   // Find smallest nth root (OpenFHE API)
   for (uint32_t i = 1; i < n; i++) {
-    // mod_mul is centered, but here I want [0, q[
+    // mod_mul_ct is centered, but here I want [0, q[
     root = mod_mul_ct(root, root2, q, qinv);  // xy
     if (root < 0) root += q;
     if ((root < smallest) && (root != 1)) smallest = root;
@@ -88,39 +210,6 @@ int64_t find_smallest_2nth_root(uint64_t n, int64_t q, int64_t qR,
   // Centered
   if (smallest > q / 2) smallest -= q;
   return smallest;
-}
-
-#define MILLER_N_TESTS 7
-
-// Enough for p < 2^64
-uint64_t miller_primes[MILLER_N_TESTS] = {
-    2UL, 325UL, 9375UL, 28178UL, 450775UL, 9780504UL, 1795265022UL};
-
-// We suppose that the input is on the form d2^s+1
-static bool miller_rabin_primality_test(uint64_t p) {
-  uint32_t s = (uint32_t)__builtin_ctzll(p - 1);
-  uint64_t d = (p - 1) >> s;
-  // Check some base cases
-  if ((p % 2 == 0) || (p % 3 == 0) || (p % 5 == 0)) return false;
-  // Auxiliar values for fast modular operations
-  int64_t pinv = (int64_t)mod64_pow(p, (1UL << 63) - 1);
-  uint64_t R = (uint64_t)(((__uint128_t)1 << 64) - p);
-  int64_t pR = (int64_t)(R % p);
-  if (pR > (int64_t)(p / 2)) pR -= (int64_t)p;
-  // Test
-  for (uint32_t i = 0; i < MILLER_N_TESTS; i++) {
-    uint64_t a = miller_primes[i];
-    int64_t x = mod_pow((int64_t)a, d, (int64_t)p, pR, pinv);
-    bool composity;
-    for (uint32_t j = 0; j < s; j++) {
-      // p-1 and -p+1 are impossible because 4*p < 2^64
-      composity = (x != 1 && x != -1);
-      x = mod_mul(x, x, (int64_t)p);
-      if (x == 1 && composity) return false;
-    }
-    if (x != 1) return false;
-  }
-  return true;
 }
 
 // p_bits: number of bits of p
