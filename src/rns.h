@@ -9,9 +9,11 @@ typedef poly_t* rns_t;  // L polynomials (one per q_i)
 typedef struct {
   uint64_t* q;       // l modulus
   int64_t* qinv;     // inverse of the l q's mod 2^64
+  int64_t* qinvq;    // R(q_i)-1 mod q_j
   int64_t* qR;       // R=2^64 in the l modulis
   int64_t* qR2;      // R^2=2^128 in the l modulis
   int64_t* qRq;      // R/q, round even
+  int64_t* qn;       // 1/n, R=2^64 in q modulis
   int64_t* qRn;      // R/n, R=2^64 in q modulis
   int64_t* qR2n;     // R^2/n, R=2^64 in q modulis
   uint64_t* scales;  // scales for each moduli

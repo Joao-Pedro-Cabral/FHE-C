@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "complex.h"
 #include "utils.h"
 
 #ifdef __RUN_MODE__
@@ -25,14 +26,15 @@ static uint64_t time_ns(void) {
 #endif
 
 void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qR2,
-                 const int64_t* qRq, const int64_t* qinv, const int64_t* qRn,
-                 const int64_t* qR2n, uint32_t l) {
+                 const int64_t* qRq, const int64_t* qinv, const int64_t* qn,
+                 const int64_t* qRn, const int64_t* qR2n, uint32_t l) {
   printf("---------- VERIFY Q AUXILIARIES ROOTS ----------\n");
   for (uint32_t i = 0; i < l; i++) {
     printf(
-        "qR: %ld, qR2: %ld, qinv: %ld, qRq: %ld, qRn: %ld , qR2n: %ld mod "
+        "qR: %ld, qR2: %ld, qinv: %ld, qRq: %ld, qn: %ld, qRn: %ld , qR2n: %ld "
+        "mod "
         "%ld\n",
-        qR[i], qR2[i], qinv[i], qRq[i], qRn[i], qR2n[i], q[i]);
+        qR[i], qR2[i], qinv[i], qRq[i], qn[i], qRn[i], qR2n[i], q[i]);
   }
 }
 
@@ -167,20 +169,20 @@ void check_keys(const ckks_params_t* params) {
   check_rotation_key(params);
 }
 
-void check_ciphertext(const ciphertext_t* ct, const int64_t* q) {
+void check_ciphertext(const ciphertext_t* ct, const rns_params_t* params) {
   printf("---------- VERIFY CYPHERTEXT ----------\n");
   uint8_t correct = 1;
-  for (uint32_t i = 0; i < ct->l; i++) {
-    for (uint32_t j = 0; j < ct->n; j++) {
-      if ((ct->ab.a[i][j] > (int64_t)q[i] / 2) |
-          (ct->ab.a[i][j] < -(int64_t)q[i] / 2)) {
+  for (uint32_t i = 0; i < params->l; i++) {
+    for (uint32_t j = 0; j < params->n; j++) {
+      if ((ct->ab.a[i][j] > (int64_t)params->q[i] / 2) |
+          (ct->ab.a[i][j] < -(int64_t)params->q[i] / 2)) {
         correct = 0;
-        printf("a[%d][%d]: %ld mod %ld\n", i, j, ct->ab.a[i][j], q[i]);
+        printf("a[%d][%d]: %ld mod %ld\n", i, j, ct->ab.a[i][j], params->q[i]);
       }
-      if ((ct->ab.b[i][j] > (int64_t)q[i] / 2) |
-          (ct->ab.b[i][j] < -(int64_t)q[i] / 2)) {
+      if ((ct->ab.b[i][j] > (int64_t)params->q[i] / 2) |
+          (ct->ab.b[i][j] < -(int64_t)params->q[i] / 2)) {
         correct = 0;
-        printf("b[%d][%d]: %ld mod %ld\n", i, j, ct->ab.b[i][j], q[i]);
+        printf("b[%d][%d]: %ld mod %ld\n", i, j, ct->ab.b[i][j], params->q[i]);
       }
     }
   }
@@ -276,7 +278,8 @@ int main() {
   }
 #ifdef __DEBUG_MODE__
   check_q_aux(params.rns.q, params.rns.qR, params.rns.qR2, params.rns.qRq,
-              params.rns.qinv, params.rns.qRn, params.rns.qR2n, params.rns.l);
+              params.rns.qinv, params.rns.qn, params.rns.qRn, params.rns.qR2n,
+              params.rns.l);
   check_roots(params.rns.w, params.rns.q, params.rns.l, params.rns.n);
   check_roots(params.rns.w_1, params.rns.q, params.rns.l, params.rns.n);
   check_keys(&params);
@@ -398,6 +401,31 @@ int main() {
 #ifdef __RUN_MODE__
   end = time_ns();
   printf("Decode: %.3f ms\n", (double)(end - start) / 1000.0);
+#endif
+
+// Multiplication
+#ifdef __DEBUG_MODE__
+  printf("---------- CIPHER-CIPHER MULTIPLICATION ----------\n");
+#endif
+  ciphertext_t ct2;
+#ifdef __RUN_MODE__
+  start = time_ns();
+#endif
+  for (uint32_t i = 0; i < N_TESTS; i++) {
+    ciphertext_new(&ct2, &params.rns);
+    ckks_ciphertext_ciphertext_multiplication(&ct2, &ct, &ct, &params);
+  }
+  ckks_decrypt(m2, &ct2, &params);
+  ckks_decode(&v2, m2, ct.level, &params);
+  for (uint32_t i = 0; i < params.rns.n / 2; i++) {
+    double t_rel, t_img;
+    t_rel = v.rel[i];
+    t_img = v.img[i];
+    v.rel[i] = rel_mul(t_rel, t_img, t_rel, t_img);
+    v.img[i] = img_mul(t_rel, t_img, t_rel, t_img);
+  }
+#ifdef __DEBUG_MODE__
+  check_vectors(&v, &v2, params.rns.n / 2);
 #endif
 
   // Free

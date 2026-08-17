@@ -210,6 +210,12 @@ void poly_rsub(poly_t a, const poly_t b, uint64_t q, int64_t qRq, uint32_t n) {
   }
 }
 
+void poly_sub(poly_t a, const poly_t b, uint64_t q, int64_t qRq, uint32_t n) {
+  for (uint32_t i = 0; i < n; i++) {
+    a[i] = mod_ct_exact(a[i] - b[i], (int64_t)q, qRq);
+  }
+}
+
 void poly_pointwise_mul(poly_t c, const poly_t a, const poly_t b, uint64_t q,
                         int64_t qinv, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
@@ -227,6 +233,12 @@ void poly_mulx_exact(poly_t a, int64_t x, uint64_t q, int64_t qinv,
                      uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
     a[i] = mod_mul_ct_exact(a[i], x, (int64_t)q, qinv);
+  }
+}
+
+void poly_mod(poly_t b, const poly_t a, uint64_t q, int64_t qRq, uint32_t n) {
+  for (uint32_t i = 0; i < n; i++) {
+    b[i] = mod_ct(a[i], (int64_t)q, qRq);
   }
 }
 

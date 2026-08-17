@@ -66,11 +66,11 @@ void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params) {
   poly_new(&e, params->n);
   poly_new(&me, params->n);
   // Compute S^2 in the first (biggest) NTT domain
-  // The pointwise removes the INTT R^2/n factor
   poly_pointwise_mul(s2, keys->s[0], keys->s[0], params->q[0], params->qinv[0],
                      params->n);
   poly_intt(s2, params->w_1[0], params->q[0], params->qRq[0], params->qinv[0],
             params->n);
+  // Removes the INTT R^2/n factor
   poly_mulx(s2, params->qR2n[0], params->q[0], params->qinv[0], params->n);
   rlwe_key_switch_encrypt(keys->r, s2, me, e, keys, params);
   poly_free(&s2);

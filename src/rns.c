@@ -66,11 +66,13 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   params->l = l;
   params->q = malloc(sizeof(int64_t) * l);
   params->qR2n = malloc(sizeof(int64_t) * l);
+  params->qn = malloc(sizeof(int64_t) * l);
   params->qRn = malloc(sizeof(int64_t) * l);
   params->qR = malloc(sizeof(int64_t) * l);
   params->qR2 = malloc(sizeof(int64_t) * l);
   params->qRq = malloc(sizeof(int64_t) * l);
   params->qinv = malloc(sizeof(int64_t) * l);
+  params->qinvq = malloc(sizeof(int64_t) * l * l);
   params->scales = malloc(sizeof(int64_t) * l);
   rns_new(&params->w, params);
   rns_new(&params->w_1, params);
@@ -93,11 +95,15 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
       params->qR2[i] -= (int64_t)params->q[i];
     if (params->qR2[i] < (int64_t) - (params->q[i] / 2))
       params->qR2[i] += (int64_t)params->q[i];
+    // qn
+    params->qn[i] = mod_pow_ct(n, params->q[i] - 2, (int64_t)params->q[i],
+                               params->qR[i], params->qinv[i]);  // 1/n
+    if (params->qn[i] > (int64_t)(params->q[i] / 2))
+      params->qn[i] -= (int64_t)params->q[i];
+    if (params->qn[i] < (int64_t) - (params->q[i] / 2))
+      params->qn[i] += (int64_t)params->q[i];
     // qRn
-    params->qRn[i] =
-        (int64_t)mod_pow_ct(n, params->q[i] - 2, (int64_t)params->q[i],
-                            params->qR[i], params->qinv[i]);  // 1/n
-    params->qRn[i] = (int64_t)(((__int128_t)params->qR[i] * params->qRn[i]) %
+    params->qRn[i] = (int64_t)(((__int128_t)params->qR[i] * params->qn[i]) %
                                params->q[i]);  // R/n
     if (params->qRn[i] > (int64_t)(params->q[i] / 2))
       params->qRn[i] -= (int64_t)params->q[i];
@@ -114,6 +120,25 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
     params->qRq[i] =
         (int64_t)((((__uint128_t)1 << 64) + params->q[i] / 2) / params->q[i]);
   }
+  // qinvq
+  for (uint32_t j = 0; j < l; j++) {
+    for (uint32_t i = 0; i < l; i++) {
+      if (i == j) {
+        params->qinvq[i * l + j] = 0;  // placeholder (never used)
+      } else {
+        params->qinvq[i * l + j] = mod_pow_ct(
+            (int64_t)params->q[i], params->q[j] - 2, (int64_t)params->q[j],
+            params->qR[j], params->qinv[j]);  // (q_i)-1
+        params->qinvq[i * l + j] =
+            (int64_t)(((__int128_t)params->qR[j] * params->qinvq[i * l + j]) %
+                      params->q[j]);  // Add R factor
+        if (params->qinvq[i * l + j] > (int64_t)(params->q[j] / 2))
+          params->qinvq[i * l + j] -= (int64_t)params->q[j];
+        if (params->qinvq[i * l + j] < (int64_t) - (params->q[j] / 2))
+          params->qinvq[i * l + j] += (int64_t)params->q[j];
+      }
+    }
+  }
   // scale
   params->scales[l - 1] = (1UL << (scale_bits - 1)) + (1UL << (scale_bits - 2));
   for (uint32_t i = l - 1; i > 0; i--) {
@@ -128,12 +153,14 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
 
 void rns_params_free(rns_params_t* params) {
   free(params->qinv);
+  free(params->qinvq);
   free(params->qRq);
   free(params->qR);
   free(params->qR2);
   free(params->q);
   free(params->qR2n);
   free(params->qRn);
+  free(params->qn);
   free(params->scales);
   rns_free(&params->w, params);
   rns_free(&params->w_1, params);

@@ -65,3 +65,11 @@ void ckks_decrypt(poly_t m, const ciphertext_t* ct,
                   const ckks_params_t* params) {
   rlwe_plaintext_decrypt(m, &ct->ab, &params->keys, &params->rns);
 }
+
+void ckks_ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
+                                               const ciphertext_t* ct1,
+                                               const ciphertext_t* ct2,
+                                               const ckks_params_t* params) {
+  ciphertext_ciphertext_multiplication(ct3, ct1, ct2, params->keys.r,
+                                       &params->rns);
+}

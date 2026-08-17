@@ -103,6 +103,15 @@ void poly_add(poly_t a, const poly_t b, uint64_t q, int64_t qRq, uint32_t n);
   @param qRq: R/q, round even
   @param n: size of the polynomials
 */
+void poly_sub(poly_t a, const poly_t b, uint64_t q, int64_t qRq, uint32_t n);
+
+/*
+  @param a: input/output polynomial
+  @param b: input polynomial
+  @param q: input moduli
+  @param qRq: R/q, round even
+  @param n: size of the polynomials
+*/
 void poly_rsub(poly_t a, const poly_t b, uint64_t q, int64_t qRq, uint32_t n);
 
 /*
@@ -140,6 +149,15 @@ void poly_mulx(poly_t a, int64_t x, uint64_t q, int64_t qinv, uint32_t n);
   @param n: size of the polynomials
 */
 void poly_mulx_exact(poly_t a, int64_t x, uint64_t q, int64_t qinv, uint32_t n);
+
+/*
+  @param a: input polynomial
+  @param b: output polynomial
+  @param q: input moduli
+  @param qRq: R/q, round even
+  @param n: size of the polynomials
+*/
+void poly_mod(poly_t b, const poly_t a, uint64_t q, int64_t qRq, uint32_t n);
 
 /*
   @param a: input/output polynomial

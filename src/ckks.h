@@ -2,8 +2,8 @@
 #ifndef __CKKS_H__
 #define __CKKS_H__
 
-#include "rlwe.h"
 #include "ciphertext.h"
+#include "rlwe.h"
 #include "vector.h"
 
 // Parameters for CKKS usage (should be initialized with ckks_keygen)
@@ -74,7 +74,9 @@ void ckks_decrypt(poly_t m, const ciphertext_t* ct,
   @param ct2: input ciphertext_t
   @param m: output polynomial
 */
-void ckks_ciphertext_ciphertext_multiplication(ciphertext_t* ct3, const ciphertext_t* ct1, const ciphertext_t* ct2,
-                  const ckks_params_t* params);
+void ckks_ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
+                                               const ciphertext_t* ct1,
+                                               const ciphertext_t* ct2,
+                                               const ckks_params_t* params);
 
 #endif  // __CKKS_H__
