@@ -13,7 +13,7 @@ typedef struct {
   int64_t* qRq;      // R/q, round even
   int64_t* qR2n;     // R^2/n, R=2^64 in q modulis
   uint64_t* scales;  // scales for each moduli
-  uint32_t l;        // size of the rms
+  uint32_t l;        // size of the rns
   uint32_t n;        // size of the polynomials
   rns_t w;           // roots for each ring
 } rns_params_t;

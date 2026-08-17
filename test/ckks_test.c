@@ -178,7 +178,7 @@ void check_keys(const ckks_params_t* params) {
   check_rotation_key(params);
 }
 
-void check_cyphertext(const ciphertext_t* ct, const int64_t* q) {
+void check_ciphertext(const ciphertext_t* ct, const int64_t* q) {
   printf("---------- VERIFY CYPHERTEXT ----------\n");
   uint8_t correct = 1;
   for (uint32_t i = 0; i < ct->l; i++) {
@@ -342,11 +342,11 @@ int main() {
   start = time_ns();
 #endif
   for (uint32_t i = 0; i < N_TESTS; i++) {
-    cyphertext_new(&ct, &params);
+    ciphertext_new(&ct, &params.rns);
     ckks_encrypt(&ct, m, &params);
   }
 #ifdef __DEBUG_MODE__
-  check_cyphertext(&ct, (int64_t*)params.rns.q);
+  check_ciphertext(&ct, (int64_t*)params.rns.q);
 #endif
   // printf("---------- ENCRYPTED B ----------\n");
   // for (uint32_t i = 0; i < l; i++) {
@@ -412,7 +412,7 @@ int main() {
 
   // Free
   ckks_free(&params);
-  cyphertext_free(&ct, &params);
+  ciphertext_free(&ct, &params.rns);
   vec_free(&v);
   vec_free(&v2);
   poly_free(&m);

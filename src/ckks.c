@@ -69,14 +69,3 @@ void ckks_decrypt(poly_t m, const ciphertext_t* ct,
                   const ckks_params_t* params) {
   rlwe_plaintext_decrypt(m, &ct->ab, &params->keys, &params->rns);
 }
-
-void cyphertext_new(ciphertext_t* ct, const ckks_params_t* params) {
-  rlwe_new(&ct->ab, &params->rns);
-  ct->n = params->rns.n;
-  ct->l = params->rns.l;
-  ct->level = params->rns.l;
-}
-
-void cyphertext_free(ciphertext_t* ct, const ckks_params_t* params) {
-  rlwe_free(&ct->ab, &params->rns);
-}

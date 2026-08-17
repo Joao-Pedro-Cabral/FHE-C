@@ -3,6 +3,7 @@
 #define __CKKS_H__
 
 #include "rlwe.h"
+#include "ciphertext.h"
 #include "vector.h"
 
 // Parameters for CKKS usage (should be initialized with ckks_keygen)
@@ -11,14 +12,6 @@ typedef struct {
   rns_params_t rns;  // RNS parameters
   keys_t keys;       // RLWE context (keys_t and roots)
 } ckks_params_t;
-
-// OpenFHE cyphertext format
-typedef struct {
-  rlwe_t ab;       // RLWE of the ciphertext_t
-  uint32_t n;      // size of the ring
-  uint32_t l;      // size of the rns_t
-  uint32_t level;  // current level (1 to l)
-} ciphertext_t;
 
 /*
   @param params: CKKS params to be initialized
@@ -75,17 +68,13 @@ void ckks_encrypt(ciphertext_t* ct, const poly_t m,
 */
 void ckks_decrypt(poly_t m, const ciphertext_t* ct,
                   const ckks_params_t* params);
-
 /*
-  @param params: CKKS params
-  @param ct: ciphertext_t to be allocated
+  @param ct3: output ciphertext_t
+  @param ct1: input ciphertext_t
+  @param ct2: input ciphertext_t
+  @param m: output polynomial
 */
-void cyphertext_new(ciphertext_t* ct, const ckks_params_t* params);
-
-/*
-  @param params: CKKS params
-  @param ct: ciphertext_t to be set free
-*/
-void cyphertext_free(ciphertext_t* ct, const ckks_params_t* params);
+void ckks_ciphertext_ciphertext_multiplication(ciphertext_t* ct3, const ciphertext_t* ct1, const ciphertext_t* ct2,
+                  const ckks_params_t* params);
 
 #endif  // __CKKS_H__
