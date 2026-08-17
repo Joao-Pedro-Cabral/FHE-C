@@ -20,17 +20,17 @@ void rns_free(rns_t* a, const rns_params_t* params) {
   free(*a);
 }
 
-void rns_gen_roots(rns_params_t* params) {
+static void rns_gen_roots(rns_params_t* params) {
   for (uint32_t i = 0; i < params->l; i++) {
     poly_gen_roots(params->w[i], params->n, (int64_t)params->q[i],
                    params->qR[i], params->qinv[i]);
   }
 }
 
-void rns_gen_inverse_roots(rns_params_t* params) {
+static void rns_gen_inverse_roots(rns_params_t* params) {
   for (uint32_t i = 0; i < params->l; i++) {
-    poly_gen_inverse_roots(params->w[i], params->n, (int64_t)params->q[i],
-                           params->qinv[i]);
+    poly_gen_inverse_roots(params->w_1[i], params->w[i][params->n / 2],
+                           params->n, (int64_t)params->q[i], params->qinv[i]);
   }
 }
 
@@ -66,11 +66,14 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   params->l = l;
   params->q = malloc(sizeof(int64_t) * l);
   params->qR2n = malloc(sizeof(int64_t) * l);
+  params->qRn = malloc(sizeof(int64_t) * l);
   params->qR = malloc(sizeof(int64_t) * l);
+  params->qR2 = malloc(sizeof(int64_t) * l);
   params->qRq = malloc(sizeof(int64_t) * l);
   params->qinv = malloc(sizeof(int64_t) * l);
   params->scales = malloc(sizeof(int64_t) * l);
   rns_new(&params->w, params);
+  rns_new(&params->w_1, params);
   // 2n: negacyclic
   find_primes(params->q, q0_bits, scale_bits, 2 * n, l);
   // Init data (less roots)
@@ -83,13 +86,25 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
     params->qR[i] = (int64_t)(R % params->q[i]);
     if (params->qR[i] > (int64_t)(params->q[i] / 2))
       params->qR[i] -= (int64_t)params->q[i];
-    // qR2n
-    params->qR2n[i] =
+    // qR2
+    params->qR2[i] =
+        (int64_t)(((__int128_t)params->qR[i] * params->qR[i]) % params->q[i]);
+    if (params->qR2[i] > (int64_t)(params->q[i] / 2))
+      params->qR2[i] -= (int64_t)params->q[i];
+    if (params->qR2[i] < (int64_t) - (params->q[i] / 2))
+      params->qR2[i] += (int64_t)params->q[i];
+    // qRn
+    params->qRn[i] =
         (int64_t)mod_pow_ct(n, params->q[i] - 2, (int64_t)params->q[i],
                             params->qR[i], params->qinv[i]);  // 1/n
-    params->qR2n[i] = (int64_t)((((__int128_t)1 << 64) * params->qR2n[i]) %
-                                params->q[i]);  // R/n
-    params->qR2n[i] = (int64_t)((((__int128_t)1 << 64) * params->qR2n[i]) %
+    params->qRn[i] = (int64_t)(((__int128_t)params->qR[i] * params->qRn[i]) %
+                               params->q[i]);  // R/n
+    if (params->qRn[i] > (int64_t)(params->q[i] / 2))
+      params->qRn[i] -= (int64_t)params->q[i];
+    if (params->qRn[i] < (int64_t) - (params->q[i] / 2))
+      params->qRn[i] += (int64_t)params->q[i];
+    // qR2n
+    params->qR2n[i] = (int64_t)(((__int128_t)params->qR[i] * params->qRn[i]) %
                                 params->q[i]);  // R^2/n
     if (params->qR2n[i] > (int64_t)(params->q[i] / 2))
       params->qR2n[i] -= (int64_t)params->q[i];
@@ -106,14 +121,20 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
     params->scales[i - 1] = (uint64_t)((scale2 + (double)(params->q[i] / 2)) /
                                        (double)params->q[i]);
   }
+  // roots
+  rns_gen_roots(params);
+  rns_gen_inverse_roots(params);
 }
 
 void rns_params_free(rns_params_t* params) {
   free(params->qinv);
   free(params->qRq);
   free(params->qR);
+  free(params->qR2);
   free(params->q);
   free(params->qR2n);
+  free(params->qRn);
   free(params->scales);
   rns_free(&params->w, params);
+  rns_free(&params->w_1, params);
 }

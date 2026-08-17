@@ -24,12 +24,15 @@ static uint64_t time_ns(void) {
 }
 #endif
 
-void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qRq,
-                 const int64_t* qinv, const int64_t* qR2n, uint32_t l) {
+void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qR2,
+                 const int64_t* qRq, const int64_t* qinv, const int64_t* qRn,
+                 const int64_t* qR2n, uint32_t l) {
   printf("---------- VERIFY Q AUXILIARIES ROOTS ----------\n");
   for (uint32_t i = 0; i < l; i++) {
-    printf("qR: %ld, qinv: %ld, qRq: %ld, qR2n: %ld mod %ld\n", qR[i], qinv[i],
-           qRq[i], qR2n[i], q[i]);
+    printf(
+        "qR: %ld, qR2: %ld, qinv: %ld, qRq: %ld, qRn: %ld , qR2n: %ld mod "
+        "%ld\n",
+        qR[i], qR2[i], qinv[i], qRq[i], qRn[i], qR2n[i], q[i]);
   }
 }
 
@@ -56,24 +59,17 @@ void check_secret_key(const ckks_params_t* params) {
   uint8_t correct = 1;
   poly_t ones, invn, s_hat;
   poly_new(&s_hat, params->rns.n);
-  poly_new(&ones, params->rns.n);
   poly_new(&invn, params->rns.n);
-  for (uint32_t i = 0; i < params->rns.n; i++) {
-    ones[i] = 1;
-  }
   for (uint32_t i = 0; i < params->rns.l; i++) {
     memcpy(s_hat, params->keys.s[i], params->rns.n * sizeof(uint64_t));
-    poly_intt(s_hat, params->rns.w[i], params->rns.q[i], params->rns.qRq[i],
+    poly_intt(s_hat, params->rns.w_1[i], params->rns.q[i], params->rns.qRq[i],
               params->rns.qinv[i], params->rns.n);
     for (uint32_t j = 0; j < params->rns.n; j++) {
-      invn[j] = params->rns.qR2n[i];
+      invn[j] = params->rns.qRn[i];
     }
     poly_pointwise_mul(s_hat, s_hat, invn, params->rns.q[i],
                        params->rns.qinv[i],
                        params->rns.n);  // multiply by R^2/n
-    poly_pointwise_mul(s_hat, s_hat, ones, params->rns.q[i],
-                       params->rns.qinv[i],
-                       params->rns.n);  // remove extra montgomery factor
     for (uint32_t j = 0; j < params->rns.n; j++) {
       if (s_hat[j] != params->keys.s_hat[j]) {
         correct = 0;
@@ -83,7 +79,6 @@ void check_secret_key(const ckks_params_t* params) {
     }
   }
   poly_free(&s_hat);
-  poly_free(&ones);
   poly_free(&invn);
   if (correct) {
     printf("---------- SECRET KEY CORRECT ----------\n");
@@ -263,7 +258,7 @@ void check_vectors(const vec_t* v, const vec_t* v2, uint32_t n) {
 
 int main() {
   // Parameters Construction
-  uint32_t l = 4;
+  uint32_t l = 1;
   uint32_t q0_bits = 62;
   uint32_t scale_bits = 50;
 
@@ -286,9 +281,10 @@ int main() {
     ckks_rotation_keygen(&params);
   }
 #ifdef __DEBUG_MODE__
-  check_q_aux(params.rns.q, params.rns.qR, params.rns.qRq, params.rns.qinv,
-              params.rns.qR2n, params.rns.l);
+  check_q_aux(params.rns.q, params.rns.qR, params.rns.qR2, params.rns.qRq,
+              params.rns.qinv, params.rns.qRn, params.rns.qR2n, params.rns.l);
   check_roots(params.rns.w, params.rns.q, params.rns.l, params.rns.n);
+  check_roots(params.rns.w_1, params.rns.q, params.rns.l, params.rns.n);
   check_keys(&params);
 #endif
 

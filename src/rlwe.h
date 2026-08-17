@@ -85,8 +85,9 @@ void rlwe_plaintext_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
   @param e: error polynomial (allocated by caller)
   @param m: output polynomial
 */
-void rlwe_key_switch_encrypt(switch_t key_switch, const poly_t m, poly_t e,
-                             const keys_t* keys, const rns_params_t* params);
+void rlwe_key_switch_encrypt(switch_t key_switch, const poly_t m, poly_t me,
+                             poly_t e, const keys_t* keys,
+                             const rns_params_t* params);
 
 /*
   @param params: RNS params

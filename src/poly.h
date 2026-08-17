@@ -93,11 +93,11 @@ void poly_sub_no_mod(poly_t a, const poly_t b, uint32_t n);
   @param q: input moduli
   @param qRq: R/q, round even
   @param qinv: input q^(-1) mod 2^64
-  @param qR2n: input R^2/n mod q, R=2^64
+  @param qRn: input R^2/n mod q, R=2^64
   @param n: size of the polynomials
 */
 void poly_add(poly_t a, const poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
-              int64_t qR2n, uint32_t n);
+              int64_t qRn, uint32_t n);
 
 /*
   @param a: input/output polynomial
@@ -105,11 +105,11 @@ void poly_add(poly_t a, const poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
   @param q: input moduli
   @param qRq: R/q, round even
   @param qinv: input q^(-1) mod 2^64
-  @param qR2n: input R^2/n mod q, R=2^64
+  @param qRn: input R^2/n mod q, R=2^64
   @param n: size of the polynomials
 */
 void poly_rsub(poly_t a, const poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
-               int64_t qR2n, uint32_t n);
+               int64_t qRn, uint32_t n);
 
 /*
   @param a: input/output polynomial
@@ -175,8 +175,10 @@ void poly_gen_roots(poly_t roots, uint32_t n, int64_t q, int64_t qR,
   @param q: input moduli
   @param qinv: input q^(-1) mod 2^64
   @param n: size of the ring
+  @param root0: roots[n/2] from poly_gen_roots
   @param roots: output primitive roots the moduli
 */
-void poly_gen_inverse_roots(poly_t roots, uint32_t n, int64_t q, int64_t qinv);
+void poly_gen_inverse_roots(poly_t roots, int64_t root0, uint32_t n, int64_t q,
+                            int64_t qinv);
 
 #endif  // __POLY_H__

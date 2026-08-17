@@ -10,13 +10,9 @@ void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   // complex roots
   vec_new(&params->w, params->rns.n);
   vec_gen_roots(&params->w, params->rns.n);
-  // roots for RLWE
-  rns_gen_roots(&params->rns);
   // secret key for RLWE
   rlwe_keys_new(&params->keys, &params->rns);
   rlwe_gen_secret_key(&params->keys, &params->rns);
-  // roots for INTT
-  rns_gen_inverse_roots(&params->rns);
 }
 
 void ckks_relinearization_keygen(ckks_params_t* params) {

@@ -199,19 +199,19 @@ void poly_sub_no_mod(poly_t a, const poly_t b, uint32_t n) {
 }
 
 void poly_add(poly_t a, const poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
-              int64_t qR2n, uint32_t n) {
+              int64_t qRn, uint32_t n) {
   // R^2/n from INTT
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod_mul_ct(a[i], qR2n, (int64_t)q, qinv);
     a[i] = mod_ct_exact(a[i] + b[i], (int64_t)q, qRq);
+    a[i] = mod_mul_ct(a[i], qRn, (int64_t)q, qinv);
   }
 }
 
 void poly_rsub(poly_t a, const poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
-               int64_t qR2n, uint32_t n) {
+               int64_t qRn, uint32_t n) {
   // R^2/n from INTT
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod_mul_ct(a[i], qR2n, (int64_t)q, qinv);
+    // a[i] = mod_mul_ct(a[i], qRn, (int64_t)q, qinv);
     a[i] = mod_ct_exact(b[i] - a[i], (int64_t)q, qRq);
   }
 }
@@ -720,11 +720,11 @@ void poly_gen_roots(poly_t roots, uint32_t n, int64_t q, int64_t qR,
   }
 }
 
-void poly_gen_inverse_roots(poly_t roots, uint32_t n, int64_t q, int64_t qinv) {
+void poly_gen_inverse_roots(poly_t roots, int64_t root0, uint32_t n, int64_t q,
+                            int64_t qinv) {
   // Find one primitive root (n > 2)
   uint32_t log2_n = floor_log2(n);
-  int64_t etan = -1;             // x^n
-  int64_t root0 = roots[n / 2];  // Previously poly_gen_roots output
+  int64_t etan = -1;  // x^n
   roots[0] = 1;
   etan = mod_mul(etan, root0, q);
   roots[n - 1] = etan;  // bit_reverse32(n - 1, log2_n)
