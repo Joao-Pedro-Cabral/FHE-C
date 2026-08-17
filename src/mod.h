@@ -49,6 +49,13 @@ static inline int64_t mod_ct_exact(int64_t a, int64_t q, int64_t qRq) {
   return q_to_q2(c, q);
 }
 
+static inline int64_t mod_mul_ct_exact(int64_t a, int64_t b, int64_t q,
+                                       int64_t qinv) {
+  int64_t c = mod_mul_ct(a, b, q, qinv);
+
+  return q_to_q2(c, q);
+}
+
 static inline uint64_t mod_mul0(uint64_t a, uint64_t b, uint64_t q) {
   __uint128_t prod = (__uint128_t)a * b;
   a = (uint64_t)(prod % q);

@@ -57,19 +57,14 @@ void check_roots(const rns_t roots, const uint64_t* q, uint32_t l, uint32_t n) {
 void check_secret_key(const ckks_params_t* params) {
   printf("---------- VERIFY SECRET KEY ----------\n");
   uint8_t correct = 1;
-  poly_t ones, invn, s_hat;
+  poly_t s_hat;
   poly_new(&s_hat, params->rns.n);
-  poly_new(&invn, params->rns.n);
   for (uint32_t i = 0; i < params->rns.l; i++) {
     memcpy(s_hat, params->keys.s[i], params->rns.n * sizeof(uint64_t));
     poly_intt(s_hat, params->rns.w_1[i], params->rns.q[i], params->rns.qRq[i],
               params->rns.qinv[i], params->rns.n);
-    for (uint32_t j = 0; j < params->rns.n; j++) {
-      invn[j] = params->rns.qRn[i];
-    }
-    poly_pointwise_mul(s_hat, s_hat, invn, params->rns.q[i],
-                       params->rns.qinv[i],
-                       params->rns.n);  // multiply by R^2/n
+    poly_mulx(s_hat, params->rns.qRn[i], params->rns.q[i], params->rns.qinv[i],
+              params->rns.n);  // multiply by R^2/n
     for (uint32_t j = 0; j < params->rns.n; j++) {
       if (s_hat[j] != params->keys.s_hat[j]) {
         correct = 0;
@@ -79,7 +74,6 @@ void check_secret_key(const ckks_params_t* params) {
     }
   }
   poly_free(&s_hat);
-  poly_free(&invn);
   if (correct) {
     printf("---------- SECRET KEY CORRECT ----------\n");
   } else {

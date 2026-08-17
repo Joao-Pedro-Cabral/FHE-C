@@ -92,24 +92,18 @@ void poly_sub_no_mod(poly_t a, const poly_t b, uint32_t n);
   @param b: input polynomial
   @param q: input moduli
   @param qRq: R/q, round even
-  @param qinv: input q^(-1) mod 2^64
-  @param qRn: input R^2/n mod q, R=2^64
   @param n: size of the polynomials
 */
-void poly_add(poly_t a, const poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
-              int64_t qRn, uint32_t n);
+void poly_add(poly_t a, const poly_t b, uint64_t q, int64_t qRq, uint32_t n);
 
 /*
   @param a: input/output polynomial
   @param b: input polynomial
   @param q: input moduli
   @param qRq: R/q, round even
-  @param qinv: input q^(-1) mod 2^64
-  @param qRn: input R^2/n mod q, R=2^64
   @param n: size of the polynomials
 */
-void poly_rsub(poly_t a, const poly_t b, uint64_t q, int64_t qRq, int64_t qinv,
-               int64_t qRn, uint32_t n);
+void poly_rsub(poly_t a, const poly_t b, uint64_t q, int64_t qRq, uint32_t n);
 
 /*
   @param a: input/output polynomial
@@ -131,14 +125,21 @@ void poly_pointwise_mul(poly_t c, const poly_t a, const poly_t b, uint64_t q,
 
 /*
   @param a: input/output polynomial
-  @param b: input polynomial
   @param x: input multiplicative constant
   @param q: input moduli
   @param qinv: input q^(-1) mod 2^64
   @param n: size of the polynomials
 */
-void poly_pointwise_mulx(poly_t c, const poly_t a, const poly_t b, int64_t x,
-                         uint64_t q, int64_t qinv, uint32_t n);
+void poly_mulx(poly_t a, int64_t x, uint64_t q, int64_t qinv, uint32_t n);
+
+/*
+  @param a: input/output polynomial
+  @param x: input multiplicative constant
+  @param q: input moduli
+  @param qinv: input q^(-1) mod 2^64
+  @param n: size of the polynomials
+*/
+void poly_mulx_exact(poly_t a, int64_t x, uint64_t q, int64_t qinv, uint32_t n);
 
 /*
   @param a: input/output polynomial
