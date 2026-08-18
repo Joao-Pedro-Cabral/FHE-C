@@ -98,4 +98,16 @@ void rlwe_key_switch_encrypt(switch_t key_switch, const poly_t m, poly_t me,
 void rlwe_key_switch_decrypt(poly_t m, const switch_t key_switch,
                              const keys_t* keys, const rns_params_t* params);
 
+/*
+  @param params: RNS params
+  @param d2: decomposed rns
+  @param r: input key switch
+  @param level: current level
+  @param tmp: temporary
+  @param ab: output RLWE
+*/
+void rlwe_decompose_mult(rlwe_t* ab, const rns_t d2, const switch_t r,
+                         poly_t tmp, uint32_t level,
+                         const rns_params_t* params);
+
 #endif  // __RLWE_H__

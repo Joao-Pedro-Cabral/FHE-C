@@ -186,3 +186,20 @@ void rlwe_key_switch_decrypt(poly_t m, const switch_t key_switch,
   poly_sub_no_mod(m, m2, params->n);
   poly_free(&m2);
 }
+
+void rlwe_decompose_mult(rlwe_t* ab, const rns_t d2, const switch_t r,
+                         poly_t tmp, uint32_t level,
+                         const rns_params_t* params) {
+  for (uint32_t i = 0; i < level; i++) {
+    for (uint32_t j = 0; j < level; j++) {
+      poly_pointwise_mul(tmp, d2[i], r[i].b[j], params->q[j], params->qinv[j],
+                         params->n);  // 1
+      poly_add(ab->b[j], tmp, params->q[j], params->qRq[j],
+               params->n);  // 1
+      poly_pointwise_mul(tmp, d2[i], r[i].a[j], params->q[j], params->qinv[j],
+                         params->n);  // R
+      poly_add(ab->a[j], tmp, params->q[j], params->qRq[j],
+               params->n);  // R
+    }
+  }
+}
