@@ -195,6 +195,8 @@ void check_decompose_mult(const ckks_params_t* params) {
     memcpy(ar[i], ap, params->rns.n * sizeof(int64_t));
     poly_ntt(ar[i], params->rns.w[i], params->rns.q[i], params->rns.qRq[i],
              params->rns.qinv[i], params->rns.n);
+    poly_mulx(ar[i], params->rns.qR2[i], params->rns.q[i],
+             params->rns.qinv[i], params->rns.n);
     memset(as2.a[i], 0, params->rns.n * sizeof(int64_t));
     memset(as2.b[i], 0, params->rns.n * sizeof(int64_t));
   }

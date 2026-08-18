@@ -104,7 +104,7 @@ static void rlwe_encrypt_step(poly_t a, poly_t b, poly_t m2, const poly_t m,
                               const poly_t s, const poly_t w, uint64_t q,
                               int64_t qRq, int64_t qinv, uint32_t n) {
   // B = -(-A)S + DeltaM + E
-  memcpy(m2, m, n * sizeof(int64_t));
+  poly_mod(m2, m, q, qRq, n);
   poly_ntt(m2, w, q, qRq, qinv, n);
   poly_uniform_sampler(a, q, qRq, n);  // -A
   poly_pointwise_mul(b, a, s, q, qinv, n);
