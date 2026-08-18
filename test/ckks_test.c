@@ -307,6 +307,61 @@ void check_mod_switch(const rns_params_t* params) {
   }
 }
 
+void check_d0(const ciphertext_t* ct2, const ciphertext_t* ct,
+              const rns_params_t* params) {
+  printf("---------- VERIFY D0 ----------\n");
+  uint8_t correct = 1;
+
+  poly_t d0, d0_l;
+  poly_new(&d0, params->n);
+  poly_new(&d0_l, params->n);
+
+  for (uint32_t j = 0; j < params->n; j++) {
+    d0_l[j] = (int64_t)(((__int128_t)ct->ab.b[params->l - 1][j] *
+                         ct->ab.b[params->l - 1][j]) %
+                        (int64_t)params->q[params->l - 1]);
+    d0_l[j] = (int64_t)(((__int128_t)d0_l[j] * params->qn[params->l - 1]) %
+                        (int64_t)params->q[params->l - 1]);
+  }
+  poly_intt(d0_l, params->w_1[params->l - 1], params->q[params->l - 1],
+            params->qRq[params->l - 1], params->qinv[params->l - 1], params->n);
+  for (uint32_t i = 0; i < params->l - 1; i++) {
+    // D0 = B1^2
+    for (uint32_t j = 0; j < params->n; j++) {
+      d0[j] = (int64_t)(((__int128_t)ct->ab.b[i][j] * ct->ab.b[i][j]) %
+                        (int64_t)params->q[i]);
+      d0[j] = (int64_t)(((__int128_t)d0[j] * params->qn[i]) %
+                        (int64_t)params->q[i]);
+    }
+    poly_intt(d0, params->w_1[i], params->q[i], params->qRq[i], params->qinv[i],
+              params->n);
+    // Mod Switch
+    for (uint32_t j = 0; j < params->n; j++) {
+      int64_t new_d0 =
+          (int64_t)(((__int128_t)params->q[params->l - 1] * ct2->ab.b[i][j] +
+                     ct2->ab.b[params->l - 1][j]) %
+                    (int64_t)params->q[i]);
+      if (new_d0 < 0) new_d0 += (int64_t)params->q[i];
+      if (d0[j] < 0) d0[j] += (int64_t)params->q[i];
+      int64_t diff = new_d0 - d0[j];
+      int64_t error_threshold = 2;  // Only removes one moduli
+      if ((diff >= error_threshold) || (diff <= -error_threshold)) {
+        correct = 0;
+        printf("Incorrect new_d0: %ld, d0[%d][%d]: %ld\n", new_d0, i, j, d0[j]);
+      }
+    }
+  }
+
+  if (correct) {
+    printf("---------- D0 CORRECT ----------\n");
+  } else {
+    printf("---------- D0 WRONG ----------\n");
+  }
+
+  poly_free(&d0);
+  poly_free(&d0_l);
+}
+
 int main() {
   // Parameters Construction
   uint32_t l = 1;
@@ -481,6 +536,7 @@ int main() {
   }
 #ifdef __DEBUG_MODE__
   // check_vectors(&v, &v2, params.rns.n / 2);
+  check_d0(&ct2, &ct, &params.rns);
   check_mod_switch(&params.rns);
 #endif
 

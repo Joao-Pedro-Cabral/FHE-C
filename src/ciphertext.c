@@ -20,7 +20,7 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
   if (ct1->level != ct2->level) {
     printf(
         "Illegal ciphertext multiplication! Both operands must have same "
-        "CRT!\n");
+        "CRT level!\n");
   }
   poly_t tmp;
   rns_t d2;
@@ -42,22 +42,24 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
     poly_mulx(ct3->ab.a[i], params->qR2[i], params->q[i], params->qinv[i],
               params->n);  // R
     // D2
-    poly_pointwise_mul(d2[i], ct1->ab.a[i], ct2->ab.a[i], params->q[i],
-                       params->qinv[i], params->n);  // R
+    // poly_pointwise_mul(d2[i], ct1->ab.a[i], ct2->ab.a[i], params->q[i],
+    //                    params->qinv[i], params->n);  // R
   }
   // Relinearization
-  for (uint32_t i = 0; i < ct1->level; i++) {
-    for (uint32_t j = 0; j < ct1->level; j++) {
-      poly_pointwise_mul(tmp, d2[i], r[i].b[j], params->q[j], params->qinv[j],
-                         params->n);  // 1
-      poly_add(ct3->ab.b[j], tmp, params->q[j], params->qRq[j],
-               params->n);  // 1
-      poly_pointwise_mul(tmp, d2[i], r[i].a[j], params->q[j], params->qinv[j],
-                         params->n);  // R
-      poly_add(ct3->ab.a[j], tmp, params->q[j], params->qRq[j],
-               params->n);  // R
-    }
-  }
+  // for (uint32_t i = 0; i < ct1->level; i++) {
+  //   for (uint32_t j = 0; j < ct1->level; j++) {
+  //     poly_pointwise_mul(tmp, d2[i], r[i].b[j], params->q[j],
+  //     params->qinv[j],
+  //                        params->n);  // 1
+  //     poly_add(ct3->ab.b[j], tmp, params->q[j], params->qRq[j],
+  //              params->n);  // 1
+  //     poly_pointwise_mul(tmp, d2[i], r[i].a[j], params->q[j],
+  //     params->qinv[j],
+  //                        params->n);  // R
+  //     poly_add(ct3->ab.a[j], tmp, params->q[j], params->qRq[j],
+  //              params->n);  // R
+  //   }
+  // }
   // Rescaling (ModSwitch)
   ct3->level = ct1->level - 1;  // We lost one level at each multiplication
   rns_mod_switch(ct3->ab.a, tmp, ct3->level, params);
