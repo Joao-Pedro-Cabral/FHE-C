@@ -27,6 +27,20 @@ static uint64_t time_ns(void) {
 }
 #endif
 
+static void multiply_polynomials(poly_t a, poly_t a2,
+                                 const ckks_params_t* params) {
+  poly_ntt(a2, params->rns.w[0], params->rns.q[0], params->rns.qRq[0],
+           params->rns.qinv[0], params->rns.n);
+  poly_ntt(a, params->rns.w[0], params->rns.q[0], params->rns.qRq[0],
+           params->rns.qinv[0], params->rns.n);
+  poly_pointwise_mul(a, a2, a, params->rns.q[0], params->rns.qinv[0],
+                     params->rns.n);
+  poly_mulx(a, params->rns.qR2n[0], params->rns.q[0], params->rns.qinv[0],
+            params->rns.n);
+  poly_intt(a, params->rns.w_1[0], params->rns.q[0], params->rns.qRq[0],
+            params->rns.qinv[0], params->rns.n);
+}
+
 void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qR2,
                  const int64_t* qRq, const int64_t* qinv, const int64_t* qn,
                  const int64_t* qRn, const int64_t* qR2n, uint32_t l) {
@@ -195,8 +209,8 @@ void check_decompose_mult(const ckks_params_t* params) {
     memcpy(ar[i], ap, params->rns.n * sizeof(int64_t));
     poly_ntt(ar[i], params->rns.w[i], params->rns.q[i], params->rns.qRq[i],
              params->rns.qinv[i], params->rns.n);
-    poly_mulx(ar[i], params->rns.qR2[i], params->rns.q[i],
-             params->rns.qinv[i], params->rns.n);
+    poly_mulx(ar[i], params->rns.qR2[i], params->rns.q[i], params->rns.qinv[i],
+              params->rns.n);
     memset(as2.a[i], 0, params->rns.n * sizeof(int64_t));
     memset(as2.b[i], 0, params->rns.n * sizeof(int64_t));
   }
@@ -206,19 +220,7 @@ void check_decompose_mult(const ckks_params_t* params) {
   rlwe_plaintext_decrypt(tmp, &as2, &params->keys, &params->rns);
 
   rlwe_key_switch_decrypt(s2, params->keys.r, &params->keys, &params->rns);
-  for (uint32_t j = 0; j < params->rns.n; j++) {
-    printf("s2[%d]: %ld, ap[%d]: %ld\n", j, s2[j], j, ap[j]);
-  }
-  poly_ntt(s2, params->rns.w[0], params->rns.q[0], params->rns.qRq[0],
-           params->rns.qinv[0], params->rns.n);
-  poly_ntt(ap, params->rns.w[0], params->rns.q[0], params->rns.qRq[0],
-           params->rns.qinv[0], params->rns.n);
-  poly_pointwise_mul(ap, s2, ap, params->rns.q[0], params->rns.qinv[0],
-                     params->rns.n);
-  poly_mulx(ap, params->rns.qR2n[0], params->rns.q[0], params->rns.qinv[0],
-            params->rns.n);
-  poly_intt(ap, params->rns.w_1[0], params->rns.q[0], params->rns.qRq[0],
-            params->rns.qinv[0], params->rns.n);
+  multiply_polynomials(ap, s2, params);
 
   for (uint32_t j = 0; j < params->rns.n; j++) {
     if (tmp[j] != ap[j]) {
@@ -612,6 +614,15 @@ int main() {
   }
   ckks_decrypt(m2, &ct2, &params);
   ckks_decode(&v2, m2, ct2.level, &params);
+  poly_t m3;
+  poly_new(&m3, params.rns.n);
+#ifdef __DEBUG_MODE__
+  for (uint32_t i = 0; i < params.rns.n; i++) {
+    m3[i] = m[i] >> scale_bits;
+  }
+  multiply_polynomials(m3, m, &params);
+  check_decoded_polynomial(m3, m2, params.rns.scales[ct2.level - 1],
+                           params.rns.n);
   for (uint32_t i = 0; i < params.rns.n / 2; i++) {
     double t_rel, t_img;
     t_rel = v.rel[i];
@@ -619,11 +630,10 @@ int main() {
     v.rel[i] = rel_mul(t_rel, t_img, t_rel, t_img);
     v.img[i] = img_mul(t_rel, t_img, t_rel, t_img);
   }
-#ifdef __DEBUG_MODE__
   // check_vectors(&v, &v2, params.rns.n / 2);
   // check_d0(&ct2, &ct, &params.rns);
   // check_d1(&ct2, &ct, &params.rns);
-  // check_mod_switch(&params.rns);
+  check_mod_switch(&params.rns);
   check_decompose_mult(&params);
 #endif
 
@@ -635,6 +645,7 @@ int main() {
   vec_free(&v2);
   poly_free(&m);
   poly_free(&m2);
+  poly_free(&m3);
 
 #ifdef __DEBUG_MODE__
   printf("---------- END OF TESTS ----------\n");
