@@ -343,6 +343,39 @@ void check_d0(const ciphertext_t* ct2, const ciphertext_t* ct,
   rns_free(&d0, params);
 }
 
+void check_d1(const ciphertext_t* ct2, const ciphertext_t* ct,
+              const rns_params_t* params) {
+  printf("---------- VERIFY D1 ----------\n");
+  uint8_t correct = 1;
+
+  rns_t d1;
+  rns_new(&d1, params);
+  for (uint32_t i = 0; i < params->l; i++) {
+    // D1 = 2A1B1
+    for (uint32_t j = 0; j < params->n; j++) {
+      d1[i][j] = (int64_t)(((__int128_t)ct->ab.b[i][j] * ct->ab.a[i][j]) %
+                           (int64_t)params->q[i]);
+      d1[i][j] = (int64_t)(((__int128_t)2 * d1[i][j]) % (int64_t)params->q[i]);
+    }
+    poly_intt(d1[i], params->w_1[i], params->q[i], params->qRq[i],
+              params->qinv[i], params->n);
+    poly_mulx(d1[i], params->qRn[i], params->q[i], params->qinv[i], params->n);
+    for (uint32_t j = 0; j < params->n; j++) {
+      if (d1[i][j] < 0) d1[i][j] += (int64_t)params->q[i];
+    }
+  }
+
+  correct = check_ntt_mod_switch(ct2->ab.a, d1, params);
+
+  if (correct) {
+    printf("---------- D1 CORRECT ----------\n");
+  } else {
+    printf("---------- D1 WRONG ----------\n");
+  }
+
+  rns_free(&d1, params);
+}
+
 int main() {
   // Parameters Construction
   uint32_t l = 1;
