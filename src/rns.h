@@ -36,6 +36,15 @@ void rns_new(rns_t* a, const rns_params_t* params);
 void rns_free(rns_t* a, const rns_params_t* params);
 
 /*
+  @param a: RNS
+  @param tmp: auxiliar polynomial
+  @param level: new level
+  @param params: RNS params
+*/
+void rns_mod_switch(rns_t a, poly_t tmp, uint32_t level,
+                    const rns_params_t* params);
+
+/*
   @param params: RNS params
 */
 void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,

@@ -20,6 +20,26 @@ void rns_free(rns_t* a, const rns_params_t* params) {
   free(*a);
 }
 
+void rns_mod_switch(rns_t a, poly_t tmp, uint32_t level,
+                    const rns_params_t* params) {
+  // For ModSwitch we need to come back to the normal domain
+  poly_intt(a[level], params->w_1[level], params->q[level], params->qRq[level],
+            params->qinv[level], params->n);
+  poly_mulx(a[level], params->qRn[level], params->q[level], params->qinv[level],
+            params->n);
+  for (uint32_t i = 0; i < level; i++) {
+    poly_intt(a[i], params->w_1[i], params->q[i], params->qRq[i],
+              params->qinv[i], params->n);
+    poly_mulx(a[i], params->qRn[i], params->q[i], params->qinv[i], params->n);
+    poly_mod(tmp, a[level], params->q[i], params->qRq[i], params->n);
+    poly_sub(a[i], tmp, params->q[i], params->qRq[i], params->n);
+    poly_mulx(a[i], params->qinvq[level * params->l + i], params->q[i],
+              params->qinv[i], params->n);
+    poly_ntt(a[i], params->w[i], params->q[i], params->qRq[i], params->qinv[i],
+             params->n);
+  }
+}
+
 static void rns_gen_roots(rns_params_t* params) {
   for (uint32_t i = 0; i < params->l; i++) {
     poly_gen_roots(params->w[i], params->n, (int64_t)params->q[i],

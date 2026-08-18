@@ -6,6 +6,7 @@
 #include <time.h>
 
 #include "complex.h"
+#include "random.h"
 #include "utils.h"
 
 #ifdef __RUN_MODE__
@@ -252,6 +253,57 @@ void check_vectors(const vec_t* v, const vec_t* v2, uint32_t n) {
   }
 }
 
+void check_mod_switch(const rns_params_t* params) {
+  printf("---------- VERIFY MOD SWITCH ----------\n");
+  uint8_t correct = 1;
+  rns_t a, a2;
+  poly_t tmp;
+  rns_new(&a, params);
+  rns_new(&a2, params);
+  poly_new(&tmp, params->n);
+  for (uint32_t i = 0; i < params->l; i++) {
+    randombytes((uint8_t*)a[i], params->n * sizeof(int64_t));
+    for (uint32_t j = 0; j < params->n; j++) {
+      a[i][j] = a[i][j] % (int64_t)params->q[i];
+      if (a[i][j] < 0) a[i][j] += (int64_t)params->q[i];
+    }
+  }
+  for (uint32_t i = 0; i < params->l; i++) {
+    memcpy(a2[i], a[i], params->n * sizeof(int64_t));
+  }
+  for (uint32_t i = 0; i < params->l; i++) {
+    poly_ntt(a[i], params->w[i], params->q[i], params->qRq[i], params->qinv[i],
+             params->n);
+  }
+  rns_mod_switch(a, tmp, params->l - 1, params);
+  for (uint32_t i = 0; i < params->l - 1; i++) {
+    poly_intt(a[i], params->w_1[i], params->q[i], params->qRq[i],
+              params->qinv[i], params->n);
+    poly_mulx(a[i], params->qRn[i], params->q[i], params->qinv[i], params->n);
+    for (uint32_t j = 0; j < params->n; j++) {
+      int64_t new_a =
+          (int64_t)(((__int128_t)params->q[params->l - 1] * a[i][j] +
+                     a[params->l - 1][j]) %
+                    (int64_t)params->q[i]);
+      if (new_a < 0) new_a += (int64_t)params->q[i];
+      int64_t diff = new_a - a2[i][j];
+      int64_t error_threshold = 2;  // Only removes one moduli
+      if ((diff >= error_threshold) || (diff <= -error_threshold)) {
+        correct = 0;
+        printf("Incorrect new_a: %ld, a[%d][%d]: %ld\n", new_a, i, j, a2[i][j]);
+      }
+    }
+  }
+  poly_free(&tmp);
+  rns_free(&a, params);
+  rns_free(&a2, params);
+  if (correct) {
+    printf("---------- MOD SWITCH CORRECT ----------\n");
+  } else {
+    printf("---------- MOD SWITCH WRONG ----------\n");
+  }
+}
+
 int main() {
   // Parameters Construction
   uint32_t l = 1;
@@ -416,7 +468,7 @@ int main() {
     ckks_ciphertext_ciphertext_multiplication(&ct2, &ct, &ct, &params);
   }
   ckks_decrypt(m2, &ct2, &params);
-  ckks_decode(&v2, m2, ct.level, &params);
+  ckks_decode(&v2, m2, ct2.level, &params);
   for (uint32_t i = 0; i < params.rns.n / 2; i++) {
     double t_rel, t_img;
     t_rel = v.rel[i];
@@ -426,6 +478,7 @@ int main() {
   }
 #ifdef __DEBUG_MODE__
   check_vectors(&v, &v2, params.rns.n / 2);
+  check_mod_switch(&params.rns);
 #endif
 
   // Free
