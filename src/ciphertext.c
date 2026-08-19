@@ -30,28 +30,20 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
   // Basic Multiplication
   for (uint32_t i = 0; i < ct1->level; i++) {
     // Remove R factor
-    poly_mulx(ct1->ab.a[i], 1, params->q[i], params->qinv[i],
-              params->n);  // R
-    // poly_mulx(ct2->ab.a[i], 1, params->q[i], params->qinv[i],
-    //           params->n);  // R
     // D0
     poly_pointwise_mul(ct3->ab.b[i], ct1->ab.b[i], ct2->ab.b[i], params->q[i],
                        params->qinv[i], params->n);  // R-1
-    poly_mulx(ct3->ab.b[i], params->qR2[i], params->q[i], params->qinv[i],
-              params->n);  // 1
     // D1
     poly_pointwise_mul(ct3->ab.a[i], ct1->ab.b[i], ct2->ab.a[i], params->q[i],
-                       params->qinv[i], params->n);  // R-1
+                       params->qinv[i], params->n);  // 1
     poly_pointwise_mul(tmp, ct1->ab.a[i], ct2->ab.b[i], params->q[i],
-                       params->qinv[i], params->n);  // R-1
+                       params->qinv[i], params->n);  // 1
     poly_add(ct3->ab.a[i], tmp, params->q[i], params->qRq[i],
-             params->n);  // R-1
-    poly_mulx(ct3->ab.a[i], params->qR2[i], params->q[i], params->qinv[i],
-              params->n);  // 1
+             params->n);  // 1
     // D2
     poly_pointwise_mul(d2[i], ct1->ab.a[i], ct2->ab.a[i], params->q[i],
-                       params->qinv[i], params->n);  // R-1
-    poly_mulx(d2[i], params->qR2[i], params->q[i], params->qinv[i],
+                       params->qinv[i], params->n);  // R
+    poly_mulx(d2[i], 1, params->q[i], params->qinv[i],
               params->n);  // 1
   }
   // Relinearization
@@ -59,15 +51,18 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
     for (uint32_t j = 0; j < ct1->level; j++) {
       poly_pointwise_mul(tmp, d2[i], r[i].b[j], params->q[j], params->qinv[j],
                          params->n);  // R-1
-      poly_mulx(tmp, params->qR2[j], params->q[j], params->qinv[j],
-                params->n);  // 1
       poly_add(ct3->ab.b[j], tmp, params->q[j], params->qRq[j],
-               params->n);  // 1
+               params->n);  // R-1
       poly_pointwise_mul(tmp, d2[i], r[i].a[j], params->q[j], params->qinv[j],
                          params->n);  // 1
       poly_add(ct3->ab.a[j], tmp, params->q[j], params->qRq[j],
                params->n);  // 1
     }
+  }
+  for (uint32_t i = 0; i < ct1->level; i++) {
+    // Add R factor
+    poly_mulx(ct3->ab.b[i], params->qR2[i], params->q[i], params->qinv[i],
+              params->n);  // 1
   }
   // Rescaling (ModSwitch)
   ct3->level = ct1->level - 1;  // We lost one level at each multiplication

@@ -10,8 +10,6 @@
 #include "random.h"
 #include "utils.h"
 
-#define __DEBUG_MODE__
-
 #ifdef __RUN_MODE__
 #define N_TESTS 100
 #elif __VTUNE_MODE__
@@ -606,46 +604,17 @@ int main() {
 #ifdef __DEBUG_MODE__
   printf("---------- CIPHER-CIPHER MULTIPLICATION ----------\n");
 #endif
-  ciphertext_t ct2, ct3;
+  ciphertext_t ct2;
 #ifdef __RUN_MODE__
   start = time_ns();
 #endif
-#ifdef __DEBUG_MODE__
-  poly_t m3, a2, tmp;
-  poly_new(&m3, params.rns.n);
-  poly_new(&a2, params.rns.n);
-  poly_new(&tmp, params.rns.n);
-  for (uint32_t i = 0; i < params.rns.n; i++) {
-    m3[i] = m[i];
-  }
-  a2[0] = 100;
-  for (uint32_t i = 1; i < params.rns.n; i++) {
-    a2[i] = -33;
-  }
-  ciphertext_new(&ct3, &params.rns);
-  for (uint32_t i = 0; i < params.rns.l; i++) {
-    for (uint32_t j = 0; j < params.rns.n; j++) {
-      tmp[j] = m3[j];
-    }
-    poly_ntt(tmp, params.rns.w[i], params.rns.q[i], params.rns.qRq[i],
-             params.rns.qinv[i], params.rns.n);
-    memcpy(ct3.ab.a[i], a2, params.rns.n * sizeof(int64_t));
-    poly_mulx(ct3.ab.a[i], params.rns.qR2[i], params.rns.q[i],
-              params.rns.qinv[i], params.rns.n);
-    poly_pointwise_mul(ct3.ab.b[i], ct3.ab.a[i], params.keys.s[i],
-                       params.rns.q[i], params.rns.qinv[i], params.rns.n);
-    poly_rsub(ct3.ab.b[i], tmp, params.rns.q[i], params.rns.qRq[i],
-              params.rns.n);
-  }
-
-#endif
   for (uint32_t i = 0; i < N_TESTS; i++) {
     ciphertext_new(&ct2, &params.rns);
-    ckks_ciphertext_ciphertext_multiplication(&ct2, &ct3, &ct3, &params);
+    ckks_ciphertext_ciphertext_multiplication(&ct2, &ct, &ct, &params);
   }
+#ifdef __DEBUG_MODE__
   ckks_decrypt(m2, &ct2, &params);
   ckks_decode(&v2, m2, ct2.level, &params);
-#ifdef __DEBUG_MODE__
   for (uint32_t i = 0; i < params.rns.n / 2; i++) {
     double t_rel, t_img;
     t_rel = v.rel[i];
@@ -654,10 +623,11 @@ int main() {
     v.img[i] = img_mul(t_rel, t_img, t_rel, t_img);
   }
   check_vectors(&v, &v2, params.rns.n / 2);
-  // check_d0(&ct2, &ct, &params.rns);
-  // check_d1(&ct2, &ct, &params.rns);
-  // check_mod_switch(&params.rns);
-  // check_decompose_mult(&params);
+#endif
+
+#ifdef __RUN_MODE__
+  end = time_ns();
+  printf("Cipher-Cipher Mul: %.3f ms\n", (double)(end - start) / 1000.0);
 #endif
 
   // Free
@@ -668,12 +638,6 @@ int main() {
   vec_free(&v2);
   poly_free(&m);
   poly_free(&m2);
-#ifdef __DEBUG_MODE__
-  ciphertext_free(&ct3, &params.rns);
-  poly_free(&m3);
-  poly_free(&a2);
-  poly_free(&tmp);
-#endif
 
 #ifdef __DEBUG_MODE__
   printf("---------- END OF TESTS ----------\n");
