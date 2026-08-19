@@ -135,8 +135,8 @@ static void rlwe_decrypt_step(poly_t m, const poly_t a, const poly_t b,
   // B + (-A)S = DeltaM + E
   poly_pointwise_mul(m, a, s, q, qinv, n);
   poly_add(m, b, q, qRq, n);
-  poly_intt(m, w, q, qRq, qinv, n);
-  poly_mulx_exact(m, qRn, q, qinv, n);
+  // poly_intt(m, w, q, qRq, qinv, n);
+  // poly_mulx_exact(m, qRn, q, qinv, n);
 }
 
 void rlwe_plaintext_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
