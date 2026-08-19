@@ -42,7 +42,7 @@ static void multiply_polynomials(poly_t a, poly_t a2,
   poly_mulx(a, params->rns.qR2[0], params->rns.q[0], params->rns.qinv[0],
             params->rns.n);
   // poly_intt(a, params->rns.w_1[0], params->rns.q[0], params->rns.qRq[0],
-            // params->rns.qinv[0], params->rns.n);
+  // params->rns.qinv[0], params->rns.n);
 }
 
 void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qR2,
@@ -245,6 +245,49 @@ void check_decompose_mult(const ckks_params_t* params) {
     printf("---------- DECOMPOSE CORRECT ----------\n");
   } else {
     printf("---------- DECOMPOSE WRONG ----------\n");
+  }
+}
+
+void check_relinearization_key2(const ckks_params_t* params) {
+  printf("---------- VERIFY RELINEARIZATION KEY AGAIN ----------\n");
+  uint8_t correct = 1;
+  rlwe_t d2s2;
+  poly_t tmp;
+  rlwe_new(&d2s2, &params->rns);
+  poly_new(&tmp, params->rns.n);
+  for (uint32_t i = 0; i < params->rns.l; i++) {
+    for (uint32_t j = 0; j < params->rns.n; j++) {
+      d2s2.a[i][j] = 0;
+    }
+    for (uint32_t j = 0; j < params->rns.l; j++) {
+      poly_add(d2s2.a[i], params->keys.r[j].a[i], params->rns.q[i],
+               params->rns.qRq[i], params->rns.n);
+    }
+  }
+  for (uint32_t i = 0; i < params->rns.l; i++) {
+    poly_pointwise_mul(tmp, params->keys.s[i], params->keys.s[i],
+                       params->rns.q[i], params->rns.qinv[i], params->rns.n);
+    poly_mulx(tmp, params->rns.qR2[i], params->rns.q[i], params->rns.qinv[i],
+              params->rns.n);
+    poly_pointwise_mul(d2s2.b[i], d2s2.a[i], params->keys.s[i],
+                       params->rns.q[i], params->rns.qinv[i], params->rns.n);
+    poly_rsub(d2s2.b[i], tmp, params->rns.q[i], params->rns.qRq[i],
+              params->rns.n);
+  }
+
+  for (uint32_t i = 0; i < 1; i++) {
+    for (uint32_t j = 0; j < 1; j++) {
+      correct = 0;
+      printf("d2s2.a[%d][%d]: %ld , d2s2.b[%d][%d]: %ld mod %ld\n", i, j,
+             d2s2.a[i][j], i, j, d2s2.b[i][j], params->rns.q[i]);
+    }
+  }
+  rlwe_free(&d2s2, &params->rns);
+  poly_free(&tmp);
+  if (correct) {
+    printf("---------- RELINEARIZATION KEY AGAIN CORRECT ----------\n");
+  } else {
+    printf("---------- RELINEARIZATION KEY AGAIN WRONG ----------\n");
   }
 }
 
@@ -475,12 +518,13 @@ int main() {
   for (uint32_t i = 0; i < (N_TESTS + 9) / 10; i++) {
     ckks_keygen(&params, q0_bits, scale_bits, l);
     ckks_relinearization_keygen(&params);
-    ckks_rotation_keygen(&params);
+    // ckks_rotation_keygen(&params);
   }
 #ifdef __DEBUG_MODE__
   check_q_aux(params.rns.q, params.rns.qR, params.rns.qR2, params.rns.qRq,
               params.rns.qinv, params.rns.qn, params.rns.qRn, params.rns.qR2n,
               params.rns.l);
+  check_relinearization_key2(&params);
   // check_roots(params.rns.w, params.rns.q, params.rns.l, params.rns.n);
   // check_roots(params.rns.w_1, params.rns.q, params.rns.l, params.rns.n);
   // check_keys(&params);
@@ -567,7 +611,7 @@ int main() {
   }
 #ifdef __DEBUG_MODE__
   // check_decoded_polynomial(m, m2, params.rns.scales[ct.level - 1],
-                          //  params.rns.n);
+  //  params.rns.n);
 #endif
   // printf("---------- DECRYPTED POLYNOMIAL ----------\n");
   // for (uint32_t i = 0; i < n; i++) {
@@ -621,9 +665,9 @@ int main() {
   for (uint32_t i = 0; i < params.rns.n; i++) {
     m3[i] = m[i];
   }
-  a2[0] = 1;
+  a2[0] = 100;
   for (uint32_t i = 1; i < params.rns.n; i++) {
-    a2[i] = 0;
+    a2[i] = -33;
   }
   ciphertext_new(&ct3, &params.rns);
   for (uint32_t i = 0; i < params.rns.l; i++) {
