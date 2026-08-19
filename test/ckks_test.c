@@ -40,7 +40,7 @@ static void multiply_polynomials(poly_t a, poly_t a2,
   poly_mulx(a, params->rns.qR2[0], params->rns.q[0], params->rns.qinv[0],
             params->rns.n);
   poly_intt(a, params->rns.w_1[0], params->rns.q[0], params->rns.qRq[0],
-               params->rns.qinv[0], params->rns.n);
+            params->rns.qinv[0], params->rns.n);
 }
 
 void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qR2,
@@ -293,7 +293,7 @@ void check_decoded_polynomial(const poly_t m, const poly_t m2, uint64_t scale,
   uint8_t correct = 1;
   for (uint32_t i = 0; i < n; i++) {
     int64_t diff = m[i] - m2[i];
-    if ((diff > 2) | (diff < -2)) {
+    if ((diff > (int64_t)scale / 2) | (diff < -(int64_t)scale / 2)) {
       correct = 0;
       printf("m[%d]: %ld, m2[%d]: %ld\n", i, m[i], i, m2[i]);
     }
@@ -496,8 +496,8 @@ int main() {
   vec_t v;
   vec_new(&v, params.rns.n / 2);
   for (uint32_t i = 0; i < params.rns.n / 2; i++) {
-    v.rel[i] = i / 4;
-    v.img[i] = i / 4 + 1;
+    v.rel[i] = i / 1000;
+    v.img[i] = i / 1000 + 1;
   }
   // printf("---------- ENCODE VECTOR ----------\n");
   // for (uint32_t i = 0; i < n / 2; i++) {
@@ -565,7 +565,7 @@ int main() {
   }
 #ifdef __DEBUG_MODE__
   check_decoded_polynomial(m, m2, params.rns.scales[ct.level - 1],
-                          params.rns.n);
+                           params.rns.n);
 #endif
   // printf("---------- DECRYPTED POLYNOMIAL ----------\n");
   // for (uint32_t i = 0; i < n; i++) {
@@ -618,9 +618,9 @@ int main() {
   for (uint32_t i = 0; i < params.rns.n; i++) {
     m3[i] = m[i];
   }
-  a2[0] = 0;
+  a2[0] = 100;
   for (uint32_t i = 1; i < params.rns.n; i++) {
-    a2[i] = 0;
+    a2[i] = -33;
   }
   ciphertext_new(&ct3, &params.rns);
   for (uint32_t i = 0; i < params.rns.l; i++) {
@@ -638,11 +638,6 @@ int main() {
               params.rns.n);
   }
 
-  // Scale down
-  for (uint32_t i = 0; i < params.rns.n; i++) {
-    m3[i] = m[i] >> scale_bits;
-  }
-
 #endif
   for (uint32_t i = 0; i < N_TESTS; i++) {
     ciphertext_new(&ct2, &params.rns);
@@ -651,9 +646,6 @@ int main() {
   ckks_decrypt(m2, &ct2, &params);
   ckks_decode(&v2, m2, ct2.level, &params);
 #ifdef __DEBUG_MODE__
-  multiply_polynomials(m3, m, &params);
-  // check_decoded_polynomial(m3, m2, params.rns.scales[ct2.level - 1],
-                              // params.rns.n);
   for (uint32_t i = 0; i < params.rns.n / 2; i++) {
     double t_rel, t_img;
     t_rel = v.rel[i];
@@ -661,7 +653,7 @@ int main() {
     v.rel[i] = rel_mul(t_rel, t_img, t_rel, t_img);
     v.img[i] = img_mul(t_rel, t_img, t_rel, t_img);
   }
-  // check_vectors(&v, &v2, params.rns.n / 2);
+  check_vectors(&v, &v2, params.rns.n / 2);
   // check_d0(&ct2, &ct, &params.rns);
   // check_d1(&ct2, &ct, &params.rns);
   // check_mod_switch(&params.rns);
