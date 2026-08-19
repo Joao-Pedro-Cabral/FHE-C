@@ -166,9 +166,9 @@ void rlwe_key_switch_encrypt(switch_t key_switch, const poly_t m, poly_t me,
       //   printf("r[%d].a[%d][%d]: %ld, r[%d].b[%d][%d]: %ld\n", k, i, ii,
       //          key_switch[k].a[i][ii], k, i, ii, key_switch[k].b[i][ii]);
       // }
-      for (uint32_t ii = 0; ii < params->n; ii++) {
-        printf("r[%d].ab[%d]: e[%d]: %ld\n", k, i, ii, e[ii]);
-      }
+      // for (uint32_t ii = 0; ii < params->n; ii++) {
+      //   printf("r[%d].ab[%d]: e[%d]: %ld\n", k, i, ii, e[ii]);
+      // }
     }
     // k level (Encrypt s^2)
     poly_add_no_mod(e, m, params->n);
@@ -179,9 +179,9 @@ void rlwe_key_switch_encrypt(switch_t key_switch, const poly_t m, poly_t me,
     //   printf("r[%d].a[%d][%d]: %ld, r[%d].b[%d][%d]: %ld\n", k, k, ii,
     //          key_switch[k].a[k][ii], k, k, ii, key_switch[k].b[k][ii]);
     // }
-    for (uint32_t ii = 0; ii < params->n; ii++) {
-      printf("r[%d].ab[%d]: e[%d]: %ld\n", k, ii, ii, e[ii]);
-    }
+    // for (uint32_t ii = 0; ii < params->n; ii++) {
+    //   printf("r[%d].ab[%d]: e[%d]: %ld\n", k, ii, ii, e[ii]);
+    // }
   }
 }
 

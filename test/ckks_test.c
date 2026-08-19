@@ -665,9 +665,9 @@ int main() {
   for (uint32_t i = 0; i < params.rns.n; i++) {
     m3[i] = m[i];
   }
-  a2[0] = 100;
+  a2[0] = 0;
   for (uint32_t i = 1; i < params.rns.n; i++) {
-    a2[i] = -33;
+    a2[i] = 0;
   }
   ciphertext_new(&ct3, &params.rns);
   for (uint32_t i = 0; i < params.rns.l; i++) {
@@ -679,13 +679,18 @@ int main() {
     memcpy(ct3.ab.a[i], a2, params.rns.n * sizeof(int64_t));
     poly_mulx(ct3.ab.a[i], params.rns.qR2[i], params.rns.q[i],
               params.rns.qinv[i], params.rns.n);
-    printf("ct3.a[%d][0]: %ld\n", i, ct3.ab.a[i][0]);
+    // printf("ct3.a[%d][0]: %ld\n", i, ct3.ab.a[i][0]);
     poly_pointwise_mul(ct3.ab.b[i], ct3.ab.a[i], params.keys.s[i],
                        params.rns.q[i], params.rns.qinv[i], params.rns.n);
-    printf("ct3.b[%d][0]: %ld\n", i, ct3.ab.b[i][0]);
+    // printf("ct3.b[%d][0]: %ld\n", i, ct3.ab.b[i][0]);
     poly_rsub(ct3.ab.b[i], tmp, params.rns.q[i], params.rns.qRq[i],
               params.rns.n);
-    printf("ct3.b[%d][0]: %ld\n", i, ct3.ab.b[i][0]);
+    // printf("ct3.b[%d][0]: %ld\n", i, ct3.ab.b[i][0]);
+  }
+
+  // Scale down
+  for (uint32_t i = 0; i < params.rns.n; i++) {
+    m3[i] = m[i] >> scale_bits;
   }
 
   // ckks_encrypt(&ct3, m3, &params);
@@ -715,7 +720,7 @@ int main() {
     v.rel[i] = rel_mul(t_rel, t_img, t_rel, t_img);
     v.img[i] = img_mul(t_rel, t_img, t_rel, t_img);
   }
-  // check_vectors(&v, &v2, params.rns.n / 2);
+  check_vectors(&v, &v2, params.rns.n / 2);
   // check_d0(&ct2, &ct, &params.rns);
   // check_d1(&ct2, &ct, &params.rns);
   // check_mod_switch(&params.rns);

@@ -89,31 +89,31 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
       //           params->n);  // R
       poly_add(ct3->ab.a[j], tmp, params->q[j], params->qRq[j],
                params->n);  // 1
-      printf("ct3.a[%d][%d]: %ld, ct3.b[%d][%d]: %ld\n", j, 0, ct3->ab.a[j][0],
-             j, 0, ct3->ab.b[j][0]);
+      // printf("ct3.a[%d][%d]: %ld, ct3.b[%d][%d]: %ld\n", j, 0, ct3->ab.a[j][0],
+      //        j, 0, ct3->ab.b[j][0]);
     }
   }
+  // printf("r[0].a[0][0]: %ld, r[1].a[0][0]: %ld\n", r[0].a[0][0], r[1].a[0][0]);
+  // printf("r[0].b[0][0]: %ld, r[1].b[0][0]: %ld\n", r[0].b[0][0], r[1].b[0][0]);
+  // for (uint32_t i = 0; i < 1; i++) {
+  //   for (uint32_t k = 0; k < 1; k++) {
+  //     printf("ct1.a[%d][%d]: %ld, ct1.b[%d][%d]: %ld\n", i, k, ct1->ab.a[i][k],
+  //            i, k, ct1->ab.b[i][k]);
+  //     printf("ct2.a[%d][%d]: %ld, ct2.b[%d][%d]: %ld\n", i, k, ct2->ab.a[i][k],
+  //            i, k, ct2->ab.b[i][k]);
+  //     printf("ct3.a[%d][%d]: %ld, ct3.b[%d][%d]: %ld\n", i, k, ct3->ab.a[i][k],
+  //            i, k, ct3->ab.b[i][k]);
+  //   }
+  // }
+  // Rescaling (ModSwitch)
+  ct3->level = ct1->level - 1;  // We lost one level at each multiplication
+  rns_mod_switch(ct3->ab.a, tmp, ct3->level, params);
+  rns_mod_switch(ct3->ab.b, tmp, ct3->level, params);
   for (uint32_t i = 0; i < ct1->level; i++) {
     // Add R factor
     poly_mulx(ct3->ab.a[i], params->qR2[i], params->q[i], params->qinv[i],
               params->n);  // R
   }
-  printf("r[0].a[0][0]: %ld, r[1].a[0][0]: %ld\n", r[0].a[0][0], r[1].a[0][0]);
-  printf("r[0].b[0][0]: %ld, r[1].b[0][0]: %ld\n", r[0].b[0][0], r[1].b[0][0]);
-  for (uint32_t i = 0; i < 1; i++) {
-    for (uint32_t k = 0; k < 1; k++) {
-      printf("ct1.a[%d][%d]: %ld, ct1.b[%d][%d]: %ld\n", i, k, ct1->ab.a[i][k],
-             i, k, ct1->ab.b[i][k]);
-      printf("ct2.a[%d][%d]: %ld, ct2.b[%d][%d]: %ld\n", i, k, ct2->ab.a[i][k],
-             i, k, ct2->ab.b[i][k]);
-      printf("ct3.a[%d][%d]: %ld, ct3.b[%d][%d]: %ld\n", i, k, ct3->ab.a[i][k],
-             i, k, ct3->ab.b[i][k]);
-    }
-  }
-  // Rescaling (ModSwitch)
-  // ct3->level = ct1->level - 1;  // We lost one level at each multiplication
-  // rns_mod_switch(ct3->ab.a, tmp, ct3->level, params);
-  // rns_mod_switch(ct3->ab.b, tmp, ct3->level, params);
   poly_free(&tmp);
   rns_free(&d2, params);
   // rlwe_free(&rlwe, params);
