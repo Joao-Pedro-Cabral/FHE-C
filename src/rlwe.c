@@ -135,8 +135,8 @@ static void rlwe_decrypt_step(poly_t m, const poly_t a, const poly_t b,
   // B + (-A)S = DeltaM + E
   poly_pointwise_mul(m, a, s, q, qinv, n);
   poly_add(m, b, q, qRq, n);
-  // poly_intt(m, w, q, qRq, qinv, n);
-  // poly_mulx_exact(m, qRn, q, qinv, n);
+  poly_intt(m, w, q, qRq, qinv, n);
+  poly_mulx_exact(m, qRn, q, qinv, n);
 }
 
 void rlwe_plaintext_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
@@ -162,26 +162,12 @@ void rlwe_key_switch_encrypt(switch_t key_switch, const poly_t m, poly_t me,
       rlwe_encrypt_step(key_switch[k].a[i], key_switch[k].b[i], me, e,
                         keys->s[i], params->w[i], params->q[i], params->qRq[i],
                         params->qinv[i], params->n);
-      // for (uint32_t ii = 0; ii < params->n; ii++) {
-      //   printf("r[%d].a[%d][%d]: %ld, r[%d].b[%d][%d]: %ld\n", k, i, ii,
-      //          key_switch[k].a[i][ii], k, i, ii, key_switch[k].b[i][ii]);
-      // }
-      // for (uint32_t ii = 0; ii < params->n; ii++) {
-      //   printf("r[%d].ab[%d]: e[%d]: %ld\n", k, i, ii, e[ii]);
-      // }
     }
     // k level (Encrypt s^2)
     poly_add_no_mod(e, m, params->n);
     rlwe_encrypt_step(key_switch[k].a[k], key_switch[k].b[k], me, e, keys->s[k],
                       params->w[k], params->q[k], params->qRq[k],
                       params->qinv[k], params->n);
-    // for (uint32_t ii = 0; ii < params->n; ii++) {
-    //   printf("r[%d].a[%d][%d]: %ld, r[%d].b[%d][%d]: %ld\n", k, k, ii,
-    //          key_switch[k].a[k][ii], k, k, ii, key_switch[k].b[k][ii]);
-    // }
-    // for (uint32_t ii = 0; ii < params->n; ii++) {
-    //   printf("r[%d].ab[%d]: e[%d]: %ld\n", k, ii, ii, e[ii]);
-    // }
   }
 }
 
