@@ -10,6 +10,8 @@
 #include "random.h"
 #include "utils.h"
 
+#define __DEBUG_MODE__
+
 #ifdef __RUN_MODE__
 #define N_TESTS 100
 #elif __VTUNE_MODE__
@@ -201,7 +203,7 @@ void check_decompose_mult(const ckks_params_t* params) {
 
   // memset((uint8_t*)ap, 1, params->rns.n * sizeof(int64_t));
   for (uint32_t j = 0; j < params->rns.n; j++) {
-    ap[j] = 1;
+    ap[j] = (1UL << 35) + ((1UL << 20) * j);
     if (ap[j] < 0) ap[j] += (int64_t)params->rns.q[0];
   }
 
@@ -604,23 +606,56 @@ int main() {
 #ifdef __DEBUG_MODE__
   printf("---------- CIPHER-CIPHER MULTIPLICATION ----------\n");
 #endif
-  ciphertext_t ct2;
+  ciphertext_t ct2, ct3;
 #ifdef __RUN_MODE__
   start = time_ns();
 #endif
+#ifdef __DEBUG_MODE__
+  poly_t m3, a2, tmp;
+  poly_new(&m3, params.rns.n);
+  poly_new(&a2, params.rns.n);
+  poly_new(&tmp, params.rns.n);
+  // m3[0] = 1UL << scale_bits;
+  for (uint32_t i = 0; i < params.rns.n; i++) {
+    m3[i] = m[i];
+  }
+  a2[0] = 1;
+  for (uint32_t i = 1; i < params.rns.n; i++) {
+    a2[i] = 0;
+  }
+  ciphertext_new(&ct3, &params.rns);
+  for (uint32_t i = 0; i < params.rns.l; i++) {
+    for (uint32_t j = 0; j < params.rns.n; j++) {
+      tmp[j] = m3[j] % (int64_t)params.rns.q[i];
+    }
+    poly_ntt(tmp, params.rns.w[i], params.rns.q[i], params.rns.qRq[i],
+             params.rns.qinv[i], params.rns.n);
+    memcpy(ct3.ab.a[i], a2, params.rns.n * sizeof(int64_t));
+    poly_mulx(ct3.ab.a[i], params.rns.qR2[i], params.rns.q[i],
+              params.rns.qinv[i], params.rns.n);
+    poly_pointwise_mul(ct3.ab.b[i], ct3.ab.a[i], params.keys.s[i],
+                       params.rns.q[i], params.rns.qinv[i], params.rns.n);
+    poly_rsub(ct3.ab.b[i], tmp, params.rns.q[i], params.rns.qRq[i],
+              params.rns.n);
+  }
+
+  // ckks_encrypt(&ct3, m3, &params);
+  // m3[0] = 1;
+#endif
   for (uint32_t i = 0; i < N_TESTS; i++) {
     ciphertext_new(&ct2, &params.rns);
-    ckks_ciphertext_ciphertext_multiplication(&ct2, &ct, &ct, &params);
+    ckks_ciphertext_ciphertext_multiplication(&ct2, &ct3, &ct3, &params);
   }
   ckks_decrypt(m2, &ct2, &params);
   ckks_decode(&v2, m2, ct2.level, &params);
-  poly_t m3;
-  poly_new(&m3, params.rns.n);
 #ifdef __DEBUG_MODE__
-  for (uint32_t i = 0; i < params.rns.n; i++) {
-    m3[i] = m[i] >> scale_bits;
-  }
   multiply_polynomials(m3, m, &params);
+  // poly_mulx(m, params.rns.qRn[0], params.rns.q[0], params.rns.qinv[0],
+  //           params.rns.n);
+  // poly_intt(m, params.rns.w_1[0], params.rns.q[0], params.rns.qRq[0],
+  //           params.rns.qinv[0], params.rns.n);
+  // check_decoded_polynomial(m3, m, params.rns.scales[ct2.level - 1],
+  //                          params.rns.n);
   check_decoded_polynomial(m3, m2, params.rns.scales[ct2.level - 1],
                            params.rns.n);
   for (uint32_t i = 0; i < params.rns.n / 2; i++) {
@@ -645,7 +680,12 @@ int main() {
   vec_free(&v2);
   poly_free(&m);
   poly_free(&m2);
+#ifdef __DEBUG_MODE__
+  ciphertext_free(&ct3, &params.rns);
   poly_free(&m3);
+  poly_free(&a2);
+  poly_free(&tmp);
+#endif
 
 #ifdef __DEBUG_MODE__
   printf("---------- END OF TESTS ----------\n");
