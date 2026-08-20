@@ -150,18 +150,19 @@ void poly_uniform_sampler(poly_t a, uint64_t q, int64_t qRq, uint32_t n) {
 }
 
 // AVX2 doesn't support popcnt
+// TODO: With error the things doesn't work well...
 void poly_cbd24_sampler_add(poly_t e, const poly_t m, uint32_t n) {
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
-  // uint8_t seed[SEED_BYTES];
-  // randombytes(seed, SEED_BYTES);
-  // xof(buf, 6 * n, seed, SEED_BYTES);
+  uint8_t seed[SEED_BYTES];
+  randombytes(seed, SEED_BYTES);
+  xof(buf, 6 * n, seed, SEED_BYTES);
   for (uint32_t i = 0; i < n; i++) {
-    // int b1 = __builtin_popcount(buf[6 * i]);
-    // b1 += __builtin_popcount(buf[6 * i + 1]);
-    // b1 += __builtin_popcount(buf[6 * i + 2]);
-    // int b2 = __builtin_popcount(buf[6 * i + 3]);
-    // b2 += __builtin_popcount(buf[6 * i + 4]);
-    // b2 += __builtin_popcount(buf[6 * i + 5]);
+    int b1 = __builtin_popcount(buf[6 * i]);
+    b1 += __builtin_popcount(buf[6 * i + 1]);
+    b1 += __builtin_popcount(buf[6 * i + 2]);
+    int b2 = __builtin_popcount(buf[6 * i + 3]);
+    b2 += __builtin_popcount(buf[6 * i + 4]);
+    b2 += __builtin_popcount(buf[6 * i + 5]);
     e[i] = m[i];
   }
   free(buf);
@@ -169,16 +170,16 @@ void poly_cbd24_sampler_add(poly_t e, const poly_t m, uint32_t n) {
 
 void poly_cbd24_sampler(poly_t e, uint32_t n) {
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
-  // uint8_t seed[SEED_BYTES];
-  // randombytes(seed, SEED_BYTES);
-  // xof(buf, 6 * n, seed, SEED_BYTES);
+  uint8_t seed[SEED_BYTES];
+  randombytes(seed, SEED_BYTES);
+  xof(buf, 6 * n, seed, SEED_BYTES);
   for (uint32_t i = 0; i < n; i++) {
-    // int b1 = __builtin_popcount(buf[6 * i]);
-    // b1 += __builtin_popcount(buf[6 * i + 1]);
-    // b1 += __builtin_popcount(buf[6 * i + 2]);
-    // int b2 = __builtin_popcount(buf[6 * i + 3]);
-    // b2 += __builtin_popcount(buf[6 * i + 4]);
-    // b2 += __builtin_popcount(buf[6 * i + 5]);
+    int b1 = __builtin_popcount(buf[6 * i]);
+    b1 += __builtin_popcount(buf[6 * i + 1]);
+    b1 += __builtin_popcount(buf[6 * i + 2]);
+    int b2 = __builtin_popcount(buf[6 * i + 3]);
+    b2 += __builtin_popcount(buf[6 * i + 4]);
+    b2 += __builtin_popcount(buf[6 * i + 5]);
     e[i] = 0;
   }
   free(buf);
@@ -201,6 +202,13 @@ void poly_sub_no_mod(poly_t a, const poly_t b, uint32_t n) {
 void poly_add(poly_t a, const poly_t b, uint64_t q, int64_t qRq, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
     a[i] = mod_ct_exact(a[i] + b[i], (int64_t)q, qRq);
+  }
+}
+
+void poly_add2(poly_t c, const poly_t a, const poly_t b, uint64_t q,
+               int64_t qRq, uint32_t n) {
+  for (uint32_t i = 0; i < n; i++) {
+    c[i] = mod_ct_exact(a[i] + b[i], (int64_t)q, qRq);
   }
 }
 

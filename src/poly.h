@@ -97,6 +97,17 @@ void poly_sub_no_mod(poly_t a, const poly_t b, uint32_t n);
 void poly_add(poly_t a, const poly_t b, uint64_t q, int64_t qRq, uint32_t n);
 
 /*
+  @param c: output polynomial
+  @param a: input polynomial
+  @param b: input polynomial
+  @param q: input moduli
+  @param qRq: R/q, round even
+  @param n: size of the polynomials
+*/
+void poly_add2(poly_t c, const poly_t a, const poly_t b, uint64_t q,
+               int64_t qRq, uint32_t n);
+
+/*
   @param a: input/output polynomial
   @param b: input polynomial
   @param q: input moduli

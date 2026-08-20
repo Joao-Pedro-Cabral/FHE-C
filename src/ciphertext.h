@@ -26,6 +26,16 @@ void ciphertext_free(ciphertext_t* ct, const rns_params_t* params);
   @param ct3: output ciphertext_t
   @param ct1: input ciphertext_t
   @param ct2: input ciphertext_t
+  @param params: RNS params
+*/
+void ciphertext_ciphertext_addition(ciphertext_t* ct3, const ciphertext_t* ct1,
+                                    const ciphertext_t* ct2,
+                                    const rns_params_t* params);
+
+/*
+  @param ct3: output ciphertext_t
+  @param ct1: input ciphertext_t
+  @param ct2: input ciphertext_t
   @param r: relinearization key switch
   @param params: RNS params
 */
@@ -34,5 +44,25 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
                                           const ciphertext_t* ct2,
                                           const switch_t r,
                                           const rns_params_t* params);
+
+/*
+  @param ct2: output ciphertext_t
+  @param ct1: input ciphertext_t
+  @param m: input plaintext
+  @param params: RNS params
+*/
+void ciphertext_plaintext_addition(ciphertext_t* ct2, const ciphertext_t* ct1,
+                                   const poly_t m, const rns_params_t* params);
+
+/*
+  @param ct2: output ciphertext_t
+  @param ct1: input ciphertext_t
+  @param m: input plaintext
+  @param params: RNS params
+*/
+void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
+                                         const ciphertext_t* ct1,
+                                         const poly_t m,
+                                         const rns_params_t* params);
 
 #endif  // __CIPHERTEXT_H__

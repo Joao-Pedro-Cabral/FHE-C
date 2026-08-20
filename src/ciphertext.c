@@ -13,16 +13,23 @@ void ciphertext_free(ciphertext_t* ct, const rns_params_t* params) {
   rlwe_free(&ct->ab, params);
 }
 
+void ciphertext_ciphertext_addition(ciphertext_t* ct3, const ciphertext_t* ct1,
+                                    const ciphertext_t* ct2,
+                                    const rns_params_t* params) {
+  ct3->level = ct1->level;
+  for (uint32_t i = 0; i < ct1->level; i++) {
+    poly_add2(ct3->ab.a[i], ct2->ab.a[i], ct1->ab.a[i], params->q[i],
+              params->qRq[i], params->n);
+    poly_add2(ct3->ab.b[i], ct2->ab.b[i], ct1->ab.b[i], params->q[i],
+              params->qRq[i], params->n);
+  }
+}
+
 void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
                                           const ciphertext_t* ct1,
                                           const ciphertext_t* ct2,
                                           const switch_t r,
                                           const rns_params_t* params) {
-  if (ct1->level != ct2->level) {
-    printf(
-        "Illegal ciphertext multiplication! Both operands must have same "
-        "CRT level!\n");
-  }
   poly_t tmp;
   rns_t d2;
   poly_new(&tmp, params->n);
@@ -75,4 +82,47 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
   }
   poly_free(&tmp);
   rns_free(&d2, params);
+}
+
+void ciphertext_plaintext_addition(ciphertext_t* ct2, const ciphertext_t* ct1,
+                                   const poly_t m, const rns_params_t* params) {
+  ct2->level = ct1->level;
+  for (uint32_t i = 0; i < ct1->level; i++) {
+    poly_mod(ct2->ab.b[i], m, params->q[i], params->qRq[i], params->n);
+    poly_ntt(ct2->ab.b[i], params->w[i], params->q[i], params->qRq[i],
+             params->qinv[i], params->n);
+    poly_add(ct2->ab.b[i], ct1->ab.b[i], params->q[i], params->qRq[i],
+             params->n);
+    memcpy(ct2->ab.a[i], ct1->ab.a[i], params->n * sizeof(int64_t));
+  }
+}
+
+void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
+                                         const ciphertext_t* ct1,
+                                         const poly_t m,
+                                         const rns_params_t* params) {
+  poly_t tmp;
+  poly_new(&tmp, params->n);
+  ct2->level = ct1->level - 1;
+  for (uint32_t i = 0; i < ct1->level; i++) {
+    poly_mod(ct2->ab.b[i], m, params->q[i], params->qRq[i], params->n);
+    poly_ntt(ct2->ab.b[i], params->w[i], params->q[i], params->qRq[i],
+             params->qinv[i], params->n);
+    poly_pointwise_mul(ct2->ab.a[i], ct1->ab.a[i], ct2->ab.b[i], params->q[i],
+                       params->qinv[i], params->n);
+    poly_pointwise_mul(ct2->ab.b[i], ct1->ab.b[i], ct2->ab.b[i], params->q[i],
+                       params->qinv[i], params->n);
+    poly_mulx(ct2->ab.b[i], params->qR2[i], params->q[i], params->qinv[i],
+              params->n);
+  }
+  // Rescaling (Mod Switch)
+  ct2->level = ct1->level - 1;
+  rns_mod_switch(ct2->ab.b, tmp, ct2->level, params);
+  rns_mod_switch(ct2->ab.a, tmp, ct2->level, params);
+  for (uint32_t i = 0; i < ct1->level; i++) {
+    // Add R factor
+    poly_mulx(ct2->ab.a[i], params->qR2[i], params->q[i], params->qinv[i],
+              params->n);
+  }
+  poly_free(&tmp);
 }

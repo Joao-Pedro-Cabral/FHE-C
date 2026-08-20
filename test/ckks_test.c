@@ -451,9 +451,9 @@ void check_d1(const ciphertext_t* ct2, const ciphertext_t* ct,
 
 int main() {
   // Parameters Construction
-  uint32_t l = 4;
+  uint32_t l = 2;
   uint32_t q0_bits = 62;
-  uint32_t scale_bits = 50;
+  uint32_t scale_bits = 30;
 
   ckks_params_t params;
 
@@ -494,8 +494,8 @@ int main() {
   vec_t v;
   vec_new(&v, params.rns.n / 2);
   for (uint32_t i = 0; i < params.rns.n / 2; i++) {
-    v.rel[i] = i / 1000;
-    v.img[i] = i / 1000 + 1;
+    v.rel[i] = (double)i / 1000;
+    v.img[i] = (double)i / 1000 + 1;
   }
   // printf("---------- ENCODE VECTOR ----------\n");
   // for (uint32_t i = 0; i < n / 2; i++) {
@@ -503,11 +503,11 @@ int main() {
   //   printf("v_img[%d]: %lf\n", i, v.img[i]);
   // }
   poly_t m;
+  poly_new(&m, params.rns.n);
 #ifdef __RUN_MODE__
   start = time_ns();
 #endif
   for (uint32_t i = 0; i < N_TESTS; i++) {
-    poly_new(&m, params.rns.n);
     ckks_encode(m, &v, &params);
   }
 #ifdef __DEBUG_MODE__
@@ -528,11 +528,11 @@ int main() {
   printf("---------- ENCRYPT ----------\n");
 #endif
   ciphertext_t ct;
+  ciphertext_new(&ct, &params.rns);
 #ifdef __RUN_MODE__
   start = time_ns();
 #endif
   for (uint32_t i = 0; i < N_TESTS; i++) {
-    ciphertext_new(&ct, &params.rns);
     ckks_encrypt(&ct, m, &params);
   }
 #ifdef __DEBUG_MODE__
@@ -554,11 +554,11 @@ int main() {
   printf("---------- DECRYPT ----------\n");
 #endif
   poly_t m2;
+  poly_new(&m2, params.rns.n);
 #ifdef __RUN_MODE__
   start = time_ns();
 #endif
   for (uint32_t i = 0; i < N_TESTS; i++) {
-    poly_new(&m2, params.rns.n);
     ckks_decrypt(m2, &ct, &params);
   }
 #ifdef __DEBUG_MODE__
@@ -579,11 +579,11 @@ int main() {
   printf("---------- DECODE ----------\n");
 #endif
   vec_t v2;
+  vec_new(&v2, params.rns.n / 2);
 #ifdef __RUN_MODE__
   start = time_ns();
 #endif
   for (uint32_t i = 0; i < N_TESTS; i++) {
-    vec_new(&v2, params.rns.n / 2);
     ckks_decode(&v2, m2, ct.level, &params);
   }
 #ifdef __DEBUG_MODE__
@@ -600,34 +600,108 @@ int main() {
   printf("Decode: %.3f ms\n", (double)(end - start) / 1000.0);
 #endif
 
-// Multiplication
-#ifdef __DEBUG_MODE__
-  printf("---------- CIPHER-CIPHER MULTIPLICATION ----------\n");
-#endif
   ciphertext_t ct2;
+  vec_t v3;
+  vec_new(&v3, params.rns.n);
+  ciphertext_new(&ct2, &params.rns);
+  // Addition
+#ifdef __DEBUG_MODE__
+  printf("---------- CIPHER-CIPHER ADDITION ----------\n");
+#endif
 #ifdef __RUN_MODE__
   start = time_ns();
 #endif
   for (uint32_t i = 0; i < N_TESTS; i++) {
-    ciphertext_new(&ct2, &params.rns);
+    ckks_ciphertext_ciphertext_addition(&ct2, &ct, &ct, &params);
+  }
+#ifdef __DEBUG_MODE__
+  ckks_decrypt(m2, &ct2, &params);
+  ckks_decode(&v2, m2, ct2.level, &params);
+  for (uint32_t i = 0; i < params.rns.n / 2; i++) {
+    v3.rel[i] = 2 * v.rel[i];
+    v3.img[i] = 2 * v.img[i];
+  }
+  check_vectors(&v3, &v2, params.rns.n / 2);
+#endif
+
+#ifdef __RUN_MODE__
+  end = time_ns();
+  printf("Cipher-Cipher Add: %.3f ms\n", (double)(end - start) / 1000.0);
+#endif
+
+// Multiplication
+#ifdef __DEBUG_MODE__
+  printf("---------- CIPHER-CIPHER MULTIPLICATION ----------\n");
+#endif
+#ifdef __RUN_MODE__
+  start = time_ns();
+#endif
+  for (uint32_t i = 0; i < N_TESTS; i++) {
     ckks_ciphertext_ciphertext_multiplication(&ct2, &ct, &ct, &params);
   }
 #ifdef __DEBUG_MODE__
   ckks_decrypt(m2, &ct2, &params);
   ckks_decode(&v2, m2, ct2.level, &params);
   for (uint32_t i = 0; i < params.rns.n / 2; i++) {
-    double t_rel, t_img;
-    t_rel = v.rel[i];
-    t_img = v.img[i];
-    v.rel[i] = rel_mul(t_rel, t_img, t_rel, t_img);
-    v.img[i] = img_mul(t_rel, t_img, t_rel, t_img);
+    v3.rel[i] = rel_mul(v.rel[i], v.img[i], v.rel[i], v.img[i]);
+    v3.img[i] = img_mul(v.rel[i], v.img[i], v.rel[i], v.img[i]);
   }
-  check_vectors(&v, &v2, params.rns.n / 2);
+  check_vectors(&v3, &v2, params.rns.n / 2);
 #endif
 
 #ifdef __RUN_MODE__
   end = time_ns();
   printf("Cipher-Cipher Mul: %.3f ms\n", (double)(end - start) / 1000.0);
+#endif
+
+  // Addition
+#ifdef __DEBUG_MODE__
+  printf("---------- CIPHER-PLAIN ADDITION ----------\n");
+#endif
+#ifdef __RUN_MODE__
+  start = time_ns();
+#endif
+  for (uint32_t i = 0; i < N_TESTS; i++) {
+    ckks_ciphertext_plaintext_addition(&ct2, &ct, m, &params);
+  }
+#ifdef __DEBUG_MODE__
+  ckks_decrypt(m2, &ct2, &params);
+  ckks_decode(&v2, m2, ct2.level, &params);
+  for (uint32_t i = 0; i < params.rns.n / 2; i++) {
+    v3.rel[i] = 2 * v.rel[i];
+    v3.img[i] = 2 * v.img[i];
+  }
+  check_vectors(&v3, &v2, params.rns.n / 2);
+#endif
+
+#ifdef __RUN_MODE__
+  end = time_ns();
+  printf("Cipher-Plain Add: %.3f ms\n", (double)(end - start) / 1000.0);
+#endif
+
+  // Multiplication
+#ifdef __DEBUG_MODE__
+  printf("---------- CIPHER-PLAIN MULTIPLICATION ----------\n");
+#endif
+#ifdef __RUN_MODE__
+  start = time_ns();
+#endif
+  for (uint32_t i = 0; i < N_TESTS; i++) {
+    ckks_ciphertext_plaintext_multiplication(&ct2, &ct, m, &params);
+  }
+#ifdef __DEBUG_MODE__
+  ckks_decrypt(m2, &ct2, &params);
+  ckks_decode(&v2, m2, ct2.level, &params);
+  for (uint32_t i = 0; i < params.rns.n / 2; i++) {
+    v3.rel[i] = rel_mul(v.rel[i], v.img[i], v.rel[i], v.img[i]);
+    v3.img[i] = img_mul(v.rel[i], v.img[i], v.rel[i], v.img[i]);
+  }
+  check_vectors(&v3, &v2, params.rns.n / 2);
+#endif
+
+#ifdef __RUN_MODE__
+  end = time_ns();
+  printf("Cipher-Plain Mul: %.3f ms\n", (double)(end - start) / 1000.0);
 #endif
 
   // Free
@@ -636,6 +710,7 @@ int main() {
   ciphertext_free(&ct2, &params.rns);
   vec_free(&v);
   vec_free(&v2);
+  vec_free(&v3);
   poly_free(&m);
   poly_free(&m2);
 

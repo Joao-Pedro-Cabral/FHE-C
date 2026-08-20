@@ -68,15 +68,48 @@ void ckks_encrypt(ciphertext_t* ct, const poly_t m,
 */
 void ckks_decrypt(poly_t m, const ciphertext_t* ct,
                   const ckks_params_t* params);
+
 /*
   @param ct3: output ciphertext_t
   @param ct1: input ciphertext_t
   @param ct2: input ciphertext_t
-  @param m: output polynomial
+  @param params: CKKS params
+*/
+void ckks_ciphertext_ciphertext_addition(ciphertext_t* ct3,
+                                         const ciphertext_t* ct1,
+                                         const ciphertext_t* ct2,
+                                         const ckks_params_t* params);
+
+/*
+  @param ct3: output ciphertext_t
+  @param ct1: input ciphertext_t
+  @param ct2: input ciphertext_t
+  @param params: CKKS params
 */
 void ckks_ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
                                                const ciphertext_t* ct1,
                                                const ciphertext_t* ct2,
                                                const ckks_params_t* params);
+
+/*
+  @param ct2: output ciphertext_t
+  @param ct1: input ciphertext_t
+  @param m: input plaintext
+  @param params: CKKS params
+*/
+void ckks_ciphertext_plaintext_addition(ciphertext_t* ct2,
+                                        const ciphertext_t* ct1, const poly_t m,
+                                        const ckks_params_t* params);
+
+/*
+  @param ct2: output ciphertext_t
+  @param ct1: input ciphertext_t
+  @param m: input plaintext
+  @param params: CKKS params
+*/
+void ckks_ciphertext_plaintext_multiplication(ciphertext_t* ct2,
+                                              const ciphertext_t* ct1,
+                                              const poly_t m,
+                                              const ckks_params_t* params);
 
 #endif  // __CKKS_H__
