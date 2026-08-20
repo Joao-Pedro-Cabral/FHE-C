@@ -36,7 +36,6 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
   rns_new(&d2, params);
   // Basic Multiplication
   for (uint32_t i = 0; i < ct1->level; i++) {
-    // Remove R factor
     // D0
     poly_pointwise_mul(ct3->ab.b[i], ct1->ab.b[i], ct2->ab.b[i], params->q[i],
                        params->qinv[i], params->n);  // R-1
@@ -116,7 +115,6 @@ void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
               params->n);
   }
   // Rescaling (Mod Switch)
-  ct2->level = ct1->level - 1;
   rns_mod_switch(ct2->ab.b, tmp, ct2->level, params);
   rns_mod_switch(ct2->ab.a, tmp, ct2->level, params);
   for (uint32_t i = 0; i < ct1->level; i++) {
