@@ -1,6 +1,8 @@
 
 #include "ckks.h"
 
+#include <string.h>
+
 #include "random.h"
 
 void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
@@ -30,13 +32,12 @@ void ckks_free(ckks_params_t* params) {
 }
 
 void ckks_encode(poly_t m, const vec_t* v, const ckks_params_t* params) {
-  // First step: Convert v into hermitian v2 = (v, v)
   vec_t v2;
-  vec_new(&v2, params->rns.n);
-  vec_hermitian(&v2, v, params->rns.n);
-  // Second step: IFFT
-  ifft(&v2, &params->w, params->rns.n);
-  // Third step: Rescale (with base scale)
+  vec_new(&v2, params->rns.n / 2);
+  memcpy(v2.rel, v->rel, params->rns.n * sizeof(double));
+  // First step: IFFT
+  ifft(&v2, &params->w, params->rns.n / 2);
+  // Second step: Rescale (with base scale) + Bit Reverse
   vector_to_poly(m, &v2, params->rns.scales[params->rns.l - 1], params->rns.n);
   // Free
   vec_free(&v2);
@@ -44,16 +45,10 @@ void ckks_encode(poly_t m, const vec_t* v, const ckks_params_t* params) {
 
 void ckks_decode(vec_t* v, const poly_t m, uint32_t level,
                  const ckks_params_t* params) {
-  // First step: Rescale (accordingly to the current level)
-  vec_t v2;
-  vec_new(&v2, params->rns.n);
-  poly_to_vector(&v2, m, params->rns.scales[level - 1], params->rns.n);
+  // First step: Rescale (accordingly to the current level) + Bit Reverse
+  poly_to_vector(v, m, params->rns.scales[level - 1], params->rns.n);
   // Second step: FFT
-  fft(&v2, &params->w, params->rns.n);
-  // Third step: Convert into input complex vector
-  vec_input(v, &v2, params->rns.n);
-  // Free
-  vec_free(&v2);
+  fft(v, &params->w, params->rns.n / 2);
 }
 
 void ckks_encrypt(ciphertext_t* ct, const poly_t m,

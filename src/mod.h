@@ -76,4 +76,16 @@ int64_t find_smallest_2nth_root(uint64_t n, int64_t q, int64_t qR,
 void find_primes(uint64_t* q, uint32_t q0_bits, uint32_t scale_bits, uint32_t n,
                  uint32_t l);
 
+// q is a power of two
+static inline uint32_t mod_pow2(uint32_t a, uint32_t b, uint32_t q) {
+  uint32_t c = 1, d = a;
+  uint32_t q_1 = q - 1;
+  while (b > 0) {
+    if ((b & 0x1) == 1) c = (c * d) & q_1;
+    d = (d * d) & q_1;
+    b >>= 1;
+  }
+  return c;
+}
+
 #endif  // __MOD_H__

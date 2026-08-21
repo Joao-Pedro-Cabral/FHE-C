@@ -5,6 +5,8 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include "mod.h"
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -12,520 +14,73 @@
 #include "complex.h"
 #include "utils.h"
 
-void vec_new(vec_t* v, uint32_t n) {
-  v->rel = malloc(2 * n * sizeof(double));
-  v->img = &v->rel[n];
+// m = n/2 (half cyclotomic size)
+void vec_new(vec_t* v, uint32_t m) {
+  v->rel = malloc(2 * m * sizeof(double));
+  v->img = &v->rel[m];
 }
 
 void vec_free(vec_t* v) { free(v->rel); }
 
-// TODO: Vectorize only in forward mode
-void vec_hermitian(vec_t* v2, const vec_t* v1, uint32_t n) {
-  uint32_t log2_n = floor_log2(n);
-  // NO -> BO for IFFT
-  for (uint32_t i = 0; i < n / 2; i++) {
-    uint32_t i2 = bit_reverse32(i, log2_n);
-    uint32_t i3 = bit_reverse32(n - 1 - i, log2_n);
-    v2->rel[i2] = v1->rel[i];
-    v2->rel[i3] = v1->rel[i];
-    v2->img[i2] = v1->img[i];
-    v2->img[i3] = -v1->img[i];
-  }
-}
-
-void vec_input(vec_t* v2, const vec_t* v1, uint32_t n) {
-  uint32_t log2_n = floor_log2(n);
-  // BO -> NO for FFT
-  for (uint32_t i = 0; i < n / 2; i++) {
-    uint32_t i2 = bit_reverse32(i, log2_n);
-    v2->rel[i] = v1->rel[i2];
-    v2->img[i] = v1->img[i2];
-  }
-}
-
-void vec_gen_roots(vec_t* w, uint32_t n) {
-  uint32_t log2_n = floor_log2(n);
-  w->rel[0] = 1.0;  // bit_reverse32(0, log2_n)
+void vec_gen_roots(vec_t* w, uint32_t m) {
+  // Position 0 is not used
+  w->rel[0] = 0.0;
   w->img[0] = 0.0;
-  w->rel[1] = 0.0;  // bit_reverse32(n / 2, log2_n)
-  w->img[1] = 1.0;
-  for (uint32_t i = 1; i < n / 2; i++) {
-    uint32_t i2 = bit_reverse32(i, log2_n);
-    uint32_t i3 = bit_reverse32(n - i, log2_n);
-    double cosw = cos(i * M_PI / n);
-    double sinw = sin(i * M_PI / n);
+  for (uint32_t i = 1; i < m; i++) {
+    uint32_t log2_i = floor_log2(i);
+    uint32_t pow2_i = i - (1 << log2_i);
+    uint32_t mod2_i = 1 << (log2_i + 3);
+    uint32_t pow5 = mod_pow2(5, pow2_i, mod2_i);
+    uint32_t gap = m >> (log2_i + 1);  // 4m/lenq
+    uint32_t idx = pow5 * gap;
+    double cosw = cos((idx * M_PI) / (2 * m));
+    double sinw = sin((idx * M_PI) / (2 * m));
     // 1st quadrant
-    w->rel[i2] = cosw;
-    w->img[i2] = sinw;
-    // 2nd quadrant
-    w->rel[i3] = -cosw;
-    w->img[i3] = sinw;
+    w->rel[i] = cosw;
+    w->img[i] = sinw;
   }
 }
 
-#define CT_BUTTERFLY(vj_rel, vj_img, vk_rel, vk_img, vw_rel, vw_img, vt_rel, \
-                     vt_img)                                                 \
-  do {                                                                       \
-    (vt_rel) = rel_vmul((vk_rel), (vk_img), (vw_rel), (vw_img));             \
-    (vt_img) = img_vmul((vk_rel), (vk_img), (vw_rel), (vw_img));             \
-    (vk_rel) = _mm256_sub_pd((vj_rel), (vt_rel));                            \
-    (vk_img) = _mm256_sub_pd((vj_img), (vt_img));                            \
-    (vj_rel) = _mm256_add_pd((vj_rel), (vt_rel));                            \
-    (vj_img) = _mm256_add_pd((vj_img), (vt_img));                            \
-  } while (0)
-
-void fft(vec_t* v, const vec_t* w, uint32_t n) {
-  uint32_t log2_n = floor_log2(n);
-  uint32_t n2 = ((log2_n & 0x1) == 0) ? n : (n / 2);
-  // First layer for odd log2_n
-  if (n2 < n) {
-    // Only one root for everyone
-    __m256d vw_rel = _mm256_set1_pd(w->rel[1]);
-    __m256d vw_img = _mm256_set1_pd(w->img[1]);
-    // Unroll two vector iterations
-    for (uint32_t j = 0; j < n / 2; j += 8) {
-      // Load
-      // First Half
-      __m256d vj0_rel = _mm256_loadu_pd(&v->rel[j]);
-      __m256d vj0_img = _mm256_loadu_pd(&v->img[j]);
-      __m256d vk0_rel = _mm256_loadu_pd(&v->rel[j + n / 2]);
-      __m256d vk0_img = _mm256_loadu_pd(&v->img[j + n / 2]);
-      // Second Half
-      __m256d vj1_rel = _mm256_loadu_pd(&v->rel[j + 4]);
-      __m256d vj1_img = _mm256_loadu_pd(&v->img[j + 4]);
-      __m256d vk1_rel = _mm256_loadu_pd(&v->rel[j + 4 + n / 2]);
-      __m256d vk1_img = _mm256_loadu_pd(&v->img[j + 4 + n / 2]);
-      // GS
-      __m256d vt_rel, vt_img;
-      CT_BUTTERFLY(vj0_rel, vj0_img, vk0_rel, vk0_img, vw_rel, vw_img, vt_rel,
-                   vt_img);
-      CT_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw_rel, vw_img, vt_rel,
-                   vt_img);
-      // Store
-      // First Half
-      _mm256_storeu_pd(&v->rel[j], vj0_rel);
-      _mm256_storeu_pd(&v->img[j], vj0_img);
-      _mm256_storeu_pd(&v->rel[j + n / 2], vk0_rel);
-      _mm256_storeu_pd(&v->img[j + n / 2], vk0_img);
-      // Second Half
-      _mm256_storeu_pd(&v->rel[j + 4], vj1_rel);
-      _mm256_storeu_pd(&v->img[j + 4], vj1_img);
-      _mm256_storeu_pd(&v->rel[j + 4 + n / 2], vk1_rel);
-      _mm256_storeu_pd(&v->img[j + 4 + n / 2], vk1_img);
-    }
-  }
-
-  // Merge 2 consecutive layers
-  for (uint32_t len = n2 / 2; len > 8; len >>= 2) {
-    uint32_t klen = n / (2 * len);
-    uint32_t klen2 = n / (len);
-    for (uint32_t start = 0; start < n; start += 2 * len) {
-      // We only have the upper half roots, so we conjugate here
-      // First Layer: one root
-      __m256d vw1_rel = _mm256_set1_pd(w->rel[klen]);
-      __m256d vw1_img = _mm256_set1_pd(w->img[klen]);
-      klen += 1;
-      // Second Layer: two roots
-      __m256d vw20_rel = _mm256_set1_pd(w->rel[klen2]);
-      __m256d vw20_img = _mm256_set1_pd(w->img[klen2]);
-      __m256d vw21_rel = _mm256_set1_pd(w->rel[klen2 + 1]);
-      __m256d vw21_img = _mm256_set1_pd(w->img[klen2 + 1]);
-      klen2 += 2;
-      for (uint32_t j = start; j < start + len / 2; j += 4) {
-        // Load
-        // First Half
-        __m256d vj0_rel = _mm256_loadu_pd(&v->rel[j]);
-        __m256d vj0_img = _mm256_loadu_pd(&v->img[j]);
-        __m256d vk0_rel = _mm256_loadu_pd(&v->rel[j + len]);
-        __m256d vk0_img = _mm256_loadu_pd(&v->img[j + len]);
-        // Second Half
-        __m256d vj1_rel = _mm256_loadu_pd(&v->rel[j + len / 2]);
-        __m256d vj1_img = _mm256_loadu_pd(&v->img[j + len / 2]);
-        __m256d vk1_rel = _mm256_loadu_pd(&v->rel[j + 3 * len / 2]);
-        __m256d vk1_img = _mm256_loadu_pd(&v->img[j + 3 * len / 2]);
-        // First Layer (len)
-        __m256d vt_rel, vt_img;
-        CT_BUTTERFLY(vj0_rel, vj0_img, vk0_rel, vk0_img, vw1_rel, vw1_img,
-                     vt_rel, vt_img);
-        CT_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw1_rel, vw1_img,
-                     vt_rel, vt_img);
-        // Second layer (len/2)
-        CT_BUTTERFLY(vj0_rel, vj0_img, vj1_rel, vj1_img, vw20_rel, vw20_img,
-                     vt_rel, vt_img);
-        CT_BUTTERFLY(vk0_rel, vk0_img, vk1_rel, vk1_img, vw21_rel, vw21_img,
-                     vt_rel, vt_img);
-        // Store
-        // First Half
-        _mm256_storeu_pd(&v->rel[j], vj0_rel);
-        _mm256_storeu_pd(&v->img[j], vj0_img);
-        _mm256_storeu_pd(&v->rel[j + len], vk0_rel);
-        _mm256_storeu_pd(&v->img[j + len], vk0_img);
-        // Second Half
-        _mm256_storeu_pd(&v->rel[j + len / 2], vj1_rel);
-        _mm256_storeu_pd(&v->img[j + len / 2], vj1_img);
-        _mm256_storeu_pd(&v->rel[j + 3 * len / 2], vk1_rel);
-        _mm256_storeu_pd(&v->img[j + 3 * len / 2], vk1_img);
+// m = n/2 (half cyclotomic size)
+void fft(vec_t* v, const vec_t* w, uint32_t m) {
+  for (uint32_t len = 1; len < m; len <<= 1) {
+    for (uint32_t i = 0; i < m; i += 2 * len) {
+      for (uint32_t j = i; j < i + len; j++) {
+        double w_rel = w->rel[len + j - i];
+        double w_img = w->img[len + j - i];
+        double j_rel = v->rel[j];
+        double j_img = v->img[j];
+        double k_rel = v->rel[j + len];
+        double k_img = v->img[j + len];
+        double t_rel = rel_mul(k_rel, k_img, w_rel, w_img);
+        double t_img = img_mul(k_rel, k_img, w_rel, w_img);
+        v->rel[j + len] = j_rel - t_rel;
+        v->img[j + len] = j_img - t_img;
+        v->rel[j] = j_rel + t_rel;
+        v->img[j] = j_img + t_img;
       }
     }
-  }
-
-  uint32_t k1 = n / 16;
-  uint32_t k2 = n / 8;
-  uint32_t k3 = n / 4;
-  uint32_t k4 = n / 2;
-  // Merge 4 layers using all the 16 AVX2 registers
-  for (uint32_t j = 0; j < n; j += 16) {
-    // Load
-    // First Half
-    __m256d vj0_rel = _mm256_loadu_pd(&v->rel[j]);
-    __m256d vj0_img = _mm256_loadu_pd(&v->img[j]);
-    __m256d vk0_rel = _mm256_loadu_pd(&v->rel[j + 4]);
-    __m256d vk0_img = _mm256_loadu_pd(&v->img[j + 4]);
-    // Second Half
-    __m256d vj1_rel = _mm256_loadu_pd(&v->rel[j + 8]);
-    __m256d vj1_img = _mm256_loadu_pd(&v->img[j + 8]);
-    __m256d vk1_rel = _mm256_loadu_pd(&v->rel[j + 12]);
-    __m256d vk1_img = _mm256_loadu_pd(&v->img[j + 12]);
-    // First layer (len = 8), one root
-    __m256d vt0_rel, vt0_img;
-    __m256d vt1_rel, vt1_img;
-    __m256d vw_rel, vw_img;
-    vw_rel = _mm256_set1_pd(w->rel[k1]);
-    vw_img = _mm256_set1_pd(w->img[k1]);
-    k1 += 1;
-    CT_BUTTERFLY(vj0_rel, vj0_img, vj1_rel, vj1_img, vw_rel, vw_img, vt0_rel,
-                 vt0_img);
-    CT_BUTTERFLY(vk0_rel, vk0_img, vk1_rel, vk1_img, vw_rel, vw_img, vt1_rel,
-                 vt1_img);
-    // Second layer (len = 4), one root per half
-    // First Half
-    vw_rel = _mm256_set1_pd(w->rel[k2]);
-    vw_img = _mm256_set1_pd(w->img[k2]);
-    k2 += 1;
-    CT_BUTTERFLY(vj0_rel, vj0_img, vk0_rel, vk0_img, vw_rel, vw_img, vt0_rel,
-                 vt0_img);
-    // Second Half
-    vw_rel = _mm256_set1_pd(w->rel[k2]);
-    vw_img = _mm256_set1_pd(w->img[k2]);
-    k2 += 1;
-    CT_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw_rel, vw_img, vt1_rel,
-                 vt1_img);
-    // Third layer (len = 2), two roots per half
-    // Transpose
-    // First Half
-    vt0_rel = _mm256_permute2f128_pd(vj0_rel, vk0_rel, 0x20);
-    vt0_img = _mm256_permute2f128_pd(vj0_img, vk0_img, 0x20);
-    vk0_rel = _mm256_permute2f128_pd(vj0_rel, vk0_rel, 0x31);
-    vk0_img = _mm256_permute2f128_pd(vj0_img, vk0_img, 0x31);
-    // Second Half
-    vt1_rel = _mm256_permute2f128_pd(vj1_rel, vk1_rel, 0x20);
-    vt1_img = _mm256_permute2f128_pd(vj1_img, vk1_img, 0x20);
-    vk1_rel = _mm256_permute2f128_pd(vj1_rel, vk1_rel, 0x31);
-    vk1_img = _mm256_permute2f128_pd(vj1_img, vk1_img, 0x31);
-    // CT
-    // First Half
-    vw_rel =
-        _mm256_setr_pd(w->rel[k3], w->rel[k3], w->rel[k3 + 1], w->rel[k3 + 1]);
-    vw_img =
-        _mm256_setr_pd(w->img[k3], w->img[k3], w->img[k3 + 1], w->img[k3 + 1]);
-    k3 += 2;
-    CT_BUTTERFLY(vt0_rel, vt0_img, vk0_rel, vk0_img, vw_rel, vw_img, vj0_rel,
-                 vj0_img);
-    // Second Half
-    vw_rel =
-        _mm256_setr_pd(w->rel[k3], w->rel[k3], w->rel[k3 + 1], w->rel[k3 + 1]);
-    vw_img =
-        _mm256_setr_pd(w->img[k3], w->img[k3], w->img[k3 + 1], w->img[k3 + 1]);
-    k3 += 2;
-    CT_BUTTERFLY(vt1_rel, vt1_img, vk1_rel, vk1_img, vw_rel, vw_img, vj1_rel,
-                 vj1_img);
-    // Forth Layer (len = 1), four roots per half
-    // Transpose
-    // First Half
-    vj0_rel = _mm256_unpacklo_pd(vt0_rel, vk0_rel);
-    vj0_img = _mm256_unpacklo_pd(vt0_img, vk0_img);
-    vk0_rel = _mm256_unpackhi_pd(vt0_rel, vk0_rel);
-    vk0_img = _mm256_unpackhi_pd(vt0_img, vk0_img);
-    // Second Half
-    vj1_rel = _mm256_unpacklo_pd(vt1_rel, vk1_rel);
-    vj1_img = _mm256_unpacklo_pd(vt1_img, vk1_img);
-    vk1_rel = _mm256_unpackhi_pd(vt1_rel, vk1_rel);
-    vk1_img = _mm256_unpackhi_pd(vt1_img, vk1_img);
-    // First Half
-    vw_rel = _mm256_loadu_pd(&w->rel[k4]);
-    vw_img = _mm256_loadu_pd(&w->img[k4]);
-    k4 += 4;
-    CT_BUTTERFLY(vj0_rel, vj0_img, vk0_rel, vk0_img, vw_rel, vw_img, vt0_rel,
-                 vt0_img);
-    // Second Half
-    vw_rel = _mm256_loadu_pd(&w->rel[k4]);
-    vw_img = _mm256_loadu_pd(&w->img[k4]);
-    k4 += 4;
-    CT_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw_rel, vw_img, vt1_rel,
-                 vt1_img);
-    // Tranpose Back
-    // First Half
-    vt0_rel = _mm256_unpacklo_pd(vj0_rel, vk0_rel);
-    vt0_img = _mm256_unpacklo_pd(vj0_img, vk0_img);
-    vk0_rel = _mm256_unpackhi_pd(vj0_rel, vk0_rel);
-    vk0_img = _mm256_unpackhi_pd(vj0_img, vk0_img);
-    vj0_rel = _mm256_permute2f128_pd(vt0_rel, vk0_rel, 0x20);
-    vj0_img = _mm256_permute2f128_pd(vt0_img, vk0_img, 0x20);
-    vk0_rel = _mm256_permute2f128_pd(vt0_rel, vk0_rel, 0x31);
-    vk0_img = _mm256_permute2f128_pd(vt0_img, vk0_img, 0x31);
-    // Second Half
-    vt1_rel = _mm256_unpacklo_pd(vj1_rel, vk1_rel);
-    vt1_img = _mm256_unpacklo_pd(vj1_img, vk1_img);
-    vk1_rel = _mm256_unpackhi_pd(vj1_rel, vk1_rel);
-    vk1_img = _mm256_unpackhi_pd(vj1_img, vk1_img);
-    vj1_rel = _mm256_permute2f128_pd(vt1_rel, vk1_rel, 0x20);
-    vj1_img = _mm256_permute2f128_pd(vt1_img, vk1_img, 0x20);
-    vk1_rel = _mm256_permute2f128_pd(vt1_rel, vk1_rel, 0x31);
-    vk1_img = _mm256_permute2f128_pd(vt1_img, vk1_img, 0x31);
-    // Store
-    // First Half
-    _mm256_storeu_pd(&v->rel[j], vj0_rel);
-    _mm256_storeu_pd(&v->img[j], vj0_img);
-    _mm256_storeu_pd(&v->rel[j + 4], vk0_rel);
-    _mm256_storeu_pd(&v->img[j + 4], vk0_img);
-    // Second Half
-    _mm256_storeu_pd(&v->rel[j + 8], vj1_rel);
-    _mm256_storeu_pd(&v->img[j + 8], vj1_img);
-    _mm256_storeu_pd(&v->rel[j + 12], vk1_rel);
-    _mm256_storeu_pd(&v->img[j + 12], vk1_img);
   }
 }
 
-#define GS_BUTTERFLY(vj_rel, vj_img, vk_rel, vk_img, vw_rel, vw_img, vt_rel, \
-                     vt_img)                                                 \
-  do {                                                                       \
-    (vt_rel) = _mm256_sub_pd((vj_rel), (vk_rel));                            \
-    (vt_img) = _mm256_sub_pd((vj_img), (vk_img));                            \
-    (vj_rel) = _mm256_add_pd((vj_rel), (vk_rel));                            \
-    (vj_img) = _mm256_add_pd((vj_img), (vk_img));                            \
-    (vk_rel) = rel_vmul((vt_rel), (vt_img), (vw_rel), (vw_img));             \
-    (vk_img) = img_vmul((vt_rel), (vt_img), (vw_rel), (vw_img));             \
-  } while (0)
-
-void ifft(vec_t* v, const vec_t* w, uint32_t n) {
-  uint32_t k1 = n / 2;
-  uint32_t k2 = n / 4;
-  uint32_t k3 = n / 8;
-  uint32_t k4 = n / 16;
-  __m256d sign = _mm256_set1_pd(-0.0f);
-  // Merge 4 layers using all the 16 AVX2 registers
-  for (uint32_t j = 0; j < n; j += 16) {
-    // Load
-    // First Half
-    __m256d vj0_rel = _mm256_loadu_pd(&v->rel[j]);
-    __m256d vj0_img = _mm256_loadu_pd(&v->img[j]);
-    __m256d vk0_rel = _mm256_loadu_pd(&v->rel[j + 4]);
-    __m256d vk0_img = _mm256_loadu_pd(&v->img[j + 4]);
-    // Second Half
-    __m256d vj1_rel = _mm256_loadu_pd(&v->rel[j + 8]);
-    __m256d vj1_img = _mm256_loadu_pd(&v->img[j + 8]);
-    __m256d vk1_rel = _mm256_loadu_pd(&v->rel[j + 12]);
-    __m256d vk1_img = _mm256_loadu_pd(&v->img[j + 12]);
-    // Tranpose
-    // First Half
-    __m256d vt0_rel = _mm256_permute2f128_pd(vj0_rel, vk0_rel, 0x20);
-    __m256d vt0_img = _mm256_permute2f128_pd(vj0_img, vk0_img, 0x20);
-    vk0_rel = _mm256_permute2f128_pd(vj0_rel, vk0_rel, 0x31);
-    vk0_img = _mm256_permute2f128_pd(vj0_img, vk0_img, 0x31);
-    vj0_rel = _mm256_unpacklo_pd(vt0_rel, vk0_rel);
-    vj0_img = _mm256_unpacklo_pd(vt0_img, vk0_img);
-    vk0_rel = _mm256_unpackhi_pd(vt0_rel, vk0_rel);
-    vk0_img = _mm256_unpackhi_pd(vt0_img, vk0_img);
-    // Second Half
-    __m256d vt1_rel = _mm256_permute2f128_pd(vj1_rel, vk1_rel, 0x20);
-    __m256d vt1_img = _mm256_permute2f128_pd(vj1_img, vk1_img, 0x20);
-    vk1_rel = _mm256_permute2f128_pd(vj1_rel, vk1_rel, 0x31);
-    vk1_img = _mm256_permute2f128_pd(vj1_img, vk1_img, 0x31);
-    vj1_rel = _mm256_unpacklo_pd(vt1_rel, vk1_rel);
-    vj1_img = _mm256_unpacklo_pd(vt1_img, vk1_img);
-    vk1_rel = _mm256_unpackhi_pd(vt1_rel, vk1_rel);
-    vk1_img = _mm256_unpackhi_pd(vt1_img, vk1_img);
-    // First layer (len = 1), four roots per half
-    // First Half
-    __m256d vw_rel = _mm256_loadu_pd(&w->rel[k1]);
-    __m256d vw_img = _mm256_loadu_pd(&w->img[k1]);
-    vw_img = _mm256_xor_pd(vw_img, sign);
-    k1 += 4;
-    GS_BUTTERFLY(vj0_rel, vj0_img, vk0_rel, vk0_img, vw_rel, vw_img, vt0_rel,
-                 vt0_img);
-    // Second Half
-    vw_rel = _mm256_loadu_pd(&w->rel[k1]);
-    vw_img = _mm256_loadu_pd(&w->img[k1]);
-    vw_img = _mm256_xor_pd(vw_img, sign);
-    k1 += 4;
-    GS_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw_rel, vw_img, vt1_rel,
-                 vt1_img);
-    // Transpose back
-    // First Half
-    vt0_rel = _mm256_unpacklo_pd(vj0_rel, vk0_rel);
-    vt0_img = _mm256_unpacklo_pd(vj0_img, vk0_img);
-    vk0_rel = _mm256_unpackhi_pd(vj0_rel, vk0_rel);
-    vk0_img = _mm256_unpackhi_pd(vj0_img, vk0_img);
-    // Second Half
-    vt1_rel = _mm256_unpacklo_pd(vj1_rel, vk1_rel);
-    vt1_img = _mm256_unpacklo_pd(vj1_img, vk1_img);
-    vk1_rel = _mm256_unpackhi_pd(vj1_rel, vk1_rel);
-    vk1_img = _mm256_unpackhi_pd(vj1_img, vk1_img);
-    // Second layer (len = 2), two roots per half
-    // First Half
-    vw_rel =
-        _mm256_setr_pd(w->rel[k2], w->rel[k2], w->rel[k2 + 1], w->rel[k2 + 1]);
-    vw_img = _mm256_setr_pd(-w->img[k2], -w->img[k2], -w->img[k2 + 1],
-                            -w->img[k2 + 1]);
-    k2 += 2;
-    GS_BUTTERFLY(vt0_rel, vt0_img, vk0_rel, vk0_img, vw_rel, vw_img, vj0_rel,
-                 vj0_img);
-    // Second Half
-    vw_rel =
-        _mm256_setr_pd(w->rel[k2], w->rel[k2], w->rel[k2 + 1], w->rel[k2 + 1]);
-    vw_img = _mm256_setr_pd(-w->img[k2], -w->img[k2], -w->img[k2 + 1],
-                            -w->img[k2 + 1]);
-    k2 += 2;
-    GS_BUTTERFLY(vt1_rel, vt1_img, vk1_rel, vk1_img, vw_rel, vw_img, vj1_rel,
-                 vj1_img);
-    // Transpose back
-    // First Half
-    vj0_rel = _mm256_permute2f128_pd(vt0_rel, vk0_rel, 0x20);
-    vj0_img = _mm256_permute2f128_pd(vt0_img, vk0_img, 0x20);
-    vk0_rel = _mm256_permute2f128_pd(vt0_rel, vk0_rel, 0x31);
-    vk0_img = _mm256_permute2f128_pd(vt0_img, vk0_img, 0x31);
-    // Second Half
-    vj1_rel = _mm256_permute2f128_pd(vt1_rel, vk1_rel, 0x20);
-    vj1_img = _mm256_permute2f128_pd(vt1_img, vk1_img, 0x20);
-    vk1_rel = _mm256_permute2f128_pd(vt1_rel, vk1_rel, 0x31);
-    vk1_img = _mm256_permute2f128_pd(vt1_img, vk1_img, 0x31);
-    // Third layer (len = 4), one root per half
-    // First Half
-    vw_rel = _mm256_set1_pd(w->rel[k3]);
-    vw_img = _mm256_set1_pd(-w->img[k3]);
-    k3 += 1;
-    GS_BUTTERFLY(vj0_rel, vj0_img, vk0_rel, vk0_img, vw_rel, vw_img, vt0_rel,
-                 vt0_img);
-    // Second Half
-    vw_rel = _mm256_set1_pd(w->rel[k3]);
-    vw_img = _mm256_set1_pd(-w->img[k3]);
-    k3 += 1;
-    GS_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw_rel, vw_img, vt1_rel,
-                 vt1_img);
-    // Forth layer (len = 8), one root
-    vw_rel = _mm256_set1_pd(w->rel[k4]);
-    vw_img = _mm256_set1_pd(-w->img[k4]);
-    k4 += 1;
-    GS_BUTTERFLY(vj0_rel, vj0_img, vj1_rel, vj1_img, vw_rel, vw_img, vt0_rel,
-                 vt0_img);
-    GS_BUTTERFLY(vk0_rel, vk0_img, vk1_rel, vk1_img, vw_rel, vw_img, vt1_rel,
-                 vt1_img);
-    // Store
-    // First Half
-    _mm256_storeu_pd(&v->rel[j], vj0_rel);
-    _mm256_storeu_pd(&v->img[j], vj0_img);
-    _mm256_storeu_pd(&v->rel[j + 4], vk0_rel);
-    _mm256_storeu_pd(&v->img[j + 4], vk0_img);
-    // Second Half
-    _mm256_storeu_pd(&v->rel[j + 8], vj1_rel);
-    _mm256_storeu_pd(&v->img[j + 8], vj1_img);
-    _mm256_storeu_pd(&v->rel[j + 12], vk1_rel);
-    _mm256_storeu_pd(&v->img[j + 12], vk1_img);
-  }
-
-  // Merge 2 consecutive layers
-  uint32_t log2_n = floor_log2(n);
-  uint32_t n2 = ((log2_n & 0x1) == 0) ? n : (n / 2);
-  for (uint32_t len = 16; len < n2; len <<= 2) {
-    uint32_t klen = n / (2 * len);
-    uint32_t k2len = n / (4 * len);
-    for (uint32_t start = 0; start < n; start += 4 * len) {
-      // We only have the upper half roots, so we conjugate here
-      // First Layer: two roots
-      __m256d vw10_rel = _mm256_set1_pd(w->rel[klen]);
-      __m256d vw10_img = _mm256_set1_pd(-w->img[klen]);
-      __m256d vw11_rel = _mm256_set1_pd(w->rel[klen + 1]);
-      __m256d vw11_img = _mm256_set1_pd(-w->img[klen + 1]);
-      klen += 2;
-      // Second Layer: one root
-      __m256d vw2_rel = _mm256_set1_pd(w->rel[k2len]);
-      __m256d vw2_img = _mm256_set1_pd(-w->img[k2len]);
-      k2len += 1;
-      for (uint32_t j = start; j < start + len; j += 4) {
-        // Load
-        // First Half
-        __m256d vj0_rel = _mm256_loadu_pd(&v->rel[j]);
-        __m256d vj0_img = _mm256_loadu_pd(&v->img[j]);
-        __m256d vk0_rel = _mm256_loadu_pd(&v->rel[j + len]);
-        __m256d vk0_img = _mm256_loadu_pd(&v->img[j + len]);
-        // Second Half
-        __m256d vj1_rel = _mm256_loadu_pd(&v->rel[j + 2 * len]);
-        __m256d vj1_img = _mm256_loadu_pd(&v->img[j + 2 * len]);
-        __m256d vk1_rel = _mm256_loadu_pd(&v->rel[j + 3 * len]);
-        __m256d vk1_img = _mm256_loadu_pd(&v->img[j + 3 * len]);
-        // First Layer (len)
-        __m256d vt_rel, vt_img;
-        GS_BUTTERFLY(vj0_rel, vj0_img, vk0_rel, vk0_img, vw10_rel, vw10_img,
-                     vt_rel, vt_img);
-        GS_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw11_rel, vw11_img,
-                     vt_rel, vt_img);
-        // Second layer (2*len)
-        GS_BUTTERFLY(vj0_rel, vj0_img, vj1_rel, vj1_img, vw2_rel, vw2_img,
-                     vt_rel, vt_img);
-        GS_BUTTERFLY(vk0_rel, vk0_img, vk1_rel, vk1_img, vw2_rel, vw2_img,
-                     vt_rel, vt_img);
-        // Store
-        // First Half
-        _mm256_storeu_pd(&v->rel[j], vj0_rel);
-        _mm256_storeu_pd(&v->img[j], vj0_img);
-        _mm256_storeu_pd(&v->rel[j + len], vk0_rel);
-        _mm256_storeu_pd(&v->img[j + len], vk0_img);
-        // Second Half
-        _mm256_storeu_pd(&v->rel[j + 2 * len], vj1_rel);
-        _mm256_storeu_pd(&v->img[j + 2 * len], vj1_img);
-        _mm256_storeu_pd(&v->rel[j + 3 * len], vk1_rel);
-        _mm256_storeu_pd(&v->img[j + 3 * len], vk1_img);
+// m = n/2 (half cyclotomic size)
+void ifft(vec_t* v, const vec_t* w, uint32_t m) {
+  for (uint32_t len = m / 2; len > 0; len >>= 1) {
+    for (uint32_t i = 0; i < m; i += 2 * len) {
+      for (uint32_t j = i; j < i + len; j++) {
+        double w_rel = w->rel[len + j - i];
+        double w_img = -w->img[len + j - i];  // Conjugate
+        double j_rel = v->rel[j];
+        double j_img = v->img[j];
+        double k_rel = v->rel[j + len];
+        double k_img = v->img[j + len];
+        double t_rel = j_rel - k_rel;
+        double t_img = j_img - k_img;
+        v->rel[j] = j_rel + k_rel;
+        v->img[j] = j_img + k_img;
+        v->rel[j + len] = rel_mul(t_rel, t_img, w_rel, w_img);
+        v->img[j + len] = img_mul(t_rel, t_img, w_rel, w_img);
       }
     }
   }
-
-  // Final layer for odd log2_n
-  if (n2 < n) {
-    // Only one root for everyone
-    __m256d vw_rel = _mm256_set1_pd(w->rel[1]);
-    __m256d vw_img = _mm256_set1_pd(-w->img[1]);
-    // Unroll two vector iterations
-    for (uint32_t j = 0; j < n / 2; j += 8) {
-      // Load
-      // First Half
-      __m256d vj0_rel = _mm256_loadu_pd(&v->rel[j]);
-      __m256d vj0_img = _mm256_loadu_pd(&v->img[j]);
-      __m256d vk0_rel = _mm256_loadu_pd(&v->rel[j + n / 2]);
-      __m256d vk0_img = _mm256_loadu_pd(&v->img[j + n / 2]);
-      // Second Half
-      __m256d vj1_rel = _mm256_loadu_pd(&v->rel[j + 4]);
-      __m256d vj1_img = _mm256_loadu_pd(&v->img[j + 4]);
-      __m256d vk1_rel = _mm256_loadu_pd(&v->rel[j + 4 + n / 2]);
-      __m256d vk1_img = _mm256_loadu_pd(&v->img[j + 4 + n / 2]);
-      // GS
-      __m256d vt_rel, vt_img;
-      GS_BUTTERFLY(vj0_rel, vj0_img, vk0_rel, vk0_img, vw_rel, vw_img, vt_rel,
-                   vt_img);
-      GS_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw_rel, vw_img, vt_rel,
-                   vt_img);
-      // Store
-      // First Half
-      _mm256_storeu_pd(&v->rel[j], vj0_rel);
-      _mm256_storeu_pd(&v->img[j], vj0_img);
-      _mm256_storeu_pd(&v->rel[j + n / 2], vk0_rel);
-      _mm256_storeu_pd(&v->img[j + n / 2], vk0_img);
-      // Second Half
-      _mm256_storeu_pd(&v->rel[j + 4], vj1_rel);
-      _mm256_storeu_pd(&v->img[j + 4], vj1_img);
-      _mm256_storeu_pd(&v->rel[j + 4 + n / 2], vk1_rel);
-      _mm256_storeu_pd(&v->img[j + 4 + n / 2], vk1_img);
-    }
-  }
-
-  // 1/n performed in vector_to_poly
 }

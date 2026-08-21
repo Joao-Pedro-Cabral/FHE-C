@@ -1,6 +1,5 @@
 
 #include <immintrin.h>
-#include <stdio.h>
 
 #include "blake3_impl.h"
 

@@ -13,25 +13,30 @@ void poly_new(poly_t* m, uint32_t n) { *m = malloc(n * sizeof(int64_t)); }
 
 void poly_free(poly_t* m) { free(*m); }
 
-// AVX2 doesn't support int64_t <-> double conversion
 void vector_to_poly(poly_t m, const vec_t* v, uint64_t scale, uint32_t n) {
   // 1/n from IFFT
-  double inv_n = (double)scale / n;
-  for (uint32_t i = 0; i < n; i++) {
+  double inv_n = (double)scale / (n / 2);
+  uint32_t log2_n2 = floor_log2(n / 2);
+  for (uint32_t i = 0; i < n / 2; i++) {
+    uint32_t j = bit_reverse32(i, log2_n2);
     int64_t mask = ((int64_t)v->rel[i]) >> 63;
     mask = mask & 0x1;
     double round = 0.5 - (double)mask;
-    m[i] = (int64_t)(v->rel[i] * inv_n + round);
+    m[j] = (int64_t)(v->rel[i] * inv_n + round);
+    mask = ((int64_t)v->img[i]) >> 63;
+    mask = mask & 0x1;
+    round = 0.5 - (double)mask;
+    m[j + n / 2] = (int64_t)(v->img[i] * inv_n + round);
   }
 }
 
 void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n) {
-  // To increase the precision, we first compute (1 << int_part)/scale
-  // Instead of /scale and *(1 << int_part)
   double scale2 = 1.0 / (double)scale;
-  for (uint32_t i = 0; i < n; i++) {
-    v->rel[i] = (double)m[i] * scale2;
-    v->img[i] = 0;
+  uint32_t log2_n2 = floor_log2(n / 2);
+  for (uint32_t i = 0; i < n / 2; i++) {
+    uint32_t j = bit_reverse32(i, log2_n2);
+    v->rel[j] = (double)m[i] * scale2;
+    v->img[j] = (double)m[i + n / 2] * scale2;
   }
 }
 

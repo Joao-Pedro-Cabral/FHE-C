@@ -1,7 +1,6 @@
 
 #include "ciphertext.h"
 
-#include <stdio.h>
 #include <string.h>
 
 void ciphertext_new(ciphertext_t* ct, const rns_params_t* params) {
