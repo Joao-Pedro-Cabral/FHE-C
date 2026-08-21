@@ -128,15 +128,15 @@ void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
 
 // Rotate by 5^h
 void ciphertext_rotation(ciphertext_t* ct2, const ciphertext_t* ct1, uint32_t h,
-                         poly_t tmp, poly_t tmp2, const switch_t r,
+                         rns_t tmp_r, poly_t tmp_p, const switch_t r,
                          const rns_params_t* params) {
   uint32_t jh = mod_pow2(5, h, 2 * params->n);
   for (uint32_t i = 0; i < ct1->level; i++) {
     // X -> X^(5^h)
-    poly_permute(ct2->ab.a[i], ct1->ab.a[i], jh, params->n);
+    poly_permute(tmp_r[i], ct1->ab.a[i], jh, params->n);
     poly_permute(ct2->ab.b[i], ct1->ab.b[i], jh, params->n);
   }
   // Key Switch
   ct2->level = ct1->level;
-  rlwe_key_switch(&ct2->ab, r, tmp, tmp2, ct1->level, params);
+  rlwe_key_switch(&ct2->ab, tmp_r, r, tmp_p, ct1->level, params);
 }

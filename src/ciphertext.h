@@ -70,12 +70,12 @@ void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
   @param ct1: input ciphertext_t
   @param h: vector slot rotation
   @param r: rotation key
-  @param tmp: temporary
-  @param tmp2: temporary 2
+  @param tmp_p: temporary
+  @param tmp_r: temporary
   @param params: RNS params
 */
 void ciphertext_rotation(ciphertext_t* ct2, const ciphertext_t* ct1, uint32_t h,
-                         poly_t tmp, poly_t tmp2, const switch_t r,
+                         rns_t tmp_r, poly_t tmp_p, const switch_t r,
                          const rns_params_t* params);
 
 #endif  // __CIPHERTEXT_H__

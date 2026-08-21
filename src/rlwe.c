@@ -189,19 +189,20 @@ void rlwe_key_switch_decrypt(poly_t m, const switch_t key_switch,
   poly_free(&m2);
 }
 
-void rlwe_key_switch(rlwe_t* ab, const switch_t r, poly_t tmp, poly_t tmp2,
+void rlwe_key_switch(rlwe_t* ab, const rns_t a, const switch_t r, poly_t tmp,
                      uint32_t level, const rns_params_t* params) {
   for (uint32_t i = 0; i < level; i++) {
-    memcpy(tmp, ab->a[i], params->n * sizeof(int64_t));
     memset(ab->a[i], 0, params->n * sizeof(int64_t));
+  }
+  for (uint32_t i = 0; i < level; i++) {
     for (uint32_t j = 0; j < level; j++) {
-      poly_pointwise_mul(tmp2, tmp, r[i].b[j], params->q[j], params->qinv[j],
+      poly_pointwise_mul(tmp, a[i], r[i].b[j], params->q[j], params->qinv[j],
                          params->n);  // 1
-      poly_sub(ab->b[j], tmp2, params->q[j], params->qRq[j],
+      poly_sub(ab->b[j], tmp, params->q[j], params->qRq[j],
                params->n);  // 1
-      poly_pointwise_mul(tmp2, tmp, r[i].a[j], params->q[j], params->qinv[j],
+      poly_pointwise_mul(tmp, a[i], r[i].a[j], params->q[j], params->qinv[j],
                          params->n);  // R
-      poly_sub(ab->a[j], tmp2, params->q[j], params->qRq[j],
+      poly_sub(ab->a[j], tmp, params->q[j], params->qRq[j],
                params->n);  // R
     }
   }
