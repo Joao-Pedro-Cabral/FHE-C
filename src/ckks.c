@@ -11,8 +11,8 @@ void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   // RNS construction
   rns_params_new(&params->rns, q0_bits, scale_bits, l);
   // complex roots
-  vec_new(&params->w, params->rns.n);
-  vec_gen_roots(&params->w, params->rns.n);
+  vec_new(&params->w, params->rns.n / 2);
+  vec_gen_roots(&params->w, params->rns.n / 2);
   // secret key for RLWE
   rlwe_keys_new(&params->keys, &params->rns);
   rlwe_gen_secret_key(&params->keys, &params->rns);

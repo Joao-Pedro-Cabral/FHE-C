@@ -22,19 +22,20 @@ void vec_new(vec_t* v, uint32_t m) {
 
 void vec_free(vec_t* v) { free(v->rel); }
 
-void vec_gen_roots(vec_t* w, uint32_t n) {
+// m = n/2 (half cyclotomic size)
+void vec_gen_roots(vec_t* w, uint32_t m) {
   // Position 0 is not used
   w->rel[0] = 0.0;
   w->img[0] = 0.0;
-  for (uint32_t i = 1; i < n; i++) {
+  for (uint32_t i = 1; i < m; i++) {
     uint32_t log2_i = floor_log2(i);
     uint32_t pow2_i = i - (1 << log2_i);
     uint32_t mod2_i = 1 << (log2_i + 3);
     uint32_t pow5 = mod_pow2(5, pow2_i, mod2_i);
-    uint32_t gap = n >> (log2_i + 1);  // 2n/lenq
+    uint32_t gap = m >> (log2_i + 1);
     uint32_t idx = pow5 * gap;
-    double cosw = cos((idx * M_PI) / (2 * n));
-    double sinw = sin((idx * M_PI) / (2 * n));
+    double cosw = cos((idx * M_PI) / (2 * m));
+    double sinw = sin((idx * M_PI) / (2 * m));
     w->rel[i] = cosw;
     w->img[i] = sinw;
   }
