@@ -105,10 +105,10 @@ void rlwe_gen_rotation_key(keys_t* keys, const rns_params_t* params) {
 static void rlwe_encrypt_step(poly_t a, poly_t b, poly_t m2, const poly_t m,
                               const poly_t s, const poly_t w, uint64_t q,
                               int64_t qRq, int64_t qinv, uint32_t n) {
-  // B = -(-A)S + DeltaM + E
+  // B = -AS + DeltaM + E
   poly_mod(m2, m, q, qRq, n);
   poly_ntt(m2, w, q, qRq, qinv, n);
-  poly_uniform_sampler(a, q, qRq, n);  // -A
+  poly_uniform_sampler(a, q, qRq, n);  // A
   poly_pointwise_mul(b, a, s, q, qinv, n);
   poly_rsub(b, m2, q, qRq, n);
 }
@@ -134,7 +134,7 @@ static void rlwe_decrypt_step(poly_t m, const poly_t a, const poly_t b,
                               const poly_t s, const poly_t w, uint64_t q,
                               int64_t qRq, int64_t qinv, int64_t qRn,
                               uint32_t n) {
-  // B + (-A)S = DeltaM + E
+  // B + AS = DeltaM + E
   poly_pointwise_mul(m, a, s, q, qinv, n);
   poly_add(m, b, q, qRq, n);
   poly_intt(m, w, q, qRq, qinv, n);
@@ -198,11 +198,11 @@ void rlwe_key_switch(rlwe_t* ab, const rns_t a, const switch_t r, poly_t tmp,
     for (uint32_t j = 0; j < level; j++) {
       poly_pointwise_mul(tmp, a[i], r[i].b[j], params->q[j], params->qinv[j],
                          params->n);  // 1
-      poly_sub(ab->b[j], tmp, params->q[j], params->qRq[j],
+      poly_add(ab->b[j], tmp, params->q[j], params->qRq[j],
                params->n);  // 1
       poly_pointwise_mul(tmp, a[i], r[i].a[j], params->q[j], params->qinv[j],
                          params->n);  // R
-      poly_sub(ab->a[j], tmp, params->q[j], params->qRq[j],
+      poly_add(ab->a[j], tmp, params->q[j], params->qRq[j],
                params->n);  // R
     }
   }
