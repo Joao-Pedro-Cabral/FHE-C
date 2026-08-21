@@ -257,7 +257,7 @@ void poly_mod(poly_t b, const poly_t a, uint64_t q, int64_t qRq, uint32_t n) {
 
 void poly_permute(poly_t a, const poly_t b, uint32_t h, uint32_t n) {
   // Apply the automorphism X^i -> (X^(rot))^i
-  uint32_t j = h;
+  uint32_t j = 0;
   uint32_t n2 = 2 * n;
   uint32_t log2_n = floor_log2(n);
   int32_t sign;

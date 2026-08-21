@@ -130,7 +130,7 @@ void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
 void ciphertext_rotation(ciphertext_t* ct2, const ciphertext_t* ct1, uint32_t h,
                          poly_t tmp, poly_t tmp2, const switch_t r,
                          const rns_params_t* params) {
-  uint32_t jh = mod_pow2(5, h, 2 * params->n - 1);
+  uint32_t jh = mod_pow2(5, h, 2 * params->n);
   for (uint32_t i = 0; i < ct1->level; i++) {
     // X -> X^(5^h)
     poly_permute(ct2->ab.a[i], ct1->ab.a[i], jh, params->n);

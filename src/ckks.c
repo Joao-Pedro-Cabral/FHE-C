@@ -101,8 +101,8 @@ void ckks_ciphertext_inner_product(ciphertext_t* ct3, const ciphertext_t* ct1,
   ciphertext_ciphertext_multiplication(ct3, ct1, ct2, params->keys.r,
                                        &params->rns);
   uint32_t log2_n2 = floor_log2(params->rns.n) - 1;
-  for (uint32_t i = 0; i < log2_n2; i++) {
-    ciphertext_rotation(&tmp, ct3, i, tmp1, tmp2, params->keys.h[i],
+  for (uint32_t i = 1; i <= log2_n2; i++) {
+    ciphertext_rotation(&tmp, ct3, i, tmp1, tmp2, params->keys.h[i-1],
                         &params->rns);
     ciphertext_ciphertext_addition(ct3, ct3, &tmp, &params->rns);
   }
