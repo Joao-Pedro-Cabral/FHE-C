@@ -27,20 +27,6 @@ static uint64_t time_ns(void) {
 }
 #endif
 
-static void multiply_polynomials(poly_t a, poly_t a2,
-                                 const ckks_params_t* params) {
-  poly_ntt(a2, params->rns.w[0], params->rns.q[0], params->rns.qRq[0],
-           params->rns.qinv[0], params->rns.n);
-  poly_ntt(a, params->rns.w[0], params->rns.q[0], params->rns.qRq[0],
-           params->rns.qinv[0], params->rns.n);
-  poly_pointwise_mul(a, a2, a, params->rns.q[0], params->rns.qinv[0],
-                     params->rns.n);
-  poly_mulx(a, params->rns.qR2[0], params->rns.q[0], params->rns.qinv[0],
-            params->rns.n);
-  poly_intt(a, params->rns.w_1[0], params->rns.q[0], params->rns.qRq[0],
-            params->rns.qinv[0], params->rns.n);
-}
-
 void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qR2,
                  const int64_t* qRq, const int64_t* qinv, const int64_t* qn,
                  const int64_t* qRn, const int64_t* qR2n, uint32_t l) {
@@ -183,65 +169,6 @@ void check_keys(const ckks_params_t* params) {
   check_secret_key(params);
   // check_relinearization_key(params);
   check_rotation_key(params);
-}
-
-void check_decompose_mult(const ckks_params_t* params) {
-  printf("---------- VERIFY DECOMPOSE ----------\n");
-  uint8_t correct = 1;
-  rns_t ar;
-  rlwe_t as2, as2_1;
-  poly_t ap, s2, tmp;
-
-  rns_new(&ar, &params->rns);
-  rlwe_new(&as2, &params->rns);
-  rlwe_new(&as2_1, &params->rns);
-  poly_new(&ap, params->rns.n);
-  poly_new(&s2, params->rns.n);
-  poly_new(&tmp, params->rns.n);
-
-  // memset((uint8_t*)ap, 1, params->rns.n * sizeof(int64_t));
-  for (uint32_t j = 0; j < params->rns.n; j++) {
-    ap[j] = (int64_t)((1UL << 35) + ((1UL << 20) * j));
-    if (ap[j] < 0) ap[j] += (int64_t)params->rns.q[0];
-  }
-
-  for (uint32_t i = 0; i < params->rns.l; i++) {
-    memcpy(ar[i], ap, params->rns.n * sizeof(int64_t));
-    poly_ntt(ar[i], params->rns.w[i], params->rns.q[i], params->rns.qRq[i],
-             params->rns.qinv[i], params->rns.n);
-    poly_mulx(ar[i], params->rns.qR2[i], params->rns.q[i], params->rns.qinv[i],
-              params->rns.n);
-    memset(as2.a[i], 0, params->rns.n * sizeof(int64_t));
-    memset(as2.b[i], 0, params->rns.n * sizeof(int64_t));
-  }
-
-  rlwe_decompose_mult(&as2, ar, params->keys.r, tmp, params->rns.l - 1,
-                      &params->rns);
-  rlwe_plaintext_decrypt(tmp, &as2, &params->keys, &params->rns);
-
-  rlwe_key_switch_decrypt(s2, params->keys.r, &params->keys, &params->rns);
-  multiply_polynomials(ap, s2, params);
-
-  for (uint32_t j = 0; j < params->rns.n; j++) {
-    if (tmp[j] != ap[j]) {
-      correct = 0;
-      printf("Invalid decompose! dec.[%d]: %ld instead of %ld\n", j, tmp[j],
-             ap[j]);
-    }
-  }
-
-  poly_free(&ap);
-  poly_free(&s2);
-  poly_free(&tmp);
-  rns_free(&ar, &params->rns);
-  rlwe_free(&as2, &params->rns);
-  rlwe_free(&as2_1, &params->rns);
-
-  if (correct) {
-    printf("---------- DECOMPOSE CORRECT ----------\n");
-  } else {
-    printf("---------- DECOMPOSE WRONG ----------\n");
-  }
 }
 
 void check_ciphertext(const ciphertext_t* ct, const rns_params_t* params) {
@@ -449,11 +376,43 @@ void check_d1(const ciphertext_t* ct2, const ciphertext_t* ct,
   rns_free(&d1, params);
 }
 
+void check_inner_product(const vec_t* v1, const vec_t* v2, uint32_t m) {
+  printf("---------- VERIFY INNER PRODUCT ----------\n");
+  uint8_t correct = 1;
+
+  double inner_rel1 = 0, inner_img1 = 0;
+  double inner_rel2 = v2->rel[0], inner_img2 = v2->img[0];
+
+  for (uint32_t i = 0; i < m; i++) {
+    inner_rel1 += rel_mul(v1->rel[i], v1->img[i], v1->rel[i], v1->img[i]);
+    inner_img1 += img_mul(v1->rel[i], v1->img[i], v1->rel[i], v1->img[i]);
+  }
+
+  // TODO: Better metric
+  double diff = inner_rel1 - inner_rel2;
+  if ((diff > 0.5) | (diff < -0.5)) {
+    correct = 0;
+    printf("inner1_rel: %lf, inner2_rel: %lf\n", inner_rel1, inner_rel2);
+  }
+  diff = inner_img1 - inner_img2;
+  // TODO: Better metric
+  if ((diff > 0.5) | (diff < -0.5)) {
+    correct = 0;
+    printf("inner1_img: %lf, inner2_img: %lf\n", inner_img1, inner_img2);
+  }
+
+  if (correct) {
+    printf("---------- INNER PRODUCT CORRECT ----------\n");
+  } else {
+    printf("---------- INNER PRODUCT WRONG ----------\n");
+  }
+}
+
 int main() {
   // Parameters Construction
   uint32_t l = 2;
   uint32_t q0_bits = 62;
-  uint32_t scale_bits = 30;
+  uint32_t scale_bits = 50;
 
   ckks_params_t params;
 
@@ -702,6 +661,27 @@ int main() {
 #ifdef __RUN_MODE__
   end = time_ns();
   printf("Cipher-Plain Mul: %.3f ms\n", (double)(end - start) / 1000.0);
+#endif
+
+  // Multiplication
+#ifdef __DEBUG_MODE__
+  printf("---------- INNER PRODUCT ----------\n");
+#endif
+#ifdef __RUN_MODE__
+  start = time_ns();
+#endif
+  for (uint32_t i = 0; i < N_TESTS; i++) {
+    ckks_ciphertext_inner_product(&ct2, &ct, &ct, &params);
+  }
+#ifdef __DEBUG_MODE__
+  ckks_decrypt(m2, &ct2, &params);
+  ckks_decode(&v2, m2, ct2.level, &params);
+  check_inner_product(&v, &v2, params.rns.n / 2);
+#endif
+
+#ifdef __RUN_MODE__
+  end = time_ns();
+  printf("Inner Product: %.3f ms\n", (double)(end - start) / 1000.0);
 #endif
 
   // Free

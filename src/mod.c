@@ -36,6 +36,17 @@ static uint64_t mod_pow0(uint64_t a, uint64_t b, uint64_t q) {
   return c;
 }
 
+uint32_t mod_pow2(uint32_t a, uint32_t b, uint32_t q) {
+  uint32_t c = 1, d = a;
+  uint32_t q_1 = q - 1;
+  while (b > 0) {
+    if ((b & 0x1) == 1) c = (c * d) & q_1;
+    d = (d * d) & q_1;
+    b >>= 1;
+  }
+  return c;
+}
+
 static inline uint64_t gcd(uint64_t a, uint64_t b) {
   while (b != 0) {
     uint64_t r = a % b;

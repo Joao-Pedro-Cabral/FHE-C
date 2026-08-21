@@ -3,6 +3,8 @@
 
 #include <string.h>
 
+#include "mod.h"
+
 void ciphertext_new(ciphertext_t* ct, const rns_params_t* params) {
   rlwe_new(&ct->ab, params);
   ct->level = params->l;
@@ -122,4 +124,19 @@ void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
               params->n);
   }
   poly_free(&tmp);
+}
+
+// Rotate by 5^h
+void ciphertext_rotation(ciphertext_t* ct2, const ciphertext_t* ct1, uint32_t h,
+                         poly_t tmp, poly_t tmp2, const switch_t r,
+                         const rns_params_t* params) {
+  uint32_t jh = mod_pow2(5, h, 2 * params->n - 1);
+  for (uint32_t i = 0; i < ct1->level; i++) {
+    // X -> X^(5^h)
+    poly_permute(ct2->ab.a[i], ct1->ab.a[i], jh, params->n);
+    poly_permute(ct2->ab.b[i], ct1->ab.b[i], jh, params->n);
+  }
+  // Key Switch
+  ct2->level = ct1->level;
+  rlwe_key_switch(&ct2->ab, r, tmp, tmp2, ct1->level, params);
 }

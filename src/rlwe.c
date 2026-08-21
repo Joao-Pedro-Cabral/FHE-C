@@ -80,19 +80,21 @@ void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params) {
 
 // Trade-off memory/performance for inner-product:
 // (log2_n - 1) keys + (log2_n - 1) rotations for reduction
-// log2_n - 1 because we work with complex vector slots
+// log2_n - 1 because we work with n/2 complex vector slots
+// Our rotation keys are 5^(n/4), 5^(n/4+n/8), ..., 5^(n/2-1)
+// We use these keys to reduce the memory usage during reductions
 void rlwe_gen_rotation_key(keys_t* keys, const rns_params_t* params) {
   poly_t s2, e, me;
   poly_new(&s2, params->n);
   poly_new(&e, params->n);
   poly_new(&me, params->n);
-  uint32_t log2_n = floor_log2(params->n) - 1;
-  uint32_t g = 5;
-  uint32_t n2 = 2 * params->n;
-  for (uint32_t i = 0; i < log2_n; i++) {
+  uint32_t log2_n2 = floor_log2(params->n) - 1;
+  uint32_t exp = 0;
+  for (uint32_t i = 0; i < log2_n2; i++) {
+    exp += params->n >> (i + 2);
+    uint32_t g = mod_pow2(5, exp, 2 * params->n);
     poly_permute(s2, keys->s_hat, g, params->n);
     rlwe_key_switch_encrypt(keys->h[i], s2, me, e, keys, params);
-    g = (g * g) & (n2 - 1);  // mod 2n
   }
   poly_free(&s2);
   poly_free(&e);
@@ -187,18 +189,19 @@ void rlwe_key_switch_decrypt(poly_t m, const switch_t key_switch,
   poly_free(&m2);
 }
 
-void rlwe_decompose_mult(rlwe_t* ab, const rns_t d2, const switch_t r,
-                         poly_t tmp, uint32_t level,
-                         const rns_params_t* params) {
+void rlwe_key_switch(rlwe_t* ab, const switch_t r, poly_t tmp, poly_t tmp2,
+                     uint32_t level, const rns_params_t* params) {
   for (uint32_t i = 0; i < level; i++) {
+    memcpy(tmp, ab->a[i], params->n * sizeof(int64_t));
+    memset(ab->a[i], 0, params->n * sizeof(int64_t));
     for (uint32_t j = 0; j < level; j++) {
-      poly_pointwise_mul(tmp, d2[i], r[i].b[j], params->q[j], params->qinv[j],
+      poly_pointwise_mul(tmp2, tmp, r[i].b[j], params->q[j], params->qinv[j],
                          params->n);  // 1
-      poly_add(ab->b[j], tmp, params->q[j], params->qRq[j],
+      poly_sub(ab->b[j], tmp2, params->q[j], params->qRq[j],
                params->n);  // 1
-      poly_pointwise_mul(tmp, d2[i], r[i].a[j], params->q[j], params->qinv[j],
+      poly_pointwise_mul(tmp2, tmp, r[i].a[j], params->q[j], params->qinv[j],
                          params->n);  // R
-      poly_add(ab->a[j], tmp, params->q[j], params->qRq[j],
+      poly_sub(ab->a[j], tmp2, params->q[j], params->qRq[j],
                params->n);  // R
     }
   }

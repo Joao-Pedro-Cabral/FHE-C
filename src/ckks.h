@@ -112,4 +112,14 @@ void ckks_ciphertext_plaintext_multiplication(ciphertext_t* ct2,
                                               const poly_t m,
                                               const ckks_params_t* params);
 
+/*
+  @param ct3: output ciphertext_t
+  @param ct1: input ciphertext_t
+  @param ct2: input ciphertext_t
+  @param params: CKKS params
+*/
+void ckks_ciphertext_inner_product(ciphertext_t* ct3, const ciphertext_t* ct1,
+                                   const ciphertext_t* ct2,
+                                   const ckks_params_t* params);
+
 #endif  // __CKKS_H__

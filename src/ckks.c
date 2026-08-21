@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "random.h"
+#include "utils.h"
 
 void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
                  uint32_t l) {
@@ -87,4 +88,25 @@ void ckks_ciphertext_plaintext_multiplication(ciphertext_t* ct2,
                                               const poly_t m,
                                               const ckks_params_t* params) {
   ciphertext_plaintext_multiplication(ct2, ct1, m, &params->rns);
+}
+
+void ckks_ciphertext_inner_product(ciphertext_t* ct3, const ciphertext_t* ct1,
+                                   const ciphertext_t* ct2,
+                                   const ckks_params_t* params) {
+  ciphertext_t tmp;
+  poly_t tmp1, tmp2;
+  ciphertext_new(&tmp, &params->rns);
+  poly_new(&tmp1, params->rns.n);
+  poly_new(&tmp2, params->rns.n);
+  ciphertext_ciphertext_multiplication(ct3, ct1, ct2, params->keys.r,
+                                       &params->rns);
+  uint32_t log2_n2 = floor_log2(params->rns.n) - 1;
+  for (uint32_t i = 0; i < log2_n2; i++) {
+    ciphertext_rotation(&tmp, ct3, i, tmp1, tmp2, params->keys.h[i],
+                        &params->rns);
+    ciphertext_ciphertext_addition(ct3, ct3, &tmp, &params->rns);
+  }
+  ciphertext_free(&tmp, &params->rns);
+  poly_free(&tmp1);
+  poly_free(&tmp2);
 }
