@@ -74,7 +74,7 @@ void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
   @param tmp_r: temporary
   @param params: RNS params
 */
-void ciphertext_rotation(ciphertext_t* ct2, const ciphertext_t* ct1, uint32_t h,
+void ciphertext_rotation(ciphertext_t* ct2, ciphertext_t* ct1, uint32_t h,
                          rns_t tmp_r, poly_t tmp_p, const switch_t r,
                          const rns_params_t* params);
 

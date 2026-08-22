@@ -93,23 +93,30 @@ void ckks_ciphertext_plaintext_multiplication(ciphertext_t* ct2,
 void ckks_ciphertext_inner_product(ciphertext_t* ct3, const ciphertext_t* ct1,
                                    const ciphertext_t* ct2,
                                    const ckks_params_t* params) {
-  ciphertext_t tmp;
+  // TODO: PLEASE DO A FASTER INNER PRODUCT WITHOUT CT4
+  ciphertext_t tmp, ct4;
   rns_t a;
   poly_t tmp2;
   ciphertext_new(&tmp, &params->rns);
+  ciphertext_new(&ct4, &params->rns);
   rns_new(&a, &params->rns);
   poly_new(&tmp2, params->rns.n);
   ciphertext_ciphertext_multiplication(ct3, ct1, ct2, params->keys.r,
                                        &params->rns);
+  ct4.level = ct3->level;
   uint32_t log2_n2 = floor_log2(params->rns.n) - 1;
-  uint32_t exp = 0;
   for (uint32_t i = 0; i < log2_n2; i++) {
-    exp += params->rns.n >> (i + 2);
-    ciphertext_rotation(&tmp, ct3, exp, a, tmp2, params->keys.h[i],
+    for (uint32_t k = 0; k < ct4.level; k++) {
+      memcpy(ct4.ab.a[k], ct3->ab.a[k], params->rns.n * sizeof(int64_t));
+      memcpy(ct4.ab.b[k], ct3->ab.b[k], params->rns.n * sizeof(int64_t));
+    }
+    uint32_t exp = params->rns.n >> (i + 2);
+    ciphertext_rotation(&tmp, &ct4, exp, a, tmp2, params->keys.h[i],
                         &params->rns);
     ciphertext_ciphertext_addition(ct3, ct3, &tmp, &params->rns);
   }
   ciphertext_free(&tmp, &params->rns);
+  ciphertext_free(&ct4, &params->rns);
   rns_free(&a, &params->rns);
   poly_free(&tmp2);
 }

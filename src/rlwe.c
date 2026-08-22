@@ -81,7 +81,7 @@ void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params) {
 // Trade-off memory/performance for inner-product:
 // (log2_n - 1) keys + (log2_n - 1) rotations for reduction
 // log2_n - 1 because we work with n/2 complex vector slots
-// Our rotation keys are 5^(n/4), 5^(n/4+n/8), ..., 5^(n/2-1)
+// Our rotation keys are 5^(n/4), 5^(n/8), ... 5^1
 // We use these keys to reduce the memory usage during reductions
 void rlwe_gen_rotation_key(keys_t* keys, const rns_params_t* params) {
   poly_t s2, e, me;
@@ -89,9 +89,8 @@ void rlwe_gen_rotation_key(keys_t* keys, const rns_params_t* params) {
   poly_new(&e, params->n);
   poly_new(&me, params->n);
   uint32_t log2_n2 = floor_log2(params->n) - 1;
-  uint32_t exp = 0;
   for (uint32_t i = 0; i < log2_n2; i++) {
-    exp += params->n >> (i + 2);
+    uint32_t exp = params->n >> (i + 2);
     uint32_t g = mod_pow2(5, exp, 2 * params->n);
     poly_permute(s2, keys->s_hat, g, params->n);
     rlwe_key_switch_encrypt(keys->h[i], s2, me, e, keys, params);
