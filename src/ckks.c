@@ -207,8 +207,8 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
     ciphertext_plaintext_multiplication(&acc, ct1, mat[n1 * i], &params->rns);
     // Multiply and accumulate without mod switch
     for (uint32_t j = 1; j < n1; j++) {
-      ciphertext_plaintext_base_multiplication(&tmp_c, ct1, mat[n1 * i + j],
-                                               &params->rns);
+      ciphertext_plaintext_base_multiplication(&tmp_c, &rot_ct1[j],
+                                               mat[n1 * i + j], &params->rns);
       ciphertext_ciphertext_addition(&acc, &acc, &tmp_c, &params->rns);
     }
     ciphertext_mod_switch(&acc, tmp_p, &params->rns);
@@ -239,10 +239,11 @@ void ckks_linear_transform_encode(poly_t* mat2, const vec_t* mat1,
   uint32_t n1 = (1 << log2_n1);
   vec_new(&diag, m);
   for (uint32_t i = 0; i < m; i++) {
+    uint32_t n1_i = (i / n1) * n1;
     // Create rotated diagonal by n1*i to the right
     for (uint32_t j = 0; j < m; j++) {
-      diag.rel[((n1 * i) + j) & (m - 1)] = mat1[j].rel[(i + j) & (m - 1)];
-      diag.img[((n1 * i) + j) & (m - 1)] = mat1[j].img[(i + j) & (m - 1)];
+      diag.rel[(n1_i + j) & (m - 1)] = mat1[j].rel[(i + j) & (m - 1)];
+      diag.img[(n1_i + j) & (m - 1)] = mat1[j].img[(i + j) & (m - 1)];
     }
     // Encode
     ifft(&diag, &params->w, m);

@@ -739,7 +739,7 @@ int main() {
   for (uint32_t i = 0; i < params.rns.n / 2; i++) {
     vec_new(&mat1[i], params.rns.n / 2);
     for (uint32_t j = 0; j < params.rns.n / 2; j++) {
-      mat1[i].rel[j] = 1.0;
+      mat1[i].rel[j] = 0.1 * ((params.rns.n / 2) * i + j);
       mat1[i].img[j] = 0.0;
     }
   }
