@@ -72,7 +72,7 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
               params->n);  // 1
   }
   // Rescaling (ModSwitch)
-  ct3->level = ct1->level - 1;
+  ct3->level = ct1->level;
   ciphertext_mod_switch(ct3, tmp, params);
   poly_free(&tmp);
   rns_free(&d2, params);
@@ -95,6 +95,7 @@ void ciphertext_plaintext_base_multiplication(ciphertext_t* ct2,
                                               const ciphertext_t* ct1,
                                               const poly_t m,
                                               const rns_params_t* params) {
+  ct2->level = ct1->level;
   for (uint32_t i = 0; i < ct1->level; i++) {
     poly_mod(ct2->ab.b[i], m, params->q[i], params->qRq[i], params->n);
     poly_ntt(ct2->ab.b[i], params->w[i], params->q[i], params->qRq[i],
@@ -111,6 +112,7 @@ void ciphertext_plaintext_base_multiplication(ciphertext_t* ct2,
 // BE CAREFUL: HERE ct->ab.a doesn't have the montgomery factor
 void ciphertext_mod_switch(ciphertext_t* ct, poly_t tmp,
                            const rns_params_t* params) {
+  ct->level = ct->level - 1;
   // Rescaling (Mod Switch)
   rns_mod_switch(ct->ab.b, tmp, ct->level, params);
   rns_mod_switch(ct->ab.a, tmp, ct->level, params);
@@ -127,7 +129,7 @@ void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
                                          const rns_params_t* params) {
   poly_t tmp;
   poly_new(&tmp, params->n);
-  ct2->level = ct1->level - 1;
+  ct2->level = ct1->level;
   ciphertext_plaintext_base_multiplication(ct2, ct1, m, params);
   ciphertext_mod_switch(ct2, tmp, params);
   poly_free(&tmp);

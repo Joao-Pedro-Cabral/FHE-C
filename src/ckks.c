@@ -204,7 +204,8 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
     memset(ct2->ab.b[i], 0, params->rns.n * sizeof(int64_t));
   }
   for (uint32_t i = 0; i < n2; i++) {
-    ciphertext_plaintext_multiplication(&acc, ct1, mat[n1 * i], &params->rns);
+    ciphertext_plaintext_base_multiplication(&acc, ct1, mat[n1 * i],
+                                             &params->rns);
     // Multiply and accumulate without mod switch
     for (uint32_t j = 1; j < n1; j++) {
       ciphertext_plaintext_base_multiplication(&tmp_c, &rot_ct1[j],

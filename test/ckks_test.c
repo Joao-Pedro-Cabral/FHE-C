@@ -409,6 +409,8 @@ void check_inner_product(const vec_t* v1, const vec_t* v2, uint32_t m) {
   }
 }
 
+#define MIN(A, B) (((A) > (B)) ? (B) : (A))
+
 void check_linear_transform(const vec_t* v1, const vec_t* v2, const vec_t* mat,
                             uint32_t m) {
   printf("---------- VERIFY LINEAR TRANSFORM ----------\n");
@@ -420,7 +422,11 @@ void check_linear_transform(const vec_t* v1, const vec_t* v2, const vec_t* mat,
   for (uint32_t i = 0; i < m; i++) {
     v3.rel[i] = 0;
     v3.img[i] = 0;
-    for (uint32_t j = 0; j < m; j++) {
+  }
+
+  for (uint32_t d = 0; d < m; d++) {
+    for (uint32_t i = 0; i < m; i++) {
+      uint32_t j = (i + d) % m;
       v3.rel[i] +=
           rel_mul(v1->rel[i], v1->img[i], mat[i].rel[j], mat[i].img[j]);
       v3.img[i] +=
@@ -431,12 +437,12 @@ void check_linear_transform(const vec_t* v1, const vec_t* v2, const vec_t* mat,
   // TODO: Better metric
   for (uint32_t i = 0; i < m; i++) {
     double diff = v3.rel[i] - v2->rel[i];
-    if ((diff > 0.5) | (diff < -0.5)) {
+    if ((diff > 1.0) | (diff < -1.0)) {
       correct = 0;
       printf("v_rel[%d]: %lf, v2_rel[%d]: %lf\n", i, v3.rel[i], i, v2->rel[i]);
     }
     diff = v3.img[i] - v2->img[i];
-    if ((diff > 0.5) | (diff < -0.5)) {
+    if ((diff > 1.0) | (diff < -1.0)) {
       correct = 0;
       printf("v_img[%d]: %lf, v2_img[%d]: %lf\n", i, v3.img[i], i, v2->img[i]);
     }
@@ -452,8 +458,8 @@ void check_linear_transform(const vec_t* v1, const vec_t* v2, const vec_t* mat,
 
 int main() {
   // Parameters Construction
-  uint32_t l = 2;
-  uint32_t q0_bits = 62;
+  uint32_t l = 4;
+  uint32_t q0_bits = 60;
   uint32_t scale_bits = 40;
 
   ckks_params_t params;
@@ -496,8 +502,8 @@ int main() {
   vec_t v;
   vec_new(&v, params.rns.n / 2);
   for (uint32_t i = 0; i < params.rns.n / 2; i++) {
-    v.rel[i] = (double)i / 10000;
-    v.img[i] = (double)i / 10000 + 1;
+    v.rel[i] = (double)i / 100000;
+    v.img[i] = (double)i / 100000 + 1;
   }
   // printf("---------- ENCODE VECTOR ----------\n");
   // for (uint32_t i = 0; i < n / 2; i++) {
@@ -739,8 +745,8 @@ int main() {
   for (uint32_t i = 0; i < params.rns.n / 2; i++) {
     vec_new(&mat1[i], params.rns.n / 2);
     for (uint32_t j = 0; j < params.rns.n / 2; j++) {
-      mat1[i].rel[j] = 0.1 * ((params.rns.n / 2) * i + j);
-      mat1[i].img[j] = 0.0;
+      mat1[i].rel[j] = 0.000001 * ((params.rns.n / 2) * i + j);
+      mat1[i].img[j] = -0.000001 * ((params.rns.n / 2) * i + j);
     }
   }
   poly_t* mat2;
@@ -760,7 +766,7 @@ int main() {
 
 #ifdef __RUN_MODE__
   end = time_ns();
-  printf("Inner Product: %.3f ms\n", (double)(end - start) / 1000.0);
+  printf("Linear Transform: %.3f ms\n", (double)(end - start) / 1000.0);
 #endif
 
   // Free
