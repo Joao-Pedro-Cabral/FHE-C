@@ -409,6 +409,45 @@ void check_inner_product(const vec_t* v1, const vec_t* v2, uint32_t m) {
   }
 }
 
+void check_linear_transform(const vec_t* v1, const vec_t* v2, const vec_t** mat,
+                            uint32_t m) {
+  printf("---------- VERIFY LINEAR TRANSFORM ----------\n");
+  uint8_t correct = 1;
+  vec_t v3;
+
+  for (uint32_t i = 0; i < m; i++) {
+    v3.rel[i] = 0;
+    v3.img[i] = 0;
+    for (uint32_t j = 0; j < m; j++) {
+      v3.rel[i] +=
+          rel_mul(v1->rel[i], v1->img[i], mat[i]->rel[j], mat[i]->img[j]);
+      v3.img[i] +=
+          img_mul(v1->rel[i], v1->img[i], mat[i]->rel[j], mat[i]->img[j]);
+    }
+  }
+
+  // TODO: Better metric
+  for (uint32_t i = 0; i < m; i++) {
+    double diff = v3.rel[i] - v2->rel[i];
+    if ((diff > 0.5) | (diff < -0.5)) {
+      correct = 0;
+      printf("v_rel[%d]: %lf, v2_rel[%d]: %lf\n", i, v3.rel[i], i, v2->rel[i]);
+    }
+    diff = v3.img[i] - v2->img[i];
+    if ((diff > 0.5) | (diff < -0.5)) {
+      correct = 0;
+      printf("v_img[%d]: %lf, v2_img[%d]: %lf\n", i, v3.img[i], i, v2->img[i]);
+    }
+  }
+
+  vec_free(&v3);
+  if (correct) {
+    printf("---------- LINEAR TRANSFORM CORRECT ----------\n");
+  } else {
+    printf("---------- LINEAR TRANSFORM WRONG ----------\n");
+  }
+}
+
 int main() {
   // Parameters Construction
   uint32_t l = 2;
@@ -685,6 +724,38 @@ int main() {
   printf("Inner Product: %.3f ms\n", (double)(end - start) / 1000.0);
 #endif
 
+  // Linear Transform
+#ifdef __DEBUG_MODE__
+  printf("---------- LINEAR TRANSFORM ----------\n");
+#endif
+#ifdef __RUN_MODE__
+  start = time_ns();
+#endif
+  vec_t* mat1;
+  mat1 = malloc(params.rns.n / 2 * sizeof(vec_t));
+  for (uint32_t i = 0; i < params.rns.n / 2; i++) {
+    vec_new(&mat1[i], params.rns.n / 2);
+  }
+  poly_t* mat2;
+  mat2 = malloc(params.rns.n * sizeof(poly_t));
+  for (uint32_t i = 0; i < params.rns.n; i++) {
+    poly_new(&mat2[i], params.rns.n);
+  }
+  for (uint32_t i = 0; i < N_TESTS; i++) {
+    ckks_linear_transform_encode(mat2, mat1, &params);
+    ckks_ciphertext_linear_transform(&ct2, &ct, mat2, &params);
+  }
+#ifdef __DEBUG_MODE__
+  ckks_decrypt(m2, &ct2, &params);
+  ckks_decode(&v2, m2, ct2.level, &params);
+  check_linear_transform(&v, &v2, &mat1, params.rns.n / 2);
+#endif
+
+#ifdef __RUN_MODE__
+  end = time_ns();
+  printf("Inner Product: %.3f ms\n", (double)(end - start) / 1000.0);
+#endif
+
   // Free
   ckks_free(&params);
   ciphertext_free(&ct, &params.rns);
@@ -694,6 +765,14 @@ int main() {
   vec_free(&v3);
   poly_free(&m);
   poly_free(&m2);
+  for (uint32_t i = 0; i < params.rns.n / 2; i++) {
+    vec_free(&mat1[i]);
+  }
+  free(mat1);
+  for (uint32_t i = 0; i < params.rns.n; i++) {
+    poly_free(&mat2[i]);
+  }
+  free(mat2);
 
 #ifdef __DEBUG_MODE__
   printf("---------- END OF TESTS ----------\n");

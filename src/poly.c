@@ -242,6 +242,13 @@ void poly_mulx(poly_t a, int64_t x, uint64_t q, int64_t qinv, uint32_t n) {
   }
 }
 
+void poly_mulx2(poly_t a, const poly_t b, int64_t x, uint64_t q, int64_t qinv,
+                uint32_t n) {
+  for (uint32_t i = 0; i < n; i++) {
+    a[i] = mod_mul_ct(b[i], x, (int64_t)q, qinv);
+  }
+}
+
 void poly_mulx_exact(poly_t a, int64_t x, uint64_t q, int64_t qinv,
                      uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {

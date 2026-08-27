@@ -68,13 +68,32 @@ void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
 /*
   @param ct2: output ciphertext_t
   @param ct1: input ciphertext_t
+  @param m: input plaintext
+  @param params: CKKS params
+*/
+void ciphertext_plaintext_base_multiplication(ciphertext_t* ct2,
+                                              const ciphertext_t* ct1,
+                                              const poly_t m,
+                                              const rns_params_t* params);
+
+/*
+  @param ct: output ciphertext_t
+  @param tmp: input plaintext
+  @param params: CKKS params
+*/
+void ciphertext_mod_switch(ciphertext_t* ct, poly_t tmp,
+                           const rns_params_t* params);
+
+/*
+  @param ct2: output ciphertext_t
+  @param ct1: input ciphertext_t
   @param h: vector slot rotation
   @param r: rotation key
   @param tmp_p: temporary
   @param tmp_r: temporary
   @param params: RNS params
 */
-void ciphertext_rotation(ciphertext_t* ct2, ciphertext_t* ct1, uint32_t h,
+void ciphertext_rotation(ciphertext_t* ct2, const ciphertext_t* ct1, uint32_t h,
                          rns_t tmp_r, poly_t tmp_p, const switch_t r,
                          const rns_params_t* params);
 

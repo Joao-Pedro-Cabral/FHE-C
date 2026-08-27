@@ -72,14 +72,8 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
               params->n);  // 1
   }
   // Rescaling (ModSwitch)
-  ct3->level = ct1->level - 1;  // We lost one level at each multiplication
-  rns_mod_switch(ct3->ab.a, tmp, ct3->level, params);
-  rns_mod_switch(ct3->ab.b, tmp, ct3->level, params);
-  for (uint32_t i = 0; i < ct1->level; i++) {
-    // Add R factor
-    poly_mulx(ct3->ab.a[i], params->qR2[i], params->q[i], params->qinv[i],
-              params->n);  // R
-  }
+  ct3->level = ct1->level - 1;
+  ciphertext_mod_switch(ct3, tmp, params);
   poly_free(&tmp);
   rns_free(&d2, params);
 }
@@ -97,13 +91,10 @@ void ciphertext_plaintext_addition(ciphertext_t* ct2, const ciphertext_t* ct1,
   }
 }
 
-void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
-                                         const ciphertext_t* ct1,
-                                         const poly_t m,
-                                         const rns_params_t* params) {
-  poly_t tmp;
-  poly_new(&tmp, params->n);
-  ct2->level = ct1->level - 1;
+void ciphertext_plaintext_base_multiplication(ciphertext_t* ct2,
+                                              const ciphertext_t* ct1,
+                                              const poly_t m,
+                                              const rns_params_t* params) {
   for (uint32_t i = 0; i < ct1->level; i++) {
     poly_mod(ct2->ab.b[i], m, params->q[i], params->qRq[i], params->n);
     poly_ntt(ct2->ab.b[i], params->w[i], params->q[i], params->qRq[i],
@@ -115,36 +106,52 @@ void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
     poly_mulx(ct2->ab.b[i], params->qR2[i], params->q[i], params->qinv[i],
               params->n);
   }
+}
+
+// BE CAREFUL: HERE ct->ab.a doesn't have the montgomery factor
+void ciphertext_mod_switch(ciphertext_t* ct, poly_t tmp,
+                           const rns_params_t* params) {
   // Rescaling (Mod Switch)
-  rns_mod_switch(ct2->ab.b, tmp, ct2->level, params);
-  rns_mod_switch(ct2->ab.a, tmp, ct2->level, params);
-  for (uint32_t i = 0; i < ct1->level; i++) {
-    // Add R factor
-    poly_mulx(ct2->ab.a[i], params->qR2[i], params->q[i], params->qinv[i],
+  rns_mod_switch(ct->ab.b, tmp, ct->level, params);
+  rns_mod_switch(ct->ab.a, tmp, ct->level, params);
+  // Add R factor
+  for (uint32_t i = 0; i < ct->level; i++) {
+    poly_mulx(ct->ab.a[i], params->qR2[i], params->q[i], params->qinv[i],
               params->n);
   }
+}
+
+void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
+                                         const ciphertext_t* ct1,
+                                         const poly_t m,
+                                         const rns_params_t* params) {
+  poly_t tmp;
+  poly_new(&tmp, params->n);
+  ct2->level = ct1->level - 1;
+  ciphertext_plaintext_base_multiplication(ct2, ct1, m, params);
+  ciphertext_mod_switch(ct2, tmp, params);
   poly_free(&tmp);
 }
 
 // Rotate by 5^h
-void ciphertext_rotation(ciphertext_t* ct2, ciphertext_t* ct1, uint32_t h,
+void ciphertext_rotation(ciphertext_t* ct2, const ciphertext_t* ct1, uint32_t h,
                          rns_t tmp_r, poly_t tmp_p, const switch_t r,
                          const rns_params_t* params) {
   uint32_t jh = mod_pow2(5, h, 2 * params->n);
   for (uint32_t i = 0; i < ct1->level; i++) {
     // X -> X^(5^h)
-    poly_intt(ct1->ab.a[i], params->w_1[i], params->q[i], params->qRq[i],
+    poly_mulx2(tmp_p, ct1->ab.a[i], params->qRn[i], params->q[i],
+               params->qinv[i], params->n);
+    poly_intt(tmp_p, params->w_1[i], params->q[i], params->qRq[i],
               params->qinv[i], params->n);
-    poly_mulx(ct1->ab.a[i], params->qRn[i], params->q[i], params->qinv[i],
-              params->n);
-    poly_permute(tmp_r[i], ct1->ab.a[i], jh, params->n);
+    poly_permute(tmp_r[i], tmp_p, jh, params->n);
     poly_ntt(tmp_r[i], params->w[i], params->q[i], params->qRq[i],
              params->qinv[i], params->n);
-    poly_intt(ct1->ab.b[i], params->w_1[i], params->q[i], params->qRq[i],
+    poly_mulx2(tmp_p, ct1->ab.b[i], params->qRn[i], params->q[i],
+               params->qinv[i], params->n);
+    poly_intt(tmp_p, params->w_1[i], params->q[i], params->qRq[i],
               params->qinv[i], params->n);
-    poly_mulx(ct1->ab.b[i], params->qRn[i], params->q[i], params->qinv[i],
-              params->n);
-    poly_permute(ct2->ab.b[i], ct1->ab.b[i], jh, params->n);
+    poly_permute(ct2->ab.b[i], tmp_p, jh, params->n);
     poly_ntt(ct2->ab.b[i], params->w[i], params->q[i], params->qRq[i],
              params->qinv[i], params->n);
   }

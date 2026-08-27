@@ -130,11 +130,20 @@ void ckks_ciphertext_inner_product(ciphertext_t* ct3, const ciphertext_t* ct1,
 /*
   @param ct2: output ciphertext_t
   @param ct1: input ciphertext_t
-  @param mat: input linear transform
+  @param mat: input linear transform (rotated diagonals)
   @param params: CKKS params
 */
-void ckks_ciphertext_linear_transform(ciphertext_t* ct2, const poly_t* mat,
+void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
                                       const ciphertext_t* ct1,
+                                      const poly_t* mat,
                                       const ckks_params_t* params);
+
+/*
+  @param mat2: output matrix plaintext
+  @param mat1: input matrix slots
+  @param params: CKKS params
+*/
+void ckks_linear_transform_encode(poly_t* mat2, const vec_t* mat1,
+                                  const ckks_params_t* params);
 
 #endif  // __CKKS_H__

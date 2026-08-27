@@ -4,6 +4,8 @@
 
 #include "rns.h"
 
+#define N1N2_RATIO 2
+
 typedef struct {
   rns_t b;  // ciphertext (b = as + deltam + e)
   rns_t a;  // ciphertext (a = -a)
@@ -17,7 +19,7 @@ typedef struct {
   rns_t s;       // secret key in l NTT domains
   switch_t r;    // relinearization key (l RLWE's)
   switch_t* ip;  // log2_n - 1 inner product rotation keys by 5^h, h = 2^i
-  switch_t* lt;  // 2*sqrt(n) linear transform rotation keys by 5^h
+  switch_t* lt;  // n1+n2 linear transform rotation keys by 5^h
 } keys_t;
 
 /*

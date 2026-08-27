@@ -32,6 +32,18 @@ void rlwe_keys_new(keys_t* keys, const rns_params_t* params) {
       rlwe_new(&keys->ip[i][j], params);
     }
   }
+  uint32_t log2_m = floor_log2(params->n) - 1;
+  uint32_t log2_n2 = floor_log2(params->n / (2 * N1N2_RATIO)) / 2;
+  uint32_t log2_n1 = log2_m - log2_n2;
+  uint32_t n1 = (1 << log2_n1);
+  uint32_t n2 = (1 << log2_n2);
+  keys->lt = malloc((n1 + n2) * sizeof(switch_t));
+  for (uint32_t i = 0; i < n1 + n2; i++) {
+    keys->lt[i] = malloc(params->l * sizeof(rlwe_t));
+    for (uint32_t j = 0; j < params->l; j++) {
+      rlwe_new(&keys->lt[i][j], params);
+    }
+  }
 }
 
 void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
@@ -49,6 +61,18 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
     free(keys->ip[i]);
   }
   free(keys->ip);
+  uint32_t log2_m = floor_log2(params->n) - 1;
+  uint32_t log2_n2 = floor_log2(params->n / (2 * N1N2_RATIO)) / 2;
+  uint32_t log2_n1 = log2_m - log2_n2;
+  uint32_t n1 = (1 << log2_n1);
+  uint32_t n2 = (1 << log2_n2);
+  for (uint32_t i = 0; i < n1 + n2; i++) {
+    for (uint32_t j = 0; j < params->l; j++) {
+      rlwe_free(&keys->lt[i][j], params);
+    }
+    free(keys->lt[i]);
+  }
+  free(keys->lt);
 }
 
 void rlwe_gen_secret_key(keys_t* keys, const rns_params_t* params) {
