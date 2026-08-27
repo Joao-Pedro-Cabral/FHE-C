@@ -409,20 +409,22 @@ void check_inner_product(const vec_t* v1, const vec_t* v2, uint32_t m) {
   }
 }
 
-void check_linear_transform(const vec_t* v1, const vec_t* v2, const vec_t** mat,
+void check_linear_transform(const vec_t* v1, const vec_t* v2, const vec_t* mat,
                             uint32_t m) {
   printf("---------- VERIFY LINEAR TRANSFORM ----------\n");
   uint8_t correct = 1;
   vec_t v3;
+
+  vec_new(&v3, m);
 
   for (uint32_t i = 0; i < m; i++) {
     v3.rel[i] = 0;
     v3.img[i] = 0;
     for (uint32_t j = 0; j < m; j++) {
       v3.rel[i] +=
-          rel_mul(v1->rel[i], v1->img[i], mat[i]->rel[j], mat[i]->img[j]);
+          rel_mul(v1->rel[i], v1->img[i], mat[i].rel[j], mat[i].img[j]);
       v3.img[i] +=
-          img_mul(v1->rel[i], v1->img[i], mat[i]->rel[j], mat[i]->img[j]);
+          img_mul(v1->rel[i], v1->img[i], mat[i].rel[j], mat[i].img[j]);
     }
   }
 
@@ -471,6 +473,7 @@ int main() {
     ckks_keygen(&params, q0_bits, scale_bits, l);
     ckks_relinearization_keygen(&params);
     ckks_inner_product_keygen(&params);
+    ckks_linear_transform_keygen(&params);
   }
 #ifdef __DEBUG_MODE__
   check_q_aux(params.rns.q, params.rns.qR, params.rns.qR2, params.rns.qRq,
@@ -735,6 +738,10 @@ int main() {
   mat1 = malloc(params.rns.n / 2 * sizeof(vec_t));
   for (uint32_t i = 0; i < params.rns.n / 2; i++) {
     vec_new(&mat1[i], params.rns.n / 2);
+    for (uint32_t j = 0; j < params.rns.n / 2; j++) {
+      mat1[i].rel[j] = 1.0;
+      mat1[i].img[j] = 0.0;
+    }
   }
   poly_t* mat2;
   mat2 = malloc(params.rns.n * sizeof(poly_t));
@@ -748,7 +755,7 @@ int main() {
 #ifdef __DEBUG_MODE__
   ckks_decrypt(m2, &ct2, &params);
   ckks_decode(&v2, m2, ct2.level, &params);
-  check_linear_transform(&v, &v2, &mat1, params.rns.n / 2);
+  check_linear_transform(&v, &v2, mat1, params.rns.n / 2);
 #endif
 
 #ifdef __RUN_MODE__

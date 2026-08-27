@@ -218,6 +218,10 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
     ciphertext_ciphertext_addition(ct2, ct2, &tmp_c, &params->rns);
   }
 
+  for (uint32_t i = 1; i < n1; i++) {
+    ciphertext_free(&rot_ct1[i], &params->rns);
+  }
+  free(rot_ct1);
   ciphertext_free(&tmp_c, &params->rns);
   ciphertext_free(&acc, &params->rns);
   rns_free(&tmp_r, &params->rns);
