@@ -25,11 +25,11 @@ void rlwe_keys_new(keys_t* keys, const rns_params_t* params) {
     rlwe_new(&keys->r[i], params);
   }
   uint32_t log2_n = floor_log2(params->n) - 1;
-  keys->h = malloc(log2_n * sizeof(switch_t));
+  keys->ip = malloc(log2_n * sizeof(switch_t));
   for (uint32_t i = 0; i < log2_n; i++) {
-    keys->h[i] = malloc(params->l * sizeof(rlwe_t));
+    keys->ip[i] = malloc(params->l * sizeof(rlwe_t));
     for (uint32_t j = 0; j < params->l; j++) {
-      rlwe_new(&keys->h[i][j], params);
+      rlwe_new(&keys->ip[i][j], params);
     }
   }
 }
@@ -44,11 +44,11 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
   uint32_t log2_n = floor_log2(params->n) - 1;
   for (uint32_t i = 0; i < log2_n; i++) {
     for (uint32_t j = 0; j < params->l; j++) {
-      rlwe_free(&keys->h[i][j], params);
+      rlwe_free(&keys->ip[i][j], params);
     }
-    free(keys->h[i]);
+    free(keys->ip[i]);
   }
-  free(keys->h);
+  free(keys->ip);
 }
 
 void rlwe_gen_secret_key(keys_t* keys, const rns_params_t* params) {
@@ -73,28 +73,6 @@ void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params) {
   // Removes the INTT R^2/n factor
   poly_mulx(s2, params->qR2n[0], params->q[0], params->qinv[0], params->n);
   rlwe_key_switch_encrypt(keys->r, s2, me, e, keys, params);
-  poly_free(&s2);
-  poly_free(&e);
-  poly_free(&me);
-}
-
-// Trade-off memory/performance for inner-product:
-// (log2_n - 1) keys + (log2_n - 1) rotations for reduction
-// log2_n - 1 because we work with n/2 complex vector slots
-// Our rotation keys are 5^(n/4), 5^(n/8), ... 5^1
-// We use these keys to reduce the memory usage during reductions
-void rlwe_gen_rotation_key(keys_t* keys, const rns_params_t* params) {
-  poly_t s2, e, me;
-  poly_new(&s2, params->n);
-  poly_new(&e, params->n);
-  poly_new(&me, params->n);
-  uint32_t log2_n2 = floor_log2(params->n) - 1;
-  for (uint32_t i = 0; i < log2_n2; i++) {
-    uint32_t exp = params->n >> (i + 2);
-    uint32_t g = mod_pow2(5, exp, 2 * params->n);
-    poly_permute(s2, keys->s_hat, g, params->n);
-    rlwe_key_switch_encrypt(keys->h[i], s2, me, e, keys, params);
-  }
   poly_free(&s2);
   poly_free(&e);
   poly_free(&me);

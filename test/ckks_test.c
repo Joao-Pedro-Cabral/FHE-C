@@ -142,7 +142,8 @@ void check_rotation_key(const ckks_params_t* params) {
   uint32_t log2_n = floor_log2(params->rns.n) - 1;
   for (uint32_t i = 0; i < log2_n; i++) {
     cnt20 = cnt21 = 0;
-    rlwe_key_switch_decrypt(s2, params->keys.h[i], &params->keys, &params->rns);
+    rlwe_key_switch_decrypt(s2, params->keys.ip[i], &params->keys,
+                            &params->rns);
     for (uint32_t k = 0; k < params->rns.n; k++) {
       if (s2[k] == 0)
         cnt20++;
@@ -412,7 +413,7 @@ int main() {
   // Parameters Construction
   uint32_t l = 2;
   uint32_t q0_bits = 62;
-  uint32_t scale_bits = 50;
+  uint32_t scale_bits = 40;
 
   ckks_params_t params;
 
@@ -430,7 +431,7 @@ int main() {
   for (uint32_t i = 0; i < (N_TESTS + 9) / 10; i++) {
     ckks_keygen(&params, q0_bits, scale_bits, l);
     ckks_relinearization_keygen(&params);
-    ckks_rotation_keygen(&params);
+    ckks_inner_product_keygen(&params);
   }
 #ifdef __DEBUG_MODE__
   check_q_aux(params.rns.q, params.rns.qR, params.rns.qR2, params.rns.qRq,
@@ -453,8 +454,8 @@ int main() {
   vec_t v;
   vec_new(&v, params.rns.n / 2);
   for (uint32_t i = 0; i < params.rns.n / 2; i++) {
-    v.rel[i] = (double)i / 1000;
-    v.img[i] = (double)i / 1000 + 1;
+    v.rel[i] = (double)i / 10000;
+    v.img[i] = (double)i / 10000 + 1;
   }
   // printf("---------- ENCODE VECTOR ----------\n");
   // for (uint32_t i = 0; i < n / 2; i++) {
@@ -663,7 +664,7 @@ int main() {
   printf("Cipher-Plain Mul: %.3f ms\n", (double)(end - start) / 1000.0);
 #endif
 
-  // Multiplication
+  // Inner-Product
 #ifdef __DEBUG_MODE__
   printf("---------- INNER PRODUCT ----------\n");
 #endif

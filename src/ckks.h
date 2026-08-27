@@ -30,7 +30,12 @@ void ckks_relinearization_keygen(ckks_params_t* params);
 /*
   @param params: CKKS params
 */
-void ckks_rotation_keygen(ckks_params_t* params);
+void ckks_inner_product_keygen(ckks_params_t* params);
+
+/*
+  @param params: CKKS params
+*/
+void ckks_linear_transform_keygen(ckks_params_t* params);
 
 /*
   @param params: CKKS params to be set free
@@ -121,5 +126,15 @@ void ckks_ciphertext_plaintext_multiplication(ciphertext_t* ct2,
 void ckks_ciphertext_inner_product(ciphertext_t* ct3, const ciphertext_t* ct1,
                                    const ciphertext_t* ct2,
                                    const ckks_params_t* params);
+
+/*
+  @param ct2: output ciphertext_t
+  @param ct1: input ciphertext_t
+  @param mat: input linear transform
+  @param params: CKKS params
+*/
+void ckks_ciphertext_linear_transform(ciphertext_t* ct2, const poly_t* mat,
+                                      const ciphertext_t* ct1,
+                                      const ckks_params_t* params);
 
 #endif  // __CKKS_H__

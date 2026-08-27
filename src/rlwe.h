@@ -16,7 +16,8 @@ typedef struct {
   poly_t s_hat;  // secrt key in normal domain
   rns_t s;       // secret key in l NTT domains
   switch_t r;    // relinearization key (l RLWE's)
-  switch_t* h;   // log2_n - 1 rotation keys by 5^h, h = 2^i
+  switch_t* ip;  // log2_n - 1 inner product rotation keys by 5^h, h = 2^i
+  switch_t* lt;  // 2*sqrt(n) linear transform rotation keys by 5^h
 } keys_t;
 
 /*
@@ -53,12 +54,6 @@ void rlwe_gen_secret_key(keys_t* keys, const rns_params_t* params);
   @param params: RNS params
 */
 void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params);
-
-/*
-  @param keys: keys
-  @param params: RNS params
-*/
-void rlwe_gen_rotation_key(keys_t* keys, const rns_params_t* params);
 
 /*
   @param m: input polynomial

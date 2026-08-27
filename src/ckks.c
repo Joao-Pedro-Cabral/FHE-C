@@ -22,9 +22,30 @@ void ckks_relinearization_keygen(ckks_params_t* params) {
   rlwe_gen_relinearization_key(&params->keys, &params->rns);
 }
 
-void ckks_rotation_keygen(ckks_params_t* params) {
-  rlwe_gen_rotation_key(&params->keys, &params->rns);
+// Trade-off memory/performance for inner-product:
+// (log2_n - 1) keys + (log2_n - 1) rotations for reduction
+// log2_n - 1 because we work with n/2 complex vector slots
+// Our rotation keys are 5^(n/4), 5^(n/8), ... 5^1
+// We use these keys to reduce the memory usage during reductions
+void ckks_inner_product_keygen(ckks_params_t* params) {
+  poly_t s2, e, me;
+  poly_new(&s2, params->rns.n);
+  poly_new(&e, params->rns.n);
+  poly_new(&me, params->rns.n);
+  uint32_t log2_n2 = floor_log2(params->rns.n) - 1;
+  for (uint32_t i = 0; i < log2_n2; i++) {
+    uint32_t exp = params->rns.n >> (i + 2);
+    uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
+    poly_permute(s2, params->keys.s_hat, g, params->rns.n);
+    rlwe_key_switch_encrypt(params->keys.ip[i], s2, me, e, &params->keys,
+                            &params->rns);
+  }
+  poly_free(&s2);
+  poly_free(&e);
+  poly_free(&me);
 }
+
+void ckks_linear_transform_keygen(ckks_params_t* params) {}
 
 void ckks_free(ckks_params_t* params) {
   vec_free(&params->w);
@@ -111,7 +132,7 @@ void ckks_ciphertext_inner_product(ciphertext_t* ct3, const ciphertext_t* ct1,
       memcpy(ct4.ab.b[k], ct3->ab.b[k], params->rns.n * sizeof(int64_t));
     }
     uint32_t exp = params->rns.n >> (i + 2);
-    ciphertext_rotation(&tmp, &ct4, exp, a, tmp2, params->keys.h[i],
+    ciphertext_rotation(&tmp, &ct4, exp, a, tmp2, params->keys.ip[i],
                         &params->rns);
     ciphertext_ciphertext_addition(ct3, ct3, &tmp, &params->rns);
   }
@@ -120,3 +141,7 @@ void ckks_ciphertext_inner_product(ciphertext_t* ct3, const ciphertext_t* ct1,
   rns_free(&a, &params->rns);
   poly_free(&tmp2);
 }
+
+void ckks_ciphertext_linear_transform(ciphertext_t* ct2, const poly_t* mat,
+                                      const ciphertext_t* ct1,
+                                      const ckks_params_t* params) {}
