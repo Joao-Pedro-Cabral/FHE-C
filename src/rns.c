@@ -7,50 +7,45 @@
 #include "mod.h"
 
 void rns_new(rns_t* a, const rns_params_t* params) {
-  *a = malloc(sizeof(uint64_t*) * params->l);
-  for (uint32_t i = 0; i < params->l; i++) {
-    poly_new(&(*a)[i], params->n);
-  }
+  *a = malloc(sizeof(uint64_t*) * params->l * params->n);
 }
 
-void rns_free(rns_t* a, const rns_params_t* params) {
-  for (uint32_t i = 0; i < params->l; i++) {
-    poly_free(&(*a)[i]);
-  }
-  free(*a);
-}
+void rns_free(rns_t* a) { free(*a); }
 
 void rns_mod_switch(rns_t a, poly_t tmp, uint32_t level,
                     const rns_params_t* params) {
   // For ModSwitch we need to come back to the normal domain
-  poly_intt(a[level], params->w_1[level], params->q[level], params->qRq[level],
-            params->qinv[level], params->n);
-  poly_mulx(a[level], params->qRn[level], params->q[level], params->qinv[level],
-            params->n);
+  uint32_t n = params->n;
+  poly_intt(&a[n * level], &params->w_1[n * level], params->q[level],
+            params->qRq[level], params->qinv[level], n);
+  poly_mulx(&a[n * level], params->qRn[level], params->q[level],
+            params->qinv[level], n);
   for (uint32_t i = 0; i < level; i++) {
-    poly_intt(a[i], params->w_1[i], params->q[i], params->qRq[i],
-              params->qinv[i], params->n);
-    poly_mulx(a[i], params->qRn[i], params->q[i], params->qinv[i], params->n);
-    poly_mod(tmp, a[level], params->q[i], params->qRq[i], params->n);
-    poly_sub(a[i], tmp, params->q[i], params->qRq[i], params->n);
-    poly_mulx(a[i], params->qinvq[level * params->l + i], params->q[i],
-              params->qinv[i], params->n);
-    poly_ntt(a[i], params->w[i], params->q[i], params->qRq[i], params->qinv[i],
-             params->n);
+    poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->qRq[i],
+              params->qinv[i], n);
+    poly_mulx(&a[n * i], params->qRn[i], params->q[i], params->qinv[i], n);
+    poly_mod(tmp, &a[n * level], params->q[i], params->qRq[i], n);
+    poly_sub(&a[n * i], tmp, params->q[i], params->qRq[i], n);
+    poly_mulx(&a[n * i], params->qinvq[level * params->l + i], params->q[i],
+              params->qinv[i], n);
+    poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->qRq[i],
+             params->qinv[i], n);
   }
 }
 
 static void rns_gen_roots(rns_params_t* params) {
+  uint32_t n = params->n;
   for (uint32_t i = 0; i < params->l; i++) {
-    poly_gen_roots(params->w[i], params->n, (int64_t)params->q[i],
-                   params->qR[i], params->qinv[i]);
+    poly_gen_roots(&params->w[n * i], n, (int64_t)params->q[i], params->qR[i],
+                   params->qinv[i]);
   }
 }
 
 static void rns_gen_inverse_roots(rns_params_t* params) {
+  uint32_t n = params->n;
   for (uint32_t i = 0; i < params->l; i++) {
-    poly_gen_inverse_roots(params->w_1[i], params->w[i][params->n / 2],
-                           params->n, (int64_t)params->q[i], params->qinv[i]);
+    poly_gen_inverse_roots(&params->w_1[n * i], params->w[n * i + n / 2], n,
+                           (int64_t)params->q[i], params->qinv[i]);
   }
 }
 
@@ -182,6 +177,6 @@ void rns_params_free(rns_params_t* params) {
   free(params->qRn);
   free(params->qn);
   free(params->scales);
-  rns_free(&params->w, params);
-  rns_free(&params->w_1, params);
+  rns_free(&params->w);
+  rns_free(&params->w_1);
 }

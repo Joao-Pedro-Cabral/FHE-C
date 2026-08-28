@@ -4,7 +4,7 @@
 
 #include "poly.h"
 
-typedef poly_t* rns_t;  // L polynomials (one per q_i)
+typedef int64_t* rns_t;  // L polynomials (one per q_i)
 
 typedef struct {
   uint64_t* q;       // l modulus
@@ -31,9 +31,8 @@ void rns_new(rns_t* a, const rns_params_t* params);
 
 /*
   @param a: rns_t to be set free
-  @param params: RNS params
 */
-void rns_free(rns_t* a, const rns_params_t* params);
+void rns_free(rns_t* a);
 
 /*
   @param a: RNS

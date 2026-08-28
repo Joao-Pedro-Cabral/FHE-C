@@ -32,7 +32,7 @@ void rlwe_new(rlwe_t* ab, const rns_params_t* params);
   @param params: RNS params
   @param ab: rlwe_t to be set free
 */
-void rlwe_free(rlwe_t* ab, const rns_params_t* params);
+void rlwe_free(rlwe_t* ab);
 /*
   @param params: RNS params
   @param keys: rlwe_t context to be allocated

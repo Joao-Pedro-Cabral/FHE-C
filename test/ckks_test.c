@@ -45,9 +45,10 @@ void check_roots(const rns_t roots, const uint64_t* q, uint32_t l, uint32_t n) {
   uint8_t correct = 1;
   for (uint32_t i = 0; i < l; i++) {
     for (uint32_t j = 0; j < n; j++) {
-      if ((roots[i][j] >= (int64_t)q[i]) | (roots[i][j] <= -(int64_t)q[i])) {
+      if ((roots[n * i + j] >= (int64_t)q[i]) |
+          (roots[n * i + j] <= -(int64_t)q[i])) {
         correct = 0;
-        printf("roots[%d]: %ld mod %ld\n", j, roots[i][j], q[i]);
+        printf("roots[%d]: %ld mod %ld\n", j, roots[n * i + j], q[i]);
       }
     }
   }
@@ -62,14 +63,15 @@ void check_secret_key(const ckks_params_t* params) {
   printf("---------- VERIFY SECRET KEY ----------\n");
   uint8_t correct = 1;
   poly_t s_hat;
-  poly_new(&s_hat, params->rns.n);
+  uint32_t n = params->rns.n;
+  poly_new(&s_hat, n);
   for (uint32_t i = 0; i < params->rns.l; i++) {
-    memcpy(s_hat, params->keys.s[i], params->rns.n * sizeof(uint64_t));
-    poly_intt(s_hat, params->rns.w_1[i], params->rns.q[i], params->rns.qRq[i],
-              params->rns.qinv[i], params->rns.n);
+    memcpy(s_hat, &params->keys.s[n * i], n * sizeof(uint64_t));
+    poly_intt(s_hat, &params->rns.w_1[n * i], params->rns.q[i],
+              params->rns.qRq[i], params->rns.qinv[i], n);
     poly_mulx(s_hat, params->rns.qRn[i], params->rns.q[i], params->rns.qinv[i],
-              params->rns.n);  // multiply by R^2/n
-    for (uint32_t j = 0; j < params->rns.n; j++) {
+              n);  // multiply by R^2/n
+    for (uint32_t j = 0; j < n; j++) {
       if (s_hat[j] != params->keys.s_hat[j]) {
         correct = 0;
         printf("Invalid secret key! s[%d]: %ld instead of %ld mod %ld\n", j,
@@ -175,17 +177,20 @@ void check_keys(const ckks_params_t* params) {
 void check_ciphertext(const ciphertext_t* ct, const rns_params_t* params) {
   printf("---------- VERIFY CYPHERTEXT ----------\n");
   uint8_t correct = 1;
+  uint32_t n = params->n;
   for (uint32_t i = 0; i < params->l; i++) {
-    for (uint32_t j = 0; j < params->n; j++) {
-      if ((ct->ab.a[i][j] > (int64_t)params->q[i] / 2) |
-          (ct->ab.a[i][j] < -(int64_t)params->q[i] / 2)) {
+    for (uint32_t j = 0; j < n; j++) {
+      if ((ct->ab.a[n * i + j] > (int64_t)params->q[i] / 2) |
+          (ct->ab.a[n * i + j] < -(int64_t)params->q[i] / 2)) {
         correct = 0;
-        printf("a[%d][%d]: %ld mod %ld\n", i, j, ct->ab.a[i][j], params->q[i]);
+        printf("a[%d][%d]: %ld mod %ld\n", i, j, ct->ab.a[n * i + j],
+               params->q[i]);
       }
-      if ((ct->ab.b[i][j] > (int64_t)params->q[i] / 2) |
-          (ct->ab.b[i][j] < -(int64_t)params->q[i] / 2)) {
+      if ((ct->ab.b[n * i + j] > (int64_t)params->q[i] / 2) |
+          (ct->ab.b[n * i + j] < -(int64_t)params->q[i] / 2)) {
         correct = 0;
-        printf("b[%d][%d]: %ld mod %ld\n", i, j, ct->ab.b[i][j], params->q[i]);
+        printf("b[%d][%d]: %ld mod %ld\n", i, j, ct->ab.b[n * i + j],
+               params->q[i]);
       }
     }
   }
@@ -257,21 +262,23 @@ void check_vectors(const vec_t* v, const vec_t* v2, uint32_t n) {
 
 bool check_ntt_mod_switch(rns_t a, rns_t a2, const rns_params_t* params) {
   bool correct = true;
+  uint32_t n = params->n;
   for (uint32_t i = 0; i < params->l - 1; i++) {
-    poly_intt(a[i], params->w_1[i], params->q[i], params->qRq[i],
-              params->qinv[i], params->n);
-    poly_mulx(a[i], params->qRn[i], params->q[i], params->qinv[i], params->n);
-    for (uint32_t j = 0; j < params->n; j++) {
+    poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->qRq[i],
+              params->qinv[i], n);
+    poly_mulx(&a[n * i], params->qRn[i], params->q[i], params->qinv[i], n);
+    for (uint32_t j = 0; j < n; j++) {
       int64_t new_a =
-          (int64_t)(((__int128_t)params->q[params->l - 1] * a[i][j] +
-                     a[params->l - 1][j]) %
+          (int64_t)(((__int128_t)params->q[params->l - 1] * a[n * i + j] +
+                     a[(params->l - 1) * n + j]) %
                     (int64_t)params->q[i]);
       if (new_a < 0) new_a += (int64_t)params->q[i];
-      int64_t diff = new_a - a2[i][j];
+      int64_t diff = new_a - a2[n * i + j];
       int64_t error_threshold = 2;  // Only removes one moduli
       if ((diff >= error_threshold) || (diff <= -error_threshold)) {
         correct = false;
-        printf("Incorrect new_a: %ld, a[%d][%d]: %ld\n", new_a, i, j, a2[i][j]);
+        printf("Incorrect new_a: %ld, a[%d][%d]: %ld\n", new_a, i, j,
+               a2[n * i + j]);
       }
     }
   }
@@ -283,28 +290,27 @@ void check_mod_switch(const rns_params_t* params) {
   uint8_t correct = 1;
   rns_t a, a2;
   poly_t tmp;
+  uint32_t n = params->n;
   rns_new(&a, params);
   rns_new(&a2, params);
-  poly_new(&tmp, params->n);
+  poly_new(&tmp, n);
   for (uint32_t i = 0; i < params->l; i++) {
-    randombytes((uint8_t*)a[i], params->n * sizeof(int64_t));
-    for (uint32_t j = 0; j < params->n; j++) {
-      a[i][j] = a[i][j] % (int64_t)params->q[i];
-      if (a[i][j] < 0) a[i][j] += (int64_t)params->q[i];
+    randombytes((uint8_t*)a[i], n * sizeof(int64_t));
+    for (uint32_t j = 0; j < n; j++) {
+      a[n * i + j] = a[n * i + j] % (int64_t)params->q[i];
+      if (a[n * i + j] < 0) a[n * i + j] += (int64_t)params->q[i];
     }
   }
+  memcpy(a2, a, n * params->l * sizeof(int64_t));
   for (uint32_t i = 0; i < params->l; i++) {
-    memcpy(a2[i], a[i], params->n * sizeof(int64_t));
-  }
-  for (uint32_t i = 0; i < params->l; i++) {
-    poly_ntt(a[i], params->w[i], params->q[i], params->qRq[i], params->qinv[i],
-             params->n);
+    poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->qRq[i],
+             params->qinv[i], n);
   }
   rns_mod_switch(a, tmp, params->l - 1, params);
   correct = check_ntt_mod_switch(a, a2, params);
   poly_free(&tmp);
-  rns_free(&a, params);
-  rns_free(&a2, params);
+  rns_free(&a);
+  rns_free(&a2);
   if (correct) {
     printf("---------- MOD SWITCH CORRECT ----------\n");
   } else {
@@ -319,17 +325,19 @@ void check_d0(const ciphertext_t* ct2, const ciphertext_t* ct,
 
   rns_t d0;
   rns_new(&d0, params);
+  uint32_t n = params->n;
   for (uint32_t i = 0; i < params->l; i++) {
     // D0 = B1^2
-    for (uint32_t j = 0; j < params->n; j++) {
-      d0[i][j] = (int64_t)(((__int128_t)ct->ab.b[i][j] * ct->ab.b[i][j]) %
-                           (int64_t)params->q[i]);
+    for (uint32_t j = 0; j < n; j++) {
+      d0[n * i + j] =
+          (int64_t)(((__int128_t)ct->ab.b[n * i + j] * ct->ab.b[n * i + j]) %
+                    (int64_t)params->q[i]);
     }
-    poly_intt(d0[i], params->w_1[i], params->q[i], params->qRq[i],
-              params->qinv[i], params->n);
-    poly_mulx(d0[i], params->qRn[i], params->q[i], params->qinv[i], params->n);
-    for (uint32_t j = 0; j < params->n; j++) {
-      if (d0[i][j] < 0) d0[i][j] += (int64_t)params->q[i];
+    poly_intt(&d0[n * i], &params->w_1[n * i], params->q[i], params->qRq[i],
+              params->qinv[i], n);
+    poly_mulx(&d0[n * i], params->qRn[i], params->q[i], params->qinv[i], n);
+    for (uint32_t j = 0; j < n; j++) {
+      if (d0[n * i + j] < 0) d0[n * i + j] += (int64_t)params->q[i];
     }
   }
 
@@ -341,7 +349,7 @@ void check_d0(const ciphertext_t* ct2, const ciphertext_t* ct,
     printf("---------- D0 WRONG ----------\n");
   }
 
-  rns_free(&d0, params);
+  rns_free(&d0);
 }
 
 void check_d1(const ciphertext_t* ct2, const ciphertext_t* ct,
@@ -351,18 +359,21 @@ void check_d1(const ciphertext_t* ct2, const ciphertext_t* ct,
 
   rns_t d1;
   rns_new(&d1, params);
+  uint32_t n = params->n;
   for (uint32_t i = 0; i < params->l; i++) {
     // D1 = 2A1B1
-    for (uint32_t j = 0; j < params->n; j++) {
-      d1[i][j] = (int64_t)(((__int128_t)ct->ab.b[i][j] * ct->ab.a[i][j]) %
-                           (int64_t)params->q[i]);
-      d1[i][j] = (int64_t)(((__int128_t)2 * d1[i][j]) % (int64_t)params->q[i]);
+    for (uint32_t j = 0; j < n; j++) {
+      d1[n * i + j] =
+          (int64_t)(((__int128_t)ct->ab.b[n * i + j] * ct->ab.a[n * i + j]) %
+                    (int64_t)params->q[i]);
+      d1[n * i + j] =
+          (int64_t)(((__int128_t)2 * d1[n * i + j]) % (int64_t)params->q[i]);
     }
-    poly_intt(d1[i], params->w_1[i], params->q[i], params->qRq[i],
-              params->qinv[i], params->n);
-    poly_mulx(d1[i], params->qRn[i], params->q[i], params->qinv[i], params->n);
-    for (uint32_t j = 0; j < params->n; j++) {
-      if (d1[i][j] < 0) d1[i][j] += (int64_t)params->q[i];
+    poly_intt(&d1[n * i], &params->w_1[n * i], params->q[i], params->qRq[i],
+              params->qinv[i], n);
+    poly_mulx(&d1[n * i], params->qRn[i], params->q[i], params->qinv[i], n);
+    for (uint32_t j = 0; j < n; j++) {
+      if (d1[n * i + j] < 0) d1[n * i + j] += (int64_t)params->q[i];
     }
   }
 
@@ -374,7 +385,7 @@ void check_d1(const ciphertext_t* ct2, const ciphertext_t* ct,
     printf("---------- D1 WRONG ----------\n");
   }
 
-  rns_free(&d1, params);
+  rns_free(&d1);
 }
 
 void check_inner_product(const vec_t* v1, const vec_t* v2, uint32_t m) {
@@ -549,7 +560,7 @@ int main() {
   // printf("---------- ENCRYPTED B ----------\n");
   // for (uint32_t i = 0; i < l; i++) {
   //   for (uint32_t j = 0; j < n; j++) {
-  //     printf("b[%d][%d]: %ld\n", i, j, ct->ab.b[i][j]);
+  //     printf("b[%d][%d]: %ld\n", i, j, ct->ab.b[n*i+j]);
   //   }
   // }
 
@@ -771,8 +782,8 @@ int main() {
 
   // Free
   ckks_free(&params);
-  ciphertext_free(&ct, &params.rns);
-  ciphertext_free(&ct2, &params.rns);
+  ciphertext_free(&ct);
+  ciphertext_free(&ct2);
   vec_free(&v);
   vec_free(&v2);
   vec_free(&v3);

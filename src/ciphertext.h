@@ -17,10 +17,9 @@ typedef struct {
 void ciphertext_new(ciphertext_t* ct, const rns_params_t* params);
 
 /*
-  @param params: RNS params
   @param ct: ciphertext_t to be set free
 */
-void ciphertext_free(ciphertext_t* ct, const rns_params_t* params);
+void ciphertext_free(ciphertext_t* ct);
 
 /*
   @param ct3: output ciphertext_t

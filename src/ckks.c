@@ -146,31 +146,24 @@ void ckks_ciphertext_plaintext_multiplication(ciphertext_t* ct2,
 void ckks_ciphertext_inner_product(ciphertext_t* ct3, const ciphertext_t* ct1,
                                    const ciphertext_t* ct2,
                                    const ckks_params_t* params) {
-  // TODO: PLEASE DO A FASTER INNER PRODUCT WITHOUT CT4
-  ciphertext_t tmp_c, ct4;
+  ciphertext_t tmp_c;
   rns_t tmp_r;
   poly_t tmp_p;
+  uint32_t n = params->rns.n;
   ciphertext_new(&tmp_c, &params->rns);
-  ciphertext_new(&ct4, &params->rns);
   rns_new(&tmp_r, &params->rns);
-  poly_new(&tmp_p, params->rns.n);
+  poly_new(&tmp_p, n);
   ciphertext_ciphertext_multiplication(ct3, ct1, ct2, params->keys.r,
                                        &params->rns);
-  ct4.level = ct3->level;
-  uint32_t log2_n2 = floor_log2(params->rns.n) - 1;
+  uint32_t log2_n2 = floor_log2(n) - 1;
   for (uint32_t i = 0; i < log2_n2; i++) {
-    for (uint32_t k = 0; k < ct4.level; k++) {
-      memcpy(ct4.ab.a[k], ct3->ab.a[k], params->rns.n * sizeof(int64_t));
-      memcpy(ct4.ab.b[k], ct3->ab.b[k], params->rns.n * sizeof(int64_t));
-    }
-    uint32_t exp = params->rns.n >> (i + 2);
-    ciphertext_rotation(&tmp_c, &ct4, exp, tmp_r, tmp_p, params->keys.ip[i],
+    uint32_t exp = n >> (i + 2);
+    ciphertext_rotation(&tmp_c, ct3, exp, tmp_r, tmp_p, params->keys.ip[i],
                         &params->rns);
     ciphertext_ciphertext_addition(ct3, ct3, &tmp_c, &params->rns);
   }
-  ciphertext_free(&tmp_c, &params->rns);
-  ciphertext_free(&ct4, &params->rns);
-  rns_free(&tmp_r, &params->rns);
+  ciphertext_free(&tmp_c);
+  rns_free(&tmp_r);
   poly_free(&tmp_p);
 }
 
@@ -181,15 +174,16 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
   ciphertext_t acc, tmp_c;
   rns_t tmp_r;
   poly_t tmp_p;
-  uint32_t log2_m = floor_log2(params->rns.n) - 1;
-  uint32_t log2_n2 = floor_log2(params->rns.n / (2 * N1N2_RATIO)) / 2;
+  uint32_t n = params->rns.n;
+  uint32_t log2_m = floor_log2(n) - 1;
+  uint32_t log2_n2 = floor_log2(n / (2 * N1N2_RATIO)) / 2;
   uint32_t log2_n1 = log2_m - log2_n2;
   uint32_t n1 = (1 << log2_n1);
   uint32_t n2 = (1 << log2_n2);
   ciphertext_new(&acc, &params->rns);
   ciphertext_new(&tmp_c, &params->rns);
   rns_new(&tmp_r, &params->rns);
-  poly_new(&tmp_p, params->rns.n);
+  poly_new(&tmp_p, n);
   // Compute rot(ct1, i); i = 0, 1, ..., n1-1 (jump 0)
   ciphertext_t* rot_ct1 = malloc(n1 * sizeof(ciphertext_t));
   for (uint32_t i = 1; i < n1; i++) {
@@ -200,8 +194,8 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
   // Zero final ciphertext
   ct2->level = ct1->level - 1;
   for (uint32_t i = 0; i < ct2->level; i++) {
-    memset(ct2->ab.a[i], 0, params->rns.n * sizeof(int64_t));
-    memset(ct2->ab.b[i], 0, params->rns.n * sizeof(int64_t));
+    memset(&ct2->ab.a[n * i], 0, n * sizeof(int64_t));
+    memset(&ct2->ab.b[n * i], 0, n * sizeof(int64_t));
   }
   for (uint32_t i = 0; i < n2; i++) {
     ciphertext_plaintext_base_multiplication(&acc, ct1, mat[n1 * i],
@@ -220,12 +214,12 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
   }
 
   for (uint32_t i = 1; i < n1; i++) {
-    ciphertext_free(&rot_ct1[i], &params->rns);
+    ciphertext_free(&rot_ct1[i]);
   }
   free(rot_ct1);
-  ciphertext_free(&tmp_c, &params->rns);
-  ciphertext_free(&acc, &params->rns);
-  rns_free(&tmp_r, &params->rns);
+  ciphertext_free(&tmp_c);
+  ciphertext_free(&acc);
+  rns_free(&tmp_r);
   poly_free(&tmp_p);
 }
 
