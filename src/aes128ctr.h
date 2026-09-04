@@ -2,7 +2,12 @@
 #ifndef __AES128CTR_H__
 #define __AES128CTR_H__
 
+#ifdef __ARM_NEON__
+#include <arm_neon.h>
+#else
 #include <immintrin.h>
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -10,8 +15,13 @@
 #define AES128CTR_BLOCKBYTES 64
 
 typedef struct {
+#ifdef __ARM_NEON__
+  uint8x16_t rkeys[11];
+  uint8x16_t n;
+#else
   __m128i rkeys[11];
   __m128i n;
+#endif
 } aes128ctr_ctx;
 
 void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
