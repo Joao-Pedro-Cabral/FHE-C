@@ -161,15 +161,95 @@ void poly_cbd24_sampler_add(poly_t e, const poly_t m, uint32_t n) {
   uint8_t seed[SEED_BYTES];
   randombytes(seed, SEED_BYTES);
   xof(buf, 6 * n, seed, SEED_BYTES);
+  uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
+  uint8_t *c0_8 = buf + 3 * n, *c1_8 = buf + 4 * n, *c2_8 = buf + 5 * n;
+#ifdef __ARM_NEON__
+  for (uint32_t i = 0; i < n; i += 16) {
+    // Load data
+    uint8x16x3_t vb0_8 = vld1q_u8(&b0_8[i]);
+    uint8x16x3_t vb1_8 = vld1q_u8(&b1_8[i]);
+    uint8x16x3_t vb2_8 = vld1q_u8(&b2_8[i]);
+    uint8x16_t vb_8 = vcntq_u8(vb0_8);
+    vb_8 = vaddq_u8(vb_8, vcntq_u8(vb1_8));
+    vb_8 = vaddq_u8(vb_8, vcntq_u8(vb2_8));
+    uint8x16x3_t vc0_8 = vld1q_u8(&c0_8[i]);
+    uint8x16x3_t vc1_8 = vld1q_u8(&c1_8[i]);
+    uint8x16x3_t vc2_8 = vld1q_u8(&c2_8[i]);
+    uint8x16_t vc_8 = vcntq_u8(vc0_8);
+    vc_8 = vaddq_u8(vc_8, vcntq_u8(vc1_8));
+    vc_8 = vaddq_u8(vc_8, vcntq_u8(vc2_8));
+    int8x16_t vr_8 = vsubq_i8(vb_8, vc_8);
+    // Store
+    uint16x8_t vr_16;
+    uint32x4_t vr_32;
+    uint64x2_t vr_64;
+    uint64x2_t vm;
+    // 000
+    vr_16 = vmovl_u8(vget_low_u8(vr_8));
+    vr_32 = vmovl_u16(vget_low_u16(vr_16));
+    vr_64 = vmovl_u32(vget_low_u32(vr_32));
+    vm = vld1q_u64(&m[i]);
+    vr_64 = vaddq_u64(vr_64, vm);
+    vst1q_u64(&e[i], vr_64);
+    // 001
+    vr_16 = vmovl_u8(vget_high_u8(vr_8));
+    vr_32 = vmovl_u16(vget_low_u16(vr_16));
+    vr_64 = vmovl_u32(vget_low_u32(vr_32));
+    vm = vld1q_u64(&m[i + 2]);
+    vr_64 = vaddq_u64(vr_64, vm);
+    vst1q_u64(&e[i + 2], vr_64);
+    // 010
+    vr_16 = vmovl_u8(vget_low_u8(vr_8));
+    vr_32 = vmovl_u16(vget_high_u16(vr_16));
+    vr_64 = vmovl_u32(vget_low_u32(vr_32));
+    vm = vld1q_u64(&m[i + 4]);
+    vr_64 = vaddq_u64(vr_64, vm);
+    vst1q_u64(&e[i + 4], vr_64);
+    // 011
+    vr_16 = vmovl_u8(vget_high_u8(vr_8));
+    vr_32 = vmovl_u16(vget_high_u16(vr_16));
+    vr_64 = vmovl_u32(vget_low_u32(vr_32));
+    vm = vld1q_u64(&m[i + 6]);
+    vr_64 = vaddq_u64(vr_64, vm);
+    vst1q_u64(&e[i + 6], vr_64);
+    // 100
+    vr_16 = vmovl_u8(vget_low_u8(vr_8));
+    vr_32 = vmovl_u16(vget_low_u16(vr_16));
+    vr_64 = vmovl_u32(vget_high_u32(vr_32));
+    vm = vld1q_u64(&m[i + 8]);
+    vr_64 = vaddq_u64(vr_64, vm);
+    vst1q_u64(&e[i + 8], vr_64);
+    // 101
+    vr_16 = vmovl_u8(vget_high_u8(vr_8));
+    vr_32 = vmovl_u16(vget_low_u16(vr_16));
+    vr_64 = vmovl_u32(vget_high_u32(vr_32));
+    vm = vld1q_u64(&m[i + 10]);
+    vr_64 = vaddq_u64(vr_64, vm);
+    vst1q_u64(&e[i + 10], vr_64);
+    // 110
+    vr_16 = vmovl_u8(vget_low_u8(vr_8));
+    vr_32 = vmovl_u16(vget_high_u16(vr_16));
+    vr_64 = vmovl_u32(vget_high_u32(vr_32));
+    vm = vld1q_u64(&m[i + 12]);
+    vr_64 = vaddq_u64(vr_64, vm);
+    vst1q_u64(&e[i + 12], vr_64);
+    // 111
+    vr_16 = vmovl_u8(vget_high_u8(vr_8));
+    vr_32 = vmovl_u16(vget_high_u16(vr_16));
+    vr_64 = vmovl_u32(vget_high_u32(vr_32));
+    vm = vld1q_u64(&m[i + 14]);
+    vr_64 = vaddq_u64(vr_64, vm);
+    vst1q_u64(&e[i + 14], vr_64);
+  }
+#else
   for (uint32_t i = 0; i < n; i++) {
-    int b1 = __builtin_popcount(buf[6 * i]);
-    b1 += __builtin_popcount(buf[6 * i + 1]);
-    b1 += __builtin_popcount(buf[6 * i + 2]);
-    int b2 = __builtin_popcount(buf[6 * i + 3]);
-    b2 += __builtin_popcount(buf[6 * i + 4]);
-    b2 += __builtin_popcount(buf[6 * i + 5]);
+    int b = __builtin_popcount(b0_8[i]) + __builtin_popcount(b1_8[i]) +
+            __builtin_popcount(b2_8[i]);
+    int c = __builtin_popcount(c0_8[i]) + __builtin_popcount(c1_8[i]) +
+            __builtin_popcount(c2_8[i]);
     e[i] = m[i];
   }
+#endif
   free(buf);
 }
 
@@ -178,15 +258,78 @@ void poly_cbd24_sampler(poly_t e, uint32_t n) {
   uint8_t seed[SEED_BYTES];
   randombytes(seed, SEED_BYTES);
   xof(buf, 6 * n, seed, SEED_BYTES);
+  uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
+  uint8_t *c0_8 = buf + 3 * n, *c1_8 = buf + 4 * n, *c2_8 = buf + 5 * n;
+#ifdef __ARM_NEON__
+  for (uint32_t i = 0; i < n; i += 16) {
+    // Load data
+    uint8x16x3_t vb0_8 = vld1q_u8(&b0_8[i]);
+    uint8x16x3_t vb1_8 = vld1q_u8(&b1_8[i]);
+    uint8x16x3_t vb2_8 = vld1q_u8(&b2_8[i]);
+    uint8x16_t vb_8 = vcntq_u8(vb0_8);
+    vb_8 = vaddq_u8(vb_8, vcntq_u8(vb1_8));
+    vb_8 = vaddq_u8(vb_8, vcntq_u8(vb2_8));
+    uint8x16x3_t vc0_8 = vld1q_u8(&c0_8[i]);
+    uint8x16x3_t vc1_8 = vld1q_u8(&c1_8[i]);
+    uint8x16x3_t vc2_8 = vld1q_u8(&c2_8[i]);
+    uint8x16_t vc_8 = vcntq_u8(vc0_8);
+    vc_8 = vaddq_u8(vc_8, vcntq_u8(vc1_8));
+    vc_8 = vaddq_u8(vc_8, vcntq_u8(vc2_8));
+    int8x16_t vr_8 = vsubq_i8(vb_8, vc_8);
+    // Store
+    uint16x8_t vr_16;
+    uint32x4_t vr_32;
+    uint64x2_t vr_64;
+    // 000
+    vr_16 = vmovl_u8(vget_low_u8(vr_8));
+    vr_32 = vmovl_u16(vget_low_u16(vr_16));
+    vr_64 = vmovl_u32(vget_low_u32(vr_32));
+    vst1q_u64(&e[i], vr_64);
+    // 001
+    vr_16 = vmovl_u8(vget_high_u8(vr_8));
+    vr_32 = vmovl_u16(vget_low_u16(vr_16));
+    vr_64 = vmovl_u32(vget_low_u32(vr_32));
+    vst1q_u64(&e[i + 2], vr_64);
+    // 010
+    vr_16 = vmovl_u8(vget_low_u8(vr_8));
+    vr_32 = vmovl_u16(vget_high_u16(vr_16));
+    vr_64 = vmovl_u32(vget_low_u32(vr_32));
+    vst1q_u64(&e[i + 4], vr_64);
+    // 011
+    vr_16 = vmovl_u8(vget_high_u8(vr_8));
+    vr_32 = vmovl_u16(vget_high_u16(vr_16));
+    vr_64 = vmovl_u32(vget_low_u32(vr_32));
+    vst1q_u64(&e[i + 6], vr_64);
+    // 100
+    vr_16 = vmovl_u8(vget_low_u8(vr_8));
+    vr_32 = vmovl_u16(vget_low_u16(vr_16));
+    vr_64 = vmovl_u32(vget_high_u32(vr_32));
+    vst1q_u64(&e[i + 8], vr_64);
+    // 101
+    vr_16 = vmovl_u8(vget_high_u8(vr_8));
+    vr_32 = vmovl_u16(vget_low_u16(vr_16));
+    vr_64 = vmovl_u32(vget_high_u32(vr_32));
+    vst1q_u64(&e[i + 10], vr_64);
+    // 110
+    vr_16 = vmovl_u8(vget_low_u8(vr_8));
+    vr_32 = vmovl_u16(vget_high_u16(vr_16));
+    vr_64 = vmovl_u32(vget_high_u32(vr_32));
+    vst1q_u64(&e[i + 12], vr_64);
+    // 111
+    vr_16 = vmovl_u8(vget_high_u8(vr_8));
+    vr_32 = vmovl_u16(vget_high_u16(vr_16));
+    vr_64 = vmovl_u32(vget_high_u32(vr_32));
+    vst1q_u64(&e[i + 14], vr_64);
+  }
+#else
   for (uint32_t i = 0; i < n; i++) {
-    int b1 = __builtin_popcount(buf[6 * i]);
-    b1 += __builtin_popcount(buf[6 * i + 1]);
-    b1 += __builtin_popcount(buf[6 * i + 2]);
-    int b2 = __builtin_popcount(buf[6 * i + 3]);
-    b2 += __builtin_popcount(buf[6 * i + 4]);
-    b2 += __builtin_popcount(buf[6 * i + 5]);
+    int b = __builtin_popcount(b0_8[i]) + __builtin_popcount(b1_8[i]) +
+            __builtin_popcount(b2_8[i]);
+    int c = __builtin_popcount(c0_8[i]) + __builtin_popcount(c1_8[i]) +
+            __builtin_popcount(c2_8[i]);
     e[i] = 0;
   }
+#endif
   free(buf);
 }
 

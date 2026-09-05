@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "mod.h"
 #include "random.h"
 #include "utils.h"
 
