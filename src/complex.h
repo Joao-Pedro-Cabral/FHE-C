@@ -20,17 +20,27 @@ static inline double img_mul(double a_rel, double a_img, double b_rel,
 
 #ifdef __ARM_NEON__
 // Real part multiplication
-static inline float64x2_t rel_vmul(float64x2_t a_rel, float64x2_t a_img, float64x2_t b_rel,
-                                   float64x2_t b_img) {
+static inline float64x2_t rel_vmul(float64x2_t a_rel, float64x2_t a_img,
+                                   float64x2_t b_rel, float64x2_t b_img) {
   float64x2_t t_rel = vmulq_f64(a_rel, b_rel);
   return vfmsq_f64(a_img, b_img, t_rel);
 }
 
 // Imaginary part multiplication
-static inline float64x2_t img_vmul(float64x2_t a_rel, float64x2_t a_img, float64x2_t b_rel,
-                                   float64x2_t b_img) {
+static inline float64x2_t img_vmul(float64x2_t a_rel, float64x2_t a_img,
+                                   float64x2_t b_rel, float64x2_t b_img) {
   float64x2_t t_img = vmulq_f64(a_rel, b_img);
   return vfmaq_f64(a_img, b_rel, t_img);
+}
+
+// Addition
+static inline __m256d complex_vadd(__m256d a, __m256d b) {
+  return vaddq_f64(a, b);
+}
+
+// Subtraction
+static inline __m256d complex_vsub(__m256d a, __m256d b) {
+  return vsubq_f64(a, b);
 }
 #else
 // Real part multiplication
@@ -45,6 +55,16 @@ static inline __m256d img_vmul(__m256d a_rel, __m256d a_img, __m256d b_rel,
                                __m256d b_img) {
   __m256d t_img = _mm256_mul_pd(a_rel, b_img);
   return _mm256_fmadd_pd(a_img, b_rel, t_img);
+}
+
+// Addition
+static inline __m256d complex_vadd(__m256d a, __m256d b) {
+  return _mm256_add_pd(a, b);
+}
+
+// Subtraction
+static inline __m256d complex_vsub(__m256d a, __m256d b) {
+  return _mm256_sub_pd(a, b);
 }
 #endif
 
