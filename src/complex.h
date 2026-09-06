@@ -33,6 +33,20 @@ static inline float64x2_t img_vmul(float64x2_t a_rel, float64x2_t a_img,
   return vfmaq_f64(a_img, b_rel, t_img);
 }
 
+// Real part multiplication
+static inline float64x2_t rel_vmulx(float64x2_t a_rel, float64x2_t a_img,
+                                    double b_rel, double b_img) {
+  float64x2_t t_rel = vmulq_n_f64(a_rel, b_rel);
+  return vfmsq_n_f64(a_img, b_img, t_rel);
+}
+
+// Imaginary part multiplication
+static inline float64x2_t img_vmulx(float64x2_t a_rel, float64x2_t a_img,
+                                    double b_rel, double b_img) {
+  float64x2_t t_img = vmulq_n_f64(a_rel, b_img);
+  return vfmaq_n_f64(a_img, b_rel, t_img);
+}
+
 // Addition
 static inline __m256d complex_vadd(__m256d a, __m256d b) {
   return vaddq_f64(a, b);
