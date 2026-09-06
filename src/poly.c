@@ -40,6 +40,7 @@ void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n) {
   }
 }
 
+#ifndef __ARM_NEON__
 static const uint32_t perm_table[16][8] = {
     // mask     destination 32-bit lanes
     /* 0x0 */ {0, 1, 0, 1, 0, 1, 0, 1},
@@ -58,6 +59,7 @@ static const uint32_t perm_table[16][8] = {
     /* 0xD */ {0, 1, 4, 5, 6, 7, 0, 1},
     /* 0xE */ {2, 3, 4, 5, 6, 7, 0, 1},
     /* 0xF */ {0, 1, 2, 3, 4, 5, 6, 7}};
+#endif
 
 void poly_ternary_sampler(poly_t s, uint32_t n) {
   // Initialize PRNG
@@ -71,11 +73,13 @@ void poly_ternary_sampler(poly_t s, uint32_t n) {
   uint8_t* buf = malloc(buflen);  // Initial guess
   xof_squeeze(buf, buflen, &state);
   uint32_t i = 0, j = 0;
+#ifndef __ARM_NEON__
   __m256i v0123 = _mm256_set_epi64x(3, 2, 1, 0);
   __m256i v0246 = _mm256_set_epi64x(6, 4, 2, 0);
   __m256i v1 = _mm256_set1_epi64x(1);
   __m256i v3 = _mm256_set1_epi64x(3);
   __m256i vn = _mm256_set1_epi64x(n);
+#endif
   while (i < n) {
     // We're probably almost at the end so just fetch one more block
     if (j == buflen) {
@@ -83,15 +87,17 @@ void poly_ternary_sampler(poly_t s, uint32_t n) {
       xof_squeeze(buf, buflen, &state);
       j = 0;
     }
-    // uint8_t x = buf[j];
-    // for (int k = 0; k < 8 / 2 && i < n; k++) {
-    //   uint8_t y = (x >> (2 * k)) & 0x3;
-    //   if (y < 3) {
-    //     int8_t z = (int8_t)(y & 0x1) - (int8_t)(y >> 1);
-    //     s[i] = z;
-    //     i++;
-    //   }
-    // }
+#ifdef __ARM_NEON__
+    uint8_t x = buf[j];
+    for (int k = 0; k < 8 / 2 && i < n; k++) {
+      uint8_t y = (x >> (2 * k)) & 0x3;
+      if (y < 3) {
+        int8_t z = (int8_t)(y & 0x1) - (int8_t)(y >> 1);
+        s[i] = z;
+        i++;
+      }
+    }
+#else
     __m256i vi = _mm256_set1_epi64x(i);
     vi = _mm256_add_epi64(vi, v0123);
     __m256i maski = _mm256_cmpgt_epi64(vn, vi);
@@ -112,6 +118,7 @@ void poly_ternary_sampler(poly_t s, uint32_t n) {
                           -(int64_t)(popcnt >= 2), -(int64_t)(popcnt >= 1));
     _mm256_maskstore_epi64((long long*)&s[i], store_mask, vz);
     i += popcnt;
+#endif
     j++;
   }
   free(buf);
