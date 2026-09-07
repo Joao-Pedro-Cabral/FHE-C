@@ -38,7 +38,6 @@ IMPORTANT: If you modify this file, it's likely that the Learning gem5 book
 """
 
 # import the m5 (gem5) library created when gem5 is built
-from common import SimpleOpts
 import m5
 
 # import all of the SimObjects
@@ -62,6 +61,7 @@ m5.util.addToPath(os.path.join(gem5_path, "configs"))
 
 # import the SimpleOpts module
 
+from common import SimpleOpts
 
 class L1Cache(Cache):
     """Simple L1 Cache with default values"""

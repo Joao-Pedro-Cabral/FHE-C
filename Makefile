@@ -44,6 +44,7 @@ NATIVE_CFLAGS := \
 # Cortex-A55 supports Advanced SIMD (NEON) and FP.
 #
 ARM_CFLAGS := \
+          -static \
           -O3 \
           -mcpu=cortex-a55 \
           -march=armv8.2-a+simd+crypto
@@ -209,12 +210,11 @@ $(ARM_BUILD_DIR)/%.o: $(TEST_DIR)/%.c FORCE
 # gem5 execution
 # ----------------------------------------------------------------------
 
-GEM5 ?= gem5.opt
-GEM5_CONFIG ?= configs/example/se.py
+GEM5 ?= $(GEM5_PATH)/build/ARM/gem5.opt
+GEM5_CONFIG ?= gem5/gem5_core.py
 
 gem5: gem5-build
-	$(GEM5) $(GEM5_CONFIG) \
-		-c $(abspath $(ARM_TARGET))
+	$(GEM5) -d $(ARM_BUILD_DIR) $(GEM5_CONFIG) $(abspath $(ARM_TARGET))
 
 
 # ----------------------------------------------------------------------
