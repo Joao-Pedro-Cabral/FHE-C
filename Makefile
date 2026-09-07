@@ -17,12 +17,27 @@ COMMON_CFLAGS := \
           -Wshadow -Wconversion \
           -Wundef -Wdouble-promotion \
           -Wformat=2 \
-          -Isrc -Isrc/blake3
+          -Isrc
+
+LDLIBS := -lm
+
+# ----------------------------------------------------------------------
+# Optional AES
+# ----------------------------------------------------------------------
+
+ifeq ($(AES),1)
+COMMON_CFLAGS += -D__AES_MODE__
+endif
+
+# ----------------------------------------------------------------------
+# Architectures
+# ----------------------------------------------------------------------
 
 # Native x86-64
 NATIVE_CFLAGS := \
           -O3 \
-          -mavx2 -mfma -march=native
+          -mavx2 -mfma -march=native \
+          -Isrc/blake3 
 
 # ARMv8.2-A / Cortex-A55
 #
@@ -31,19 +46,11 @@ NATIVE_CFLAGS := \
 ARM_CFLAGS := \
           -O3 \
           -mcpu=cortex-a55 \
-          -march=armv8.2-a+simd
+          -march=armv8.2-a+simd+crypto
 
 CFLAGS := $(COMMON_CFLAGS) $(NATIVE_CFLAGS)
 
-# ----------------------------------------------------------------------
-# Optional AES
-# ----------------------------------------------------------------------
-
-ifeq ($(AES),1)
-CFLAGS += -D__AES_AVX2__
-endif
-
-LDLIBS := -lm
+ARM_CFLAGS := $(COMMON_CFLAGS) $(ARM_CFLAGS)
 
 # ----------------------------------------------------------------------
 # Directories
@@ -65,6 +72,10 @@ SRC_C := $(wildcard $(SRC_DIR)/*.c) \
 SRC_S := $(wildcard $(SRC_DIR)/*.S) \
          $(wildcard $(BLAKE3_DIR)/*.S)
 
+ARM_SRC_C := $(wildcard $(SRC_DIR)/*.c)
+
+ARM_SRC_S := $(wildcard $(SRC_DIR)/*.S)
+
 # ----------------------------------------------------------------------
 # Test selection
 # ----------------------------------------------------------------------
@@ -80,8 +91,8 @@ SRC_OBJ := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SRC_C)) \
 TEST_OBJ := $(BUILD_DIR)/$(TEST).o
 
 # ARM objects
-ARM_SRC_OBJ := $(patsubst %.c,$(ARM_BUILD_DIR)/%.o,$(SRC_C)) \
-               $(patsubst %.S,$(ARM_BUILD_DIR)/%.o,$(SRC_S))
+ARM_SRC_OBJ := $(patsubst %.c,$(ARM_BUILD_DIR)/%.o,$(ARM_SRC_C)) \
+               $(patsubst %.S,$(ARM_BUILD_DIR)/%.o,$(ARM_SRC_S))
 
 ARM_TEST_OBJ := $(ARM_BUILD_DIR)/$(TEST).o
 

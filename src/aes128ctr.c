@@ -6,48 +6,50 @@
 #include "aes128ctr.h"
 
 #ifdef __ARM_NEON__
-static void aesni_encrypt4(uint8_t out[AES128CTR_BLOCKBYTES], uint8x16_t *n,
-                           const uint8x16_t rkeys[11]) {
+static void aesni_encrypt4(uint8_t out[AES128CTR_BLOCKBYTES],
+                           uint8_t n[AES128CTR_KEYBYTES],
+                           const uint8_t rkeys[AES128CTR_KEYBYTES * 11]) {
   uint8x16_t f, f0, f1, f2, f3;
 
   /* Load current counter value */
   f = vld1q_u8(n);
 
   /* Increase counter in 4 consecutive blocks */
-  f0 = vrev64q_u8((uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){ 0, 0 }));
-  f1 = vrev64q_u8((uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){ 1, 0 }));
-  f2 = vrev64q_u8((uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){ 2, 0 }));
-  f3 = vrev64q_u8((uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){ 3, 0 }));
+  f0 = vrev64q_u8((uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){0, 0}));
+  f1 = vrev64q_u8((uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){1, 0}));
+  f2 = vrev64q_u8((uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){2, 0}));
+  f3 = vrev64q_u8((uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){3, 0}));
 
   /* Write counter for next iteration, increased by 4 */
-  vst1q_u8(n, (uint8x16_t)vaddq_u64(f, (uint64x2_t){ 3, 0 }));
+  vst1_u64((uint64_t *)n,
+           vadd_u64(vget_low_u64((uint64x2_t)f), (uint64x1_t){3}));
 
   /* Actual AES encryption, 4x interleaved */
   for (int i = 0; i < 9; i++) {
-    f = vld1q_u8(&rkeys[i]);
+    f = vld1q_u8(&rkeys[AES128CTR_KEYBYTES * i]);
     f0 = vaesmcq_u8(vaeseq_u8(f0, f));
     f1 = vaesmcq_u8(vaeseq_u8(f1, f));
     f2 = vaesmcq_u8(vaeseq_u8(f2, f));
     f3 = vaesmcq_u8(vaeseq_u8(f3, f));
   }
 
-  f = vld1q_u8(&rkeys[9]);
+  f = vld1q_u8(&rkeys[AES128CTR_KEYBYTES * 9]);
   f0 = vaeseq_u8(f0, f);
   f1 = vaeseq_u8(f1, f);
   f2 = vaeseq_u8(f2, f);
   f3 = vaeseq_u8(f3, f);
 
-  f = vld1q_u8(&rkeys[10]);
+  f = vld1q_u8(&rkeys[AES128CTR_KEYBYTES * 10]);
   f0 = veorq_u8(f0, f);
   f1 = veorq_u8(f1, f);
   f2 = veorq_u8(f2, f);
   f3 = veorq_u8(f3, f);
 
   /* Write results */
-  vst1q_u8((uint8x16_t*)(out + 0), f0);
-  vst1q_u8((uint8x16_t*)(out + 16), f1);
-  vst1q_u8((uint8x16_t*)(out + 32), f2);
-  vst1q_u8((uint8x16_t*)(out + 48), f3);
+  vst1q_u8((out + 0), f0);
+  vst1q_u8((out + AES128CTR_KEYBYTES), f1);
+  vst1q_u8((out + 32), f2);
+  vst1q_u8((out + 48), f3);
 }
 #else
 static void aesni_encrypt4(uint8_t out[AES128CTR_BLOCKBYTES], __m128i *n,
@@ -103,23 +105,25 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
 #ifdef __ARM_NEON__
   uint8x16_t key0, temp0, temp1, temp4, zeros;
 
-  key0 = vld1q_u8((uint8x16_t *)(key));
-  state->n = _mm_loadl_epi64((__m128i *)&nonce);
+  key0 = vld1q_u8(key);
+  uint64x2_t vn = {nonce, 0};
+  vst1q_u64((uint64_t *)state->n, vn);
 
   temp0 = key0;
   zeros = vdupq_n_u8(0);
 
-#define BLOCK1(IMM)                                                    \
-  temp1 = vextq_u8(temp0, zeros, 1);                                   \
-  temp4 = vextq_u8(zeros, temp0, 13);                                  \
-  temp1 = veorq_u8(temp1, temp4);                                      \
-  temp1 = veorq_u8(vaeseq_u8(temp1, zeros), vdupq_n_u8(IMM));          \
-  state->rkeys[idx++] = temp0;                                         \
-  temp4 = vextq_u8(zeros, temp0, 15);                                  \
-  temp0 = veorq_u8(temp0, temp4);                                      \
-  temp4 = vuzp1q_u8(zeros, temp0);                                     \
-  temp0 = veorq_u8(temp0, temp4);                                      \
-  temp0 = veorq_u8(temp0, vdupq_laneq_s8(temp1, 0))
+#define BLOCK1(IMM)                                           \
+  temp1 = vextq_u8(temp0, zeros, 1);                          \
+  temp4 = vextq_u8(zeros, temp0, 13);                         \
+  temp1 = veorq_u8(temp1, temp4);                             \
+  temp1 = veorq_u8(vaeseq_u8(temp1, zeros), vdupq_n_u8(IMM)); \
+  vst1q_u8(&state->rkeys[AES128CTR_KEYBYTES * idx], temp0);   \
+  idx++;                                                      \
+  temp4 = vextq_u8(zeros, temp0, 15);                         \
+  temp0 = veorq_u8(temp0, temp4);                             \
+  temp4 = vuzp1q_u8(zeros, temp0);                            \
+  temp0 = veorq_u8(temp0, temp4);                             \
+  temp0 = veorq_u8(temp0, vdupq_laneq_u8(temp1, 0))
 
 #else
 
@@ -162,13 +166,22 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
   BLOCK1(0x1B);
 
   BLOCK1(0x36);
+
+#ifdef __ARM_NEON__
+  vst1q_u8(&state->rkeys[AES128CTR_KEYBYTES * idx], temp0);
+#else
   state->rkeys[idx++] = temp0;
+#endif
 }
 
 void aes128ctr_squeezeblocks(uint8_t *out, size_t nblocks,
                              aes128ctr_ctx *state) {
   for (size_t i = 0; i < nblocks; i++) {
+#ifdef __ARM_NEON__
+    aesni_encrypt4(out, state->n, state->rkeys);
+#else
     aesni_encrypt4(out, &state->n, state->rkeys);
+#endif
     out += AES128CTR_BLOCKBYTES;
   }
 }
@@ -181,13 +194,21 @@ void aes128ctr_prf(uint8_t *out, size_t outlen,
   aes128ctr_init(&state, seed, nonce);
 
   while (outlen >= AES128CTR_BLOCKBYTES) {
+#ifdef __ARM_NEON__
+    aesni_encrypt4(out, state.n, state.rkeys);
+#else
     aesni_encrypt4(out, &state.n, state.rkeys);
+#endif
     outlen -= AES128CTR_BLOCKBYTES;
     out += AES128CTR_BLOCKBYTES;
   }
 
   if (outlen) {
+#ifdef __ARM_NEON__
+    aesni_encrypt4(out, state.n, state.rkeys);
+#else
     aesni_encrypt4(buf, &state.n, state.rkeys);
+#endif
     for (size_t i = 0; i < outlen; i++) out[i] = buf[i];
   }
 }

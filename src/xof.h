@@ -1,7 +1,7 @@
 #ifndef __XOF_H__
 #define __XOF_H__
 
-#ifdef __AES_AVX2__
+#ifdef __AES_MODE__
 #include "aes128ctr.h"
 #else
 #include "blake3.h"
@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#ifdef __AES_AVX2__
+#ifdef __AES_MODE__
 typedef aes128ctr_ctx xof_state_t;
 
 #define XOF_RATE AES128CTR_BLOCKBYTES

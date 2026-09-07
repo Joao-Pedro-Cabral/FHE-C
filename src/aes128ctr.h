@@ -16,8 +16,8 @@
 
 typedef struct {
 #ifdef __ARM_NEON__
-  uint8x16_t rkeys[11];
-  uint8x16_t n;
+  uint8_t rkeys[AES128CTR_KEYBYTES * 11];
+  uint8_t n[AES128CTR_KEYBYTES];
 #else
   __m128i rkeys[11];
   __m128i n;
