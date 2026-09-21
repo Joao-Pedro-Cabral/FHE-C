@@ -2,7 +2,7 @@
 #ifndef __COMPLEX_H__
 #define __COMPLEX_H__
 
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
 #include <arm_neon.h>
 #else
 #include <immintrin.h>
@@ -23,7 +23,7 @@ static inline double img_mul(double a_rel, double a_img, double b_rel,
   return a_rel * b_img + a_img * b_rel;
 }
 
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
 // Real part multiplication
 static inline float64x2_t rel_vmul(float64x2_t a_rel, float64x2_t a_img,
                                    float64x2_t b_rel, float64x2_t b_img) {

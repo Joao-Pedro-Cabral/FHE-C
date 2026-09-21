@@ -5,7 +5,7 @@
 
 #include "aes128ctr.h"
 
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
 static void aesni_encrypt4(uint8_t out[AES128CTR_BLOCKBYTES],
                            uint8_t n[AES128CTR_KEYBYTES],
                            const uint8_t rkeys[AES128CTR_KEYBYTES * 11]) {
@@ -102,7 +102,7 @@ static void aesni_encrypt4(uint8_t out[AES128CTR_BLOCKBYTES], __m128i *n,
 void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
                     uint64_t nonce) {
   int idx = 0;
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
   uint8x16_t key0, temp0, temp1, temp4, zeros;
 
   key0 = vld1q_u8(key);
@@ -167,7 +167,7 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
 
   BLOCK1(0x36);
 
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
   vst1q_u8(&state->rkeys[AES128CTR_KEYBYTES * idx], temp0);
 #else
   state->rkeys[idx++] = temp0;
@@ -177,7 +177,7 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
 void aes128ctr_squeezeblocks(uint8_t *out, size_t nblocks,
                              aes128ctr_ctx *state) {
   for (size_t i = 0; i < nblocks; i++) {
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
     aesni_encrypt4(out, state->n, state->rkeys);
 #else
     aesni_encrypt4(out, &state->n, state->rkeys);
@@ -194,7 +194,7 @@ void aes128ctr_prf(uint8_t *out, size_t outlen,
   aes128ctr_init(&state, seed, nonce);
 
   while (outlen >= AES128CTR_BLOCKBYTES) {
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
     aesni_encrypt4(out, state.n, state.rkeys);
 #else
     aesni_encrypt4(out, &state.n, state.rkeys);
@@ -204,7 +204,7 @@ void aes128ctr_prf(uint8_t *out, size_t outlen,
   }
 
   if (outlen) {
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
     aesni_encrypt4(out, state.n, state.rkeys);
 #else
     aesni_encrypt4(buf, &state.n, state.rkeys);

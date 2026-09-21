@@ -2,7 +2,7 @@
 #ifndef __AES128CTR_H__
 #define __AES128CTR_H__
 
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
 #include <arm_neon.h>
 #else
 #include <immintrin.h>
@@ -15,7 +15,7 @@
 #define AES128CTR_BLOCKBYTES 64
 
 typedef struct {
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
   uint8_t rkeys[AES128CTR_KEYBYTES * 11];
   uint8_t n[AES128CTR_KEYBYTES];
 #else

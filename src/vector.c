@@ -1,7 +1,7 @@
 
 #include "vector.h"
 
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
 #include <arm_neon.h>
 #else
 #include <immintrin.h>
@@ -56,7 +56,7 @@ void vec_gen_roots(vec_t* w, uint32_t m) {
     (vj_img) = complex_vadd((vj_img), (vt_img));                             \
   } while (0)
 
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
 #define CT_BUTTERFLY_X(vj_rel, vj_img, vk_rel, vk_img, w_rel, w_img, vt_rel, \
                        vt_img)                                               \
   do {                                                                       \
@@ -71,7 +71,7 @@ void vec_gen_roots(vec_t* w, uint32_t m) {
 
 // m = n/2 (half cyclotomic size)
 void fft(vec_t* v, const vec_t* w, uint32_t m) {
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
   // Merge 4 layers using all the 32 ARM NEON (ARMv8) registers
   uint32_t k1 = 1;
   uint32_t k2 = 2;
@@ -728,7 +728,7 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
     (vk_img) = img_vmul((vt_rel), (vt_img), (vw_rel), (vw_img));             \
   } while (0)
 
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
 #define GS_BUTTERFLY_X(vj_rel, vj_img, vk_rel, vk_img, w_rel, w_img, vt_rel, \
                        vt_img)                                               \
   do {                                                                       \
@@ -743,7 +743,7 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
 
 // m = n/2 (half cyclotomic size)
 void ifft(vec_t* v, const vec_t* w, uint32_t m) {
-#ifdef __ARM_NEON__
+#ifdef __aarch64__
 
   uint32_t log2_m = floor_log2(m);
   uint32_t rem = log2_m % 3;
