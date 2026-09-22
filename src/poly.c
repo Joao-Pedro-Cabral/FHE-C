@@ -6,6 +6,7 @@
 #else
 #include <immintrin.h>
 #endif
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "mod.h"
@@ -297,9 +298,9 @@ void poly_cbd24_sampler(poly_t e, uint32_t n) {
     vr_64 = vmovl_s32(vget_low_s32(vr_32));
     vst1q_s64(&e[i], vr_64);
     // 001
-    vr_16 = vmovl_s8(vget_high_s8(vr_8));
+    vr_16 = vmovl_s8(vget_low_s8(vr_8));
     vr_32 = vmovl_s16(vget_low_s16(vr_16));
-    vr_64 = vmovl_s32(vget_low_s32(vr_32));
+    vr_64 = vmovl_s32(vget_high_s32(vr_32));
     vst1q_s64(&e[i + 2], vr_64);
     // 010
     vr_16 = vmovl_s8(vget_low_s8(vr_8));
@@ -307,14 +308,14 @@ void poly_cbd24_sampler(poly_t e, uint32_t n) {
     vr_64 = vmovl_s32(vget_low_s32(vr_32));
     vst1q_s64(&e[i + 4], vr_64);
     // 011
-    vr_16 = vmovl_s8(vget_high_s8(vr_8));
+    vr_16 = vmovl_s8(vget_low_s8(vr_8));
     vr_32 = vmovl_s16(vget_high_s16(vr_16));
-    vr_64 = vmovl_s32(vget_low_s32(vr_32));
+    vr_64 = vmovl_s32(vget_high_s32(vr_32));
     vst1q_s64(&e[i + 6], vr_64);
     // 100
-    vr_16 = vmovl_s8(vget_low_s8(vr_8));
+    vr_16 = vmovl_s8(vget_high_s8(vr_8));
     vr_32 = vmovl_s16(vget_low_s16(vr_16));
-    vr_64 = vmovl_s32(vget_high_s32(vr_32));
+    vr_64 = vmovl_s32(vget_low_s32(vr_32));
     vst1q_s64(&e[i + 8], vr_64);
     // 101
     vr_16 = vmovl_s8(vget_high_s8(vr_8));
@@ -322,9 +323,9 @@ void poly_cbd24_sampler(poly_t e, uint32_t n) {
     vr_64 = vmovl_s32(vget_high_s32(vr_32));
     vst1q_s64(&e[i + 10], vr_64);
     // 110
-    vr_16 = vmovl_s8(vget_low_s8(vr_8));
+    vr_16 = vmovl_s8(vget_high_s8(vr_8));
     vr_32 = vmovl_s16(vget_high_s16(vr_16));
-    vr_64 = vmovl_s32(vget_high_s32(vr_32));
+    vr_64 = vmovl_s32(vget_low_s32(vr_32));
     vst1q_s64(&e[i + 12], vr_64);
     // 111
     vr_16 = vmovl_s8(vget_high_s8(vr_8));
@@ -338,7 +339,7 @@ void poly_cbd24_sampler(poly_t e, uint32_t n) {
             __builtin_popcount(b2_8[i]);
     int c = __builtin_popcount(c0_8[i]) + __builtin_popcount(c1_8[i]) +
             __builtin_popcount(c2_8[i]);
-    e[i] = 0;
+    e[i] = b - c;
   }
 #endif
   free(buf);

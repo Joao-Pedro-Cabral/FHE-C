@@ -30,7 +30,6 @@ else ifeq ($(ARCH),arm)
 CC := $(ARM_CC)
 
 ARCH_CFLAGS := \
-          -static \
           -O3 \
           -march=armv8.2-a+simd+crypto
 
@@ -116,7 +115,7 @@ TEST_OBJ := $(BUILD_DIR)/$(TEST).o
 # Phony targets
 # ----------------------------------------------------------------------
 
-.PHONY: all build run debug valgrind vtune cloud clean FORCE
+.PHONY: all build run debug valgrind vtune cloud_scp cloud_ssh clean FORCE
 
 all: run
 
@@ -211,7 +210,10 @@ gem5: $(TARGET)
 # Cloud
 # ----------------------------------------------------------------------
 
-cloud:
+cloud_ssh:
+	gcloud compute ssh axion-arm --zone=us-central1-c
+
+cloud_scp:
 	gcloud compute scp --recurse Makefile  axion-arm:~/FHE-C/ --zone=us-central1-c
 	gcloud compute scp --recurse test  axion-arm:~/FHE-C/ --zone=us-central1-c
 	gcloud compute scp --recurse src  axion-arm:~/FHE-C/ --zone=us-central1-c

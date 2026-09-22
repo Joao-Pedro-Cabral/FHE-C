@@ -48,8 +48,8 @@ static void aesni_encrypt4(uint8_t out[AES128CTR_BLOCKBYTES],
   /* Write results */
   vst1q_u8((out + 0), f0);
   vst1q_u8((out + AES128CTR_KEYBYTES), f1);
-  vst1q_u8((out + 32), f2);
-  vst1q_u8((out + 48), f3);
+  vst1q_u8((out + 2 * AES128CTR_KEYBYTES), f2);
+  vst1q_u8((out + 3 * AES128CTR_KEYBYTES), f3);
 }
 #else
 static void aesni_encrypt4(uint8_t out[AES128CTR_BLOCKBYTES], __m128i *n,
@@ -205,7 +205,7 @@ void aes128ctr_prf(uint8_t *out, size_t outlen,
 
   if (outlen) {
 #ifdef __aarch64__
-    aesni_encrypt4(out, state.n, state.rkeys);
+    aesni_encrypt4(buf, state.n, state.rkeys);
 #else
     aesni_encrypt4(buf, &state.n, state.rkeys);
 #endif
