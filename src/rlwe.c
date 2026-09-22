@@ -25,6 +25,10 @@ void rlwe_keys_new(keys_t* keys, const rns_params_t* params) {
   for (uint32_t i = 0; i < params->l; i++) {
     rlwe_new(&keys->r[i], params);
   }
+  keys->cg = malloc(params->l * sizeof(rlwe_t));
+  for (uint32_t i = 0; i < params->l; i++) {
+    rlwe_new(&keys->cg[i], params);
+  }
   uint32_t log2_n = floor_log2(n) - 1;
   keys->ip = malloc(log2_n * sizeof(switch_t));
   for (uint32_t i = 0; i < log2_n; i++) {
@@ -55,6 +59,10 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
     rlwe_free(&keys->r[i]);
   }
   free(keys->r);
+  for (uint32_t i = 0; i < params->l; i++) {
+    rlwe_free(&keys->cg[i]);
+  }
+  free(keys->cg);
   uint32_t log2_n = floor_log2(n) - 1;
   for (uint32_t i = 0; i < log2_n; i++) {
     for (uint32_t j = 0; j < params->l; j++) {

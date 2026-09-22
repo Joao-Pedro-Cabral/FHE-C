@@ -86,7 +86,7 @@ void ciphertext_mod_switch(ciphertext_t* ct, poly_t tmp,
 /*
   @param ct2: output ciphertext_t
   @param ct1: input ciphertext_t
-  @param h: vector slot rotation
+  @param h: rotation (5^h)
   @param r: rotation key
   @param tmp_p: temporary
   @param tmp_r: temporary

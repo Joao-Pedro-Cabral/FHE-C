@@ -146,21 +146,20 @@ void ciphertext_rotation(ciphertext_t* ct2, const ciphertext_t* ct1, uint32_t h,
                          rns_t tmp_r, poly_t tmp_p, const switch_t r,
                          const rns_params_t* params) {
   uint32_t n = params->n;
-  uint32_t jh = mod_pow2(5, h, 2 * n);
   for (uint32_t i = 0; i < ct1->level; i++) {
     // X -> X^(5^h)
     poly_mulx2(tmp_p, &ct1->ab.a[n * i], params->qRn[i], params->q[i],
                params->qinv[i], n);
     poly_intt(tmp_p, &params->w_1[n * i], params->q[i], params->qRq[i],
               params->qinv[i], n);
-    poly_permute(&tmp_r[n * i], tmp_p, jh, n);
+    poly_permute(&tmp_r[n * i], tmp_p, h, n);
     poly_ntt(&tmp_r[n * i], &params->w[n * i], params->q[i], params->qRq[i],
              params->qinv[i], n);
     poly_mulx2(tmp_p, &ct1->ab.b[n * i], params->qRn[i], params->q[i],
                params->qinv[i], n);
     poly_intt(tmp_p, &params->w_1[n * i], params->q[i], params->qRq[i],
               params->qinv[i], n);
-    poly_permute(&ct2->ab.b[n * i], tmp_p, jh, n);
+    poly_permute(&ct2->ab.b[n * i], tmp_p, h, n);
     poly_ntt(&ct2->ab.b[n * i], &params->w[n * i], params->q[i], params->qRq[i],
              params->qinv[i], n);
   }

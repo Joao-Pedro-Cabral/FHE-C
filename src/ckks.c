@@ -24,6 +24,21 @@ void ckks_relinearization_keygen(ckks_params_t* params) {
   rlwe_gen_relinearization_key(&params->keys, &params->rns);
 }
 
+// KeySwitch(S^{-1})
+void ckks_conjugation_keygen(ckks_params_t* params) {
+  poly_t s2, e, me;
+  poly_new(&s2, params->rns.n);
+  poly_new(&e, params->rns.n);
+  poly_new(&me, params->rns.n);
+  uint32_t exp = 2 * params->rns.n - 1;
+  poly_permute(s2, params->keys.s_hat, exp, params->rns.n);
+  rlwe_key_switch_encrypt(params->keys.cg, s2, me, e, &params->keys,
+                          &params->rns);
+  poly_free(&s2);
+  poly_free(&e);
+  poly_free(&me);
+}
+
 // Trade-off memory/performance for inner-product:
 // (log2_n - 1) keys + (log2_n - 1) rotations for reduction
 // log2_n - 1 because we work with n/2 complex vector slots
@@ -144,6 +159,19 @@ void ckks_ciphertext_plaintext_multiplication(ciphertext_t* ct2,
   ciphertext_plaintext_multiplication(ct2, ct1, m, &params->rns);
 }
 
+void ckks_ciphertext_conjugation(ciphertext_t* ct2, const ciphertext_t* ct1,
+                                 const ckks_params_t* params) {
+  rns_t tmp_r;
+  poly_t tmp_p;
+  uint32_t n = params->rns.n;
+  rns_new(&tmp_r, &params->rns);
+  poly_new(&tmp_p, n);
+  ciphertext_rotation(ct2, ct1, 2 * params->rns.n - 1, tmp_r, tmp_p,
+                      params->keys.cg, &params->rns);
+  rns_free(&tmp_r);
+  poly_free(&tmp_p);
+}
+
 void ckks_ciphertext_inner_product(ciphertext_t* ct3, const ciphertext_t* ct1,
                                    const ciphertext_t* ct2,
                                    const ckks_params_t* params) {
@@ -159,6 +187,7 @@ void ckks_ciphertext_inner_product(ciphertext_t* ct3, const ciphertext_t* ct1,
   uint32_t log2_n2 = floor_log2(n) - 1;
   for (uint32_t i = 0; i < log2_n2; i++) {
     uint32_t exp = n >> (i + 2);
+    exp = mod_pow2(5, exp, 2 * n);
     ciphertext_rotation(&tmp_c, ct3, exp, tmp_r, tmp_p, params->keys.ip[i],
                         &params->rns);
     ciphertext_ciphertext_addition(ct3, ct3, &tmp_c, &params->rns);
@@ -189,7 +218,8 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
   ciphertext_t* rot_ct1 = malloc(n1 * sizeof(ciphertext_t));
   for (uint32_t i = 1; i < n1; i++) {
     ciphertext_new(&rot_ct1[i], &params->rns);
-    ciphertext_rotation(&rot_ct1[i], ct1, i, tmp_r, tmp_p, params->keys.lt[i],
+    uint32_t exp = mod_pow2(5, i, 2 * n);
+    ciphertext_rotation(&rot_ct1[i], ct1, exp, tmp_r, tmp_p, params->keys.lt[i],
                         &params->rns);
   }
   // Zero final ciphertext
@@ -209,7 +239,8 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
     }
     ciphertext_mod_switch(&acc, tmp_p, &params->rns);
     // Rotate and Accumulate
-    ciphertext_rotation(&tmp_c, &acc, n1 * i, tmp_r, tmp_p,
+    uint32_t exp = mod_pow2(5, n1 * i, 2 * n);
+    ciphertext_rotation(&tmp_c, &acc, exp, tmp_r, tmp_p,
                         params->keys.lt[n1 + i], &params->rns);
     ciphertext_ciphertext_addition(ct2, ct2, &tmp_c, &params->rns);
   }

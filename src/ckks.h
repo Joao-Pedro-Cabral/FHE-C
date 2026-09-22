@@ -30,6 +30,11 @@ void ckks_relinearization_keygen(ckks_params_t* params);
 /*
   @param params: CKKS params
 */
+void ckks_conjugation_keygen(ckks_params_t* params);
+
+/*
+  @param params: CKKS params
+*/
 void ckks_inner_product_keygen(ckks_params_t* params);
 
 /*
@@ -116,6 +121,14 @@ void ckks_ciphertext_plaintext_multiplication(ciphertext_t* ct2,
                                               const ciphertext_t* ct1,
                                               const poly_t m,
                                               const ckks_params_t* params);
+
+/*
+  @param ct2: output ciphertext_t
+  @param ct1: input ciphertext_t
+  @param params: CKKS params
+*/
+void ckks_ciphertext_conjugation(ciphertext_t* ct2, const ciphertext_t* ct1,
+                                 const ckks_params_t* params);
 
 /*
   @param ct3: output ciphertext_t

@@ -388,6 +388,34 @@ void check_d1(const ciphertext_t* ct2, const ciphertext_t* ct,
   rns_free(&d1);
 }
 
+void check_conjugation(const vec_t* v1, const vec_t* v2, uint32_t m) {
+  printf("---------- VERIFY CONJUGATION ----------\n");
+  uint8_t correct = 1;
+
+  for (uint32_t i = 0; i < m; i++) {
+    // TODO: Better metric
+    double diff = v1->rel[i] - v2->rel[i];
+    if ((diff > 0.5) | (diff < -0.5)) {
+      correct = 0;
+      printf("v1.rel[%d]: %lf, v2.rel[%d]: %lf\n", i, v1->rel[i], i,
+             v2->rel[i]);
+    }
+    diff = v1->img[i] + v2->img[i];
+    // TODO: Better metric
+    if ((diff > 0.5) | (diff < -0.5)) {
+      correct = 0;
+      printf("v1.img[%d]: %lf, v2.img[%d]: %lf\n", i, -v1->img[i], i,
+             v2->img[i]);
+    }
+  }
+
+  if (correct) {
+    printf("---------- CONJUGATION CORRECT ----------\n");
+  } else {
+    printf("---------- CONJUGATION WRONG ----------\n");
+  }
+}
+
 void check_inner_product(const vec_t* v1, const vec_t* v2, uint32_t m) {
   printf("---------- VERIFY INNER PRODUCT ----------\n");
   uint8_t correct = 1;
@@ -469,9 +497,9 @@ void check_linear_transform(const vec_t* v1, const vec_t* v2, const vec_t* mat,
 
 int main() {
   // Parameters Construction
-  uint32_t l = 4;
+  uint32_t l = 1;
   uint32_t q0_bits = 60;
-  uint32_t scale_bits = 40;
+  uint32_t scale_bits = 30;
 
   ckks_params_t params;
 
@@ -489,6 +517,7 @@ int main() {
   for (uint32_t i = 0; i < (N_TESTS + 9) / 10; i++) {
     ckks_keygen(&params, q0_bits, scale_bits, l);
     ckks_relinearization_keygen(&params);
+    ckks_conjugation_keygen(&params);
     ckks_inner_product_keygen(&params);
     ckks_linear_transform_keygen(&params);
   }
@@ -721,6 +750,27 @@ int main() {
 #ifdef __RUN_MODE__
   end = time_ns();
   printf("Cipher-Plain Mul: %.3f ms\n", (double)(end - start) / 1000.0);
+#endif
+
+  // Conjugation
+#ifdef __DEBUG_MODE__
+  printf("---------- CONJUGATION ----------\n");
+#endif
+#ifdef __RUN_MODE__
+  start = time_ns();
+#endif
+  for (uint32_t i = 0; i < N_TESTS; i++) {
+    ckks_ciphertext_conjugation(&ct2, &ct, &params);
+  }
+#ifdef __DEBUG_MODE__
+  ckks_decrypt(m2, &ct2, &params);
+  ckks_decode(&v2, m2, ct2.level, &params);
+  check_conjugation(&v, &v2, params.rns.n / 2);
+#endif
+
+#ifdef __RUN_MODE__
+  end = time_ns();
+  printf("Conjugation: %.3f ms\n", (double)(end - start) / 1000.0);
 #endif
 
   // Inner-Product
