@@ -28,28 +28,28 @@ static inline double img_mul(double a_rel, double a_img, double b_rel,
 static inline float64x2_t rel_vmul(float64x2_t a_rel, float64x2_t a_img,
                                    float64x2_t b_rel, float64x2_t b_img) {
   float64x2_t t_rel = vmulq_f64(a_rel, b_rel);
-  return vfmsq_f64(a_img, b_img, t_rel);
+  return vfmsq_f64(t_rel, a_img, b_img);
 }
 
 // Imaginary part multiplication
 static inline float64x2_t img_vmul(float64x2_t a_rel, float64x2_t a_img,
                                    float64x2_t b_rel, float64x2_t b_img) {
   float64x2_t t_img = vmulq_f64(a_rel, b_img);
-  return vfmaq_f64(a_img, b_rel, t_img);
+  return vfmaq_f64(t_img, a_img, b_rel);
 }
 
 // Real part multiplication
 static inline float64x2_t rel_vmulx(float64x2_t a_rel, float64x2_t a_img,
                                     double b_rel, double b_img) {
   float64x2_t t_rel = vmulq_n_f64(a_rel, b_rel);
-  return vfmsq_n_f64(a_img, t_rel, b_img);
+  return vfmsq_n_f64(t_rel, a_img, b_img);
 }
 
 // Imaginary part multiplication
 static inline float64x2_t img_vmulx(float64x2_t a_rel, float64x2_t a_img,
                                     double b_rel, double b_img) {
   float64x2_t t_img = vmulq_n_f64(a_rel, b_img);
-  return vfmaq_n_f64(a_img, t_img, b_rel);
+  return vfmaq_n_f64(t_img, a_img, b_rel);
 }
 
 // Addition

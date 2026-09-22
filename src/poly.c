@@ -204,9 +204,9 @@ void poly_cbd24_sampler_add(poly_t e, const poly_t m, uint32_t n) {
     vr_64 = vaddq_s64(vr_64, vm);
     vst1q_s64(&e[i], vr_64);
     // 001
-    vr_16 = vmovl_s8(vget_high_s8(vr_8));
+    vr_16 = vmovl_s8(vget_low_s8(vr_8));
     vr_32 = vmovl_s16(vget_low_s16(vr_16));
-    vr_64 = vmovl_s32(vget_low_s32(vr_32));
+    vr_64 = vmovl_s32(vget_high_s32(vr_32));
     vm = vld1q_s64(&m[i + 2]);
     vr_64 = vaddq_s64(vr_64, vm);
     vst1q_s64(&e[i + 2], vr_64);
@@ -218,16 +218,16 @@ void poly_cbd24_sampler_add(poly_t e, const poly_t m, uint32_t n) {
     vr_64 = vaddq_s64(vr_64, vm);
     vst1q_s64(&e[i + 4], vr_64);
     // 011
-    vr_16 = vmovl_s8(vget_high_s8(vr_8));
+    vr_16 = vmovl_s8(vget_low_s8(vr_8));
     vr_32 = vmovl_s16(vget_high_s16(vr_16));
-    vr_64 = vmovl_s32(vget_low_s32(vr_32));
+    vr_64 = vmovl_s32(vget_high_s32(vr_32));
     vm = vld1q_s64(&m[i + 6]);
     vr_64 = vaddq_s64(vr_64, vm);
     vst1q_s64(&e[i + 6], vr_64);
     // 100
-    vr_16 = vmovl_s8(vget_low_s8(vr_8));
+    vr_16 = vmovl_s8(vget_high_s8(vr_8));
     vr_32 = vmovl_s16(vget_low_s16(vr_16));
-    vr_64 = vmovl_s32(vget_high_s32(vr_32));
+    vr_64 = vmovl_s32(vget_low_s32(vr_32));
     vm = vld1q_s64(&m[i + 8]);
     vr_64 = vaddq_s64(vr_64, vm);
     vst1q_s64(&e[i + 8], vr_64);
@@ -239,9 +239,9 @@ void poly_cbd24_sampler_add(poly_t e, const poly_t m, uint32_t n) {
     vr_64 = vaddq_s64(vr_64, vm);
     vst1q_s64(&e[i + 10], vr_64);
     // 110
-    vr_16 = vmovl_s8(vget_low_s8(vr_8));
+    vr_16 = vmovl_s8(vget_high_s8(vr_8));
     vr_32 = vmovl_s16(vget_high_s16(vr_16));
-    vr_64 = vmovl_s32(vget_high_s32(vr_32));
+    vr_64 = vmovl_s32(vget_low_s32(vr_32));
     vm = vld1q_s64(&m[i + 12]);
     vr_64 = vaddq_s64(vr_64, vm);
     vst1q_s64(&e[i + 12], vr_64);

@@ -1,9 +1,10 @@
 
-#include <openssl/evp.h>
+#include <complex.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector.h>
 
 #include "poly.h"
 #include "random.h"
@@ -90,12 +91,58 @@ void aes128_key_expand(const uint8_t key[16]) {
   }
 }
 
+void fft2(vec_t *v, const vec_t *w, uint32_t m) {
+  for (uint32_t len = 1; len < m; len <<= 1) {
+    for (uint32_t i = 0; i < m; i += 2 * len) {
+      for (uint32_t j = i; j < i + len; j++) {
+        double w_rel = w->rel[len + j - i];
+        double w_img = w->img[len + j - i];
+        double j_rel = v->rel[j];
+        double j_img = v->img[j];
+        double k_rel = v->rel[j + len];
+        double k_img = v->img[j + len];
+        double t_rel = rel_mul(k_rel, k_img, w_rel, w_img);
+        double t_img = img_mul(k_rel, k_img, w_rel, w_img);
+        v->rel[j + len] = j_rel - t_rel;
+        v->img[j + len] = j_img - t_img;
+        v->rel[j] = j_rel + t_rel;
+        v->img[j] = j_img + t_img;
+      }
+    }
+  }
+}
+
+void ifft2(vec_t *v, const vec_t *w, uint32_t m) {
+  for (uint32_t len = m / 2; len > 0; len >>= 1) {
+    for (uint32_t i = 0; i < m; i += 2 * len) {
+      for (uint32_t j = i; j < i + len; j++) {
+        double w_rel = w->rel[len + j - i];
+        double w_img = -w->img[len + j - i];  // Conjugate
+        double j_rel = v->rel[j];
+        double j_img = v->img[j];
+        double k_rel = v->rel[j + len];
+        double k_img = v->img[j + len];
+        double t_rel = j_rel - k_rel;
+        double t_img = j_img - k_img;
+        v->rel[j] = j_rel + k_rel;
+        v->img[j] = j_img + k_img;
+        v->rel[j + len] = rel_mul(t_rel, t_img, w_rel, w_img);
+        v->img[j + len] = img_mul(t_rel, t_img, w_rel, w_img);
+      }
+    }
+  }
+}
+
 int main() {
   bool good = true;
   poly_t e1, e2;
+  vec_t w, v1, v2;
   uint32_t n = 16;
   poly_new(&e1, n);
   poly_new(&e2, n);
+  vec_new(&v1, n);
+  vec_new(&v2, n);
+  vec_new(&w, n);
 
   printf("---------- TEST CBD ----------\n");
 
@@ -120,14 +167,87 @@ int main() {
   randombytes(seed, SEED_BYTES);
 
   xof((uint8_t *)e1, 8 * n, seed, SEED_BYTES);
-  aes128_key_expand(seed);
+  // aes128_key_expand(seed);
 
   if (good) {
     printf("AES good!\n");
   }
 
+  printf("---------- TEST FFT ----------\n");
+
+  good = true;
+
+  vec_gen_roots(&w, n);
+  for (uint32_t i = 0; i < n; i++) {
+    v1.rel[i] = i;
+    v1.img[i] = -(int32_t)i;
+    v2.rel[i] = i;
+    v2.img[i] = -(int32_t)i;
+  }
+
+  fft(&v1, &w, n);
+  fft2(&v2, &w, n);
+
+  for (uint32_t i = 0; i < n; i++) {
+    double diff = v1.rel[i] - v2.rel[i];
+    if (diff > 0.01 || diff < -0.01) {
+      good = false;
+      printf("v1.rel[%d]: %lf, v2.rel[%d]: %lf\n", i, v1.rel[i], i, v2.rel[i]);
+    }
+  }
+
+  for (uint32_t i = 0; i < n; i++) {
+    double diff = v1.img[i] - v2.img[i];
+    if (diff > 0.01 || diff < -0.01) {
+      good = false;
+      printf("v1.img[%d]: %lf, v2.img[%d]: %lf\n", i, v1.img[i], i, v2.img[i]);
+    }
+  }
+
+  if (good) {
+    printf("FFT good!\n");
+  }
+
+  printf("---------- TEST IFFT ----------\n");
+
+  good = true;
+
+  vec_gen_roots(&w, n);
+  for (uint32_t i = 0; i < n; i++) {
+    v1.rel[i] = i;
+    v1.img[i] = -(int32_t)i;
+    v2.rel[i] = i;
+    v2.img[i] = -(int32_t)i;
+  }
+
+  ifft(&v1, &w, n);
+  ifft2(&v2, &w, n);
+
+  for (uint32_t i = 0; i < n; i++) {
+    double diff = v1.rel[i] - v2.rel[i];
+    if (diff > 0.01 || diff < -0.01) {
+      good = false;
+      printf("v1.rel[%d]: %lf, v2.rel[%d]: %lf\n", i, v1.rel[i], i, v2.rel[i]);
+    }
+  }
+
+  for (uint32_t i = 0; i < n; i++) {
+    double diff = v1.img[i] - v2.img[i];
+    if (diff > 0.01 || diff < -0.01) {
+      good = false;
+      printf("v1.img[%d]: %lf, v2.img[%d]: %lf\n", i, v1.img[i], i, v2.img[i]);
+    }
+  }
+
+  if (good) {
+    printf("IFFT good!\n");
+  }
+
   poly_free(&e1);
   poly_free(&e2);
+  vec_free(&v1);
+  vec_free(&v2);
+  vec_free(&w);
 
   return 0;
 }

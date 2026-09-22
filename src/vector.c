@@ -158,22 +158,22 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
     // Second Quarter
     vt1_rel = vj1_rel;
     vt1_img = vj1_img;
-    vt1_rel = vzip1q_f64(vt1_rel, vk1_rel);
-    vt1_img = vzip1q_f64(vt1_img, vk1_img);
+    vj1_rel = vzip1q_f64(vt1_rel, vk1_rel);
+    vj1_img = vzip1q_f64(vt1_img, vk1_img);
     vk1_rel = vzip2q_f64(vt1_rel, vk1_rel);
     vk1_img = vzip2q_f64(vt1_img, vk1_img);
     // Third Quarter
     vt2_rel = vj2_rel;
     vt2_img = vj2_img;
-    vt2_rel = vzip1q_f64(vt2_rel, vk2_rel);
-    vt2_img = vzip1q_f64(vt2_img, vk2_img);
+    vj2_rel = vzip1q_f64(vt2_rel, vk2_rel);
+    vj2_img = vzip1q_f64(vt2_img, vk2_img);
     vk2_rel = vzip2q_f64(vt2_rel, vk2_rel);
     vk2_img = vzip2q_f64(vt2_img, vk2_img);
     // Forth Quarter
     vt3_rel = vj3_rel;
     vt3_img = vj3_img;
-    vt3_rel = vzip1q_f64(vt3_rel, vk3_rel);
-    vt3_img = vzip1q_f64(vt3_img, vk3_img);
+    vj3_rel = vzip1q_f64(vt3_rel, vk3_rel);
+    vj3_img = vzip1q_f64(vt3_img, vk3_img);
     vk3_rel = vzip2q_f64(vt3_rel, vk3_rel);
     vk3_img = vzip2q_f64(vt3_img, vk3_img);
     // Second layer (len = 2), two roots
@@ -251,7 +251,7 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
   }
 
   // Merge 3 consecutive layers
-  uint32_t log2_m = floor_log2(m);
+  uint32_t log2_m = floor_log2(m / 16);
   uint32_t m3;
   uint32_t rem = log2_m % 3;
   switch (rem) {
@@ -365,7 +365,7 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
 
   if (rem == 2) {
     // Merge two layers
-    for (uint32_t j = 0; j < m / 2; j += 4) {
+    for (uint32_t j = 0; j < m / 4; j += 4) {
       // Load
       // First Quarter
       float64x2_t vj0_rel = vld1q_f64(&v->rel[j]);
@@ -745,12 +745,12 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
 void ifft(vec_t* v, const vec_t* w, uint32_t m) {
 #ifdef __aarch64__
 
-  uint32_t log2_m = floor_log2(m);
+  uint32_t log2_m = floor_log2(m / 16);
   uint32_t rem = log2_m % 3;
 
   if (rem == 2) {
     // Merge two layers
-    for (uint32_t j = 0; j < m / 2; j += 4) {
+    for (uint32_t j = 0; j < m / 4; j += 4) {
       // Load
       // First Quarter
       float64x2_t vj0_rel = vld1q_f64(&v->rel[j]);
@@ -910,7 +910,7 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
       break;
   }
 
-  for (uint32_t len = m3 / 2; len > 8; len <<= 3) {
+  for (uint32_t len = m3 / 2; len > 8; len >>= 3) {
     for (uint32_t i = 0; i < m; i += 2 * len) {
       uint32_t klen = len - i;
       uint32_t k2len = len / 2 - i;
