@@ -518,6 +518,7 @@ int main() {
     ckks_keygen(&params, q0_bits, scale_bits, l);
     ckks_relinearization_keygen(&params);
     ckks_conjugation_keygen(&params);
+    ckks_public_keygen(&params);
     ckks_inner_product_keygen(&params);
     ckks_linear_transform_keygen(&params);
   }
@@ -771,6 +772,27 @@ int main() {
 #ifdef __RUN_MODE__
   end = time_ns();
   printf("Conjugation: %.3f ms\n", (double)(end - start) / 1000.0);
+#endif
+
+  // Public Key
+#ifdef __DEBUG_MODE__
+  printf("---------- PUBLIC KEY ----------\n");
+#endif
+#ifdef __RUN_MODE__
+  start = time_ns();
+#endif
+  for (uint32_t i = 0; i < N_TESTS; i++) {
+    ckks_server_encrypt(&ct2, m, &params);
+  }
+#ifdef __DEBUG_MODE__
+  ckks_decrypt(m2, &ct2, &params);
+  ckks_decode(&v2, m2, ct2.level, &params);
+  check_vectors(&v, &v2, params.rns.n / 2);
+#endif
+
+#ifdef __RUN_MODE__
+  end = time_ns();
+  printf("Public Key: %.3f ms\n", (double)(end - start) / 1000.0);
 #endif
 
   // Inner-Product

@@ -18,6 +18,7 @@ typedef struct {
   poly_t s_hat;  // secrt key in normal domain
   rns_t s;       // secret key in l NTT domains
   switch_t r;    // relinearization key (l RLWE's)
+  rlwe_t pk;     // public key
   switch_t cg;   // conjugation key
   switch_t* ip;  // log2_n - 1 inner product rotation keys by 5^h, h = 2^i
   switch_t* lt;  // n1+n2 linear transform rotation keys by 5^h
@@ -106,5 +107,14 @@ void rlwe_key_switch_decrypt(poly_t m, const switch_t key_switch,
 */
 void rlwe_key_switch(rlwe_t* ab, const rns_t a, const switch_t r, poly_t tmp,
                      uint32_t level, const rns_params_t* params);
+
+/*
+  @param params: RNS params
+  @param pk: public key
+  @param m: plaintext
+  @param ab: output RLWE
+*/
+void rlwe_plaintext_encrypt_server(rlwe_t* ab, const poly_t m, const rlwe_t pk,
+                                   const rns_params_t* params);
 
 #endif  // __RLWE_H__

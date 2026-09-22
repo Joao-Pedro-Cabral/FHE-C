@@ -35,6 +35,11 @@ void ckks_conjugation_keygen(ckks_params_t* params);
 /*
   @param params: CKKS params
 */
+void ckks_public_keygen(ckks_params_t* params);
+
+/*
+  @param params: CKKS params
+*/
 void ckks_inner_product_keygen(ckks_params_t* params);
 
 /*
@@ -129,6 +134,14 @@ void ckks_ciphertext_plaintext_multiplication(ciphertext_t* ct2,
 */
 void ckks_ciphertext_conjugation(ciphertext_t* ct2, const ciphertext_t* ct1,
                                  const ckks_params_t* params);
+
+/*
+  @param ct: output ciphertext_t
+  @param m: input plaintext polynomial
+  @param params: CKKS params
+*/
+void ckks_server_encrypt(ciphertext_t* ct, const poly_t m,
+                         const ckks_params_t* params);
 
 /*
   @param ct3: output ciphertext_t

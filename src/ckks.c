@@ -39,6 +39,15 @@ void ckks_conjugation_keygen(ckks_params_t* params) {
   poly_free(&me);
 }
 
+// RLWE(0)
+void ckks_public_keygen(ckks_params_t* params) {
+  poly_t m;
+  poly_new(&m, params->rns.n);
+  memset(m, 0, sizeof(int64_t) * params->rns.n);
+  rlwe_plaintext_encrypt(&params->keys.pk, m, &params->keys, &params->rns);
+  poly_free(&m);
+}
+
 // Trade-off memory/performance for inner-product:
 // (log2_n - 1) keys + (log2_n - 1) rotations for reduction
 // log2_n - 1 because we work with n/2 complex vector slots
@@ -157,6 +166,11 @@ void ckks_ciphertext_plaintext_multiplication(ciphertext_t* ct2,
                                               const poly_t m,
                                               const ckks_params_t* params) {
   ciphertext_plaintext_multiplication(ct2, ct1, m, &params->rns);
+}
+
+void ckks_server_encrypt(ciphertext_t* ct, const poly_t m,
+                         const ckks_params_t* params) {
+  rlwe_plaintext_encrypt_server(&ct->ab, m, params->keys.pk, &params->rns);
 }
 
 void ckks_ciphertext_conjugation(ciphertext_t* ct2, const ciphertext_t* ct1,

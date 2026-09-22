@@ -25,6 +25,7 @@ void rlwe_keys_new(keys_t* keys, const rns_params_t* params) {
   for (uint32_t i = 0; i < params->l; i++) {
     rlwe_new(&keys->r[i], params);
   }
+  rlwe_new(&keys->pk, params);
   keys->cg = malloc(params->l * sizeof(rlwe_t));
   for (uint32_t i = 0; i < params->l; i++) {
     rlwe_new(&keys->cg[i], params);
@@ -63,6 +64,7 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
     rlwe_free(&keys->cg[i]);
   }
   free(keys->cg);
+  rlwe_free(&keys->pk);
   uint32_t log2_n = floor_log2(n) - 1;
   for (uint32_t i = 0; i < log2_n; i++) {
     for (uint32_t j = 0; j < params->l; j++) {
@@ -226,4 +228,43 @@ void rlwe_key_switch(rlwe_t* ab, const rns_t a, const switch_t r, poly_t tmp,
                n);  // R
     }
   }
+}
+
+void rlwe_plaintext_encrypt_server(rlwe_t* ab, const poly_t m, const rlwe_t pk,
+                                   const rns_params_t* params) {
+  poly_t u, e1, e2;
+  poly_t u_ntt, e1_ntt, e2_ntt;
+  uint32_t n = params->n;
+  poly_new(&u, n);
+  poly_new(&e1, n);
+  poly_new(&e2, n);
+  poly_new(&u_ntt, n);
+  poly_new(&e1_ntt, n);
+  poly_new(&e2_ntt, n);
+  poly_ternary_sampler(u, n);
+  poly_cbd24_sampler_add(e1, m, n);
+  poly_cbd24_sampler(e2, n);
+  for (uint32_t i = 0; i < params->l; i++) {
+    memcpy(u_ntt, u, sizeof(int64_t) * n);
+    poly_ntt(u_ntt, &params->w[n * i], params->q[i], params->qRq[i],
+             params->qinv[i], n);
+    poly_pointwise_mul(&ab->a[n * i], &pk.a[n * i], u_ntt, params->q[i],
+                       params->qinv[i], n);
+    poly_pointwise_mul(&ab->b[n * i], &pk.b[n * i], u_ntt, params->q[i],
+                       params->qinv[i], n);
+    memcpy(e1_ntt, e1, sizeof(int64_t) * n);
+    poly_ntt(e1_ntt, &params->w[n * i], params->q[i], params->qRq[i],
+             params->qinv[i], n);
+    poly_add(&ab->b[n * i], e1_ntt, params->q[i], params->qRq[i], n);
+    memcpy(e2_ntt, e2, sizeof(int64_t) * n);
+    poly_ntt(e2_ntt, &params->w[n * i], params->q[i], params->qRq[i],
+             params->qinv[i], n);
+    poly_add(&ab->a[n * i], e2_ntt, params->q[i], params->qRq[i], n);
+  }
+  poly_free(&u);
+  poly_free(&e1);
+  poly_free(&e2);
+  poly_free(&u_ntt);
+  poly_free(&e1_ntt);
+  poly_free(&e2_ntt);
 }
