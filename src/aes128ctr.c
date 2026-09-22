@@ -5,6 +5,8 @@
 
 #include "aes128ctr.h"
 
+#include <stdio.h>
+
 #ifdef __aarch64__
 static void aesni_encrypt4(uint8_t out[AES128CTR_BLOCKBYTES],
                            uint8_t n[AES128CTR_KEYBYTES],
@@ -103,7 +105,7 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
                     uint64_t nonce) {
   int idx = 0;
 #ifdef __aarch64__
-  uint8x16_t key0, temp0, temp1, temp4, zeros;
+  uint8x16_t key0, temp0, temp1, temp2, temp3, temp4, zeros;
 
   key0 = vld1q_u8(key);
   uint64x2_t vn = {nonce, 0};
@@ -111,19 +113,29 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
 
   temp0 = key0;
   zeros = vdupq_n_u8(0);
+  temp2 = zeros;
 
-#define BLOCK1(IMM)                                           \
-  temp1 = vextq_u8(temp0, zeros, 1);                          \
-  temp4 = vextq_u8(zeros, temp0, 13);                         \
-  temp1 = veorq_u8(temp1, temp4);                             \
-  temp1 = veorq_u8(vaeseq_u8(temp1, zeros), vdupq_n_u8(IMM)); \
-  vst1q_u8(&state->rkeys[AES128CTR_KEYBYTES * idx], temp0);   \
-  idx++;                                                      \
-  temp4 = vextq_u8(zeros, temp0, 15);                         \
-  temp0 = veorq_u8(temp0, temp4);                             \
-  temp4 = vuzp1q_u8(zeros, temp0);                            \
-  temp0 = veorq_u8(temp0, temp4);                             \
-  temp0 = veorq_u8(temp0, vdupq_laneq_u8(temp1, 0))
+#define BLOCK1(IMM)                                         \
+  temp1 = vextq_u8(temp0, zeros, 8);                        \
+  temp2 = vsetq_lane_u8(IMM, temp2, 4);                     \
+  temp1 = veorq_u8(vaeseq_u8(temp1, zeros), temp2);         \
+  vst1q_u8(&state->rkeys[AES128CTR_KEYBYTES * idx], temp0); \
+  idx++;                                                    \
+  temp3 = vextq_u8(zeros, temp0, 12);                       \
+  temp4 = veorq_u8(temp0, temp3);                           \
+  temp3 = vextq_u8(zeros, temp0, 8);                        \
+  temp4 = veorq_u8(temp4, temp3);                           \
+  temp3 = vextq_u8(zeros, temp0, 4);                        \
+  temp4 = veorq_u8(temp4, temp3);                           \
+  temp0 = veorq_u8(temp4, (uint8x16_t)vdupq_laneq_u32((uint32x4_t)temp1, 1));
+
+#define BLOCK2(IMM)                                         \
+  temp1 = vextq_u8(temp0, zeros, 8);                        \
+  temp2 = vsetq_lane_u8(IMM, temp2, 4);                     \
+  temp1 = vaeseq_u8(temp1, zeros);                          \
+  vst1q_u8(&state->rkeys[AES128CTR_KEYBYTES * idx], temp0); \
+  idx++;                                                    \
+  temp0 = temp1;
 
 #else
 

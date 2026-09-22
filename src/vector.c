@@ -732,12 +732,12 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
 #define GS_BUTTERFLY_X(vj_rel, vj_img, vk_rel, vk_img, w_rel, w_img, vt_rel, \
                        vt_img)                                               \
   do {                                                                       \
-    (vt_rel) = rel_vmulx((vk_rel), (vk_img), (w_rel), (w_img));              \
-    (vt_img) = img_vmulx((vk_rel), (vk_img), (w_rel), (w_img));              \
-    (vk_rel) = complex_vsub((vj_rel), (vt_rel));                             \
-    (vk_img) = complex_vsub((vj_img), (vt_img));                             \
-    (vj_rel) = complex_vadd((vj_rel), (vt_rel));                             \
-    (vj_img) = complex_vadd((vj_img), (vt_img));                             \
+    (vt_rel) = complex_vsub((vj_rel), (vk_rel));                             \
+    (vt_img) = complex_vsub((vj_img), (vk_img));                             \
+    (vj_rel) = complex_vadd((vj_rel), (vk_rel));                             \
+    (vj_img) = complex_vadd((vj_img), (vk_img));                             \
+    (vk_rel) = rel_vmulx((vt_rel), (vt_img), (w_rel), (w_img));              \
+    (vk_img) = img_vmulx((vt_rel), (vt_img), (w_rel), (w_img));              \
   } while (0)
 #endif
 
@@ -940,37 +940,41 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
         float64x2_t vt_rel, vt_img;
         // First Layer: eight roots
         float64x2_t vw10_rel = vld1q_f64(&w->rel[klen + j]);
-        float64x2_t vw10_img = vld1q_f64(&w->img[klen + j]);
+        float64x2_t vw10_img = vnegq_f64(vld1q_f64(&w->img[klen + j]));
         GS_BUTTERFLY(vj0_rel, vj0_img, vk0_rel, vk0_img, vw10_rel, vw10_img,
                      vt_rel, vt_img);
         float64x2_t vw12_rel = vld1q_f64(&w->rel[klen + j + len / 4]);
-        float64x2_t vw12_img = vld1q_f64(&w->img[klen + j + len / 4]);
+        float64x2_t vw12_img =
+            vnegq_f64(vld1q_f64(&w->img[klen + j + len / 4]));
         GS_BUTTERFLY(vj2_rel, vj2_img, vk2_rel, vk2_img, vw12_rel, vw12_img,
                      vt_rel, vt_img);
         float64x2_t vw11_rel = vld1q_f64(&w->rel[klen + j + 2 * len / 4]);
-        float64x2_t vw11_img = vld1q_f64(&w->img[klen + j + 2 * len / 4]);
+        float64x2_t vw11_img =
+            vnegq_f64(vld1q_f64(&w->img[klen + j + 2 * len / 4]));
         GS_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw11_rel, vw11_img,
                      vt_rel, vt_img);
         float64x2_t vw13_rel = vld1q_f64(&w->rel[klen + j + 3 * len / 4]);
-        float64x2_t vw13_img = vld1q_f64(&w->img[klen + j + 3 * len / 4]);
+        float64x2_t vw13_img =
+            vnegq_f64(vld1q_f64(&w->img[klen + j + 3 * len / 4]));
         GS_BUTTERFLY(vj3_rel, vj3_img, vk3_rel, vk3_img, vw13_rel, vw13_img,
                      vt_rel, vt_img);
         // Second Layer: four roots
         float64x2_t vw20_rel = vld1q_f64(&w->rel[k2len + j]);
-        float64x2_t vw20_img = vld1q_f64(&w->img[k2len + j]);
+        float64x2_t vw20_img = vnegq_f64(vld1q_f64(&w->img[k2len + j]));
         GS_BUTTERFLY(vj0_rel, vj0_img, vj1_rel, vj1_img, vw20_rel, vw20_img,
                      vt_rel, vt_img);
         GS_BUTTERFLY(vk0_rel, vk0_img, vk1_rel, vk1_img, vw20_rel, vw20_img,
                      vt_rel, vt_img);
         float64x2_t vw21_rel = vld1q_f64(&w->rel[k2len + j + len / 4]);
-        float64x2_t vw21_img = vld1q_f64(&w->img[k2len + j + len / 4]);
+        float64x2_t vw21_img =
+            vnegq_f64(vld1q_f64(&w->img[k2len + j + len / 4]));
         GS_BUTTERFLY(vj2_rel, vj2_img, vj3_rel, vj3_img, vw21_rel, vw21_img,
                      vt_rel, vt_img);
         GS_BUTTERFLY(vk2_rel, vk2_img, vk3_rel, vk3_img, vw21_rel, vw21_img,
                      vt_rel, vt_img);
         // Third Layer: two roots
         float64x2_t vw3_rel = vld1q_f64(&w->rel[k4len + j]);
-        float64x2_t vw3_img = vld1q_f64(&w->img[k4len + j]);
+        float64x2_t vw3_img = vnegq_f64(vld1q_f64(&w->img[k4len + j]));
         GS_BUTTERFLY(vj0_rel, vj0_img, vj2_rel, vj2_img, vw3_rel, vw3_img,
                      vt_rel, vt_img);
         GS_BUTTERFLY(vk0_rel, vk0_img, vk2_rel, vk2_img, vw3_rel, vw3_img,
@@ -1040,31 +1044,31 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
     // First Quarter
     float64x2_t vt0_rel, vt0_img;
     vw_rel = vld1q_f64(&w->rel[k4]);
-    vw_img = vld1q_f64(&w->img[k4]);
+    vw_img = vnegq_f64(vld1q_f64(&w->img[k4]));
     GS_BUTTERFLY(vj0_rel, vj0_img, vj2_rel, vj2_img, vw_rel, vw_img, vt0_rel,
                  vt0_img);
     // Second Quarter
     float64x2_t vt1_rel, vt1_img;
     vw_rel = vld1q_f64(&w->rel[k4 + 2]);
-    vw_img = vld1q_f64(&w->img[k4 + 2]);
+    vw_img = vnegq_f64(vld1q_f64(&w->img[k4 + 2]));
     GS_BUTTERFLY(vk0_rel, vk0_img, vk2_rel, vk2_img, vw_rel, vw_img, vt1_rel,
                  vt1_img);
     // Third Quarter
     float64x2_t vt2_rel, vt2_img;
     vw_rel = vld1q_f64(&w->rel[k4 + 4]);
-    vw_img = vld1q_f64(&w->img[k4 + 4]);
+    vw_img = vnegq_f64(vld1q_f64(&w->img[k4 + 4]));
     GS_BUTTERFLY(vj1_rel, vj1_img, vj3_rel, vj3_img, vw_rel, vw_img, vt2_rel,
                  vt2_img);
     // Quarter Quarter
     float64x2_t vt3_rel, vt3_img;
     vw_rel = vld1q_f64(&w->rel[k4 + 6]);
-    vw_img = vld1q_f64(&w->img[k4 + 6]);
+    vw_img = vnegq_f64(vld1q_f64(&w->img[k4 + 6]));
     GS_BUTTERFLY(vk1_rel, vk1_img, vk3_rel, vk3_img, vw_rel, vw_img, vt3_rel,
                  vt3_img);
     // Second layer (len = 4), four roots
     // First Quarter
     vw_rel = vld1q_f64(&w->rel[k3]);
-    vw_img = vld1q_f64(&w->img[k3]);
+    vw_img = vnegq_f64(vld1q_f64(&w->img[k3]));
     GS_BUTTERFLY(vj0_rel, vj0_img, vj1_rel, vj1_img, vw_rel, vw_img, vt0_rel,
                  vt0_img);
     // Third Quarter
@@ -1072,7 +1076,7 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
                  vt2_img);
     // Second Quarter
     vw_rel = vld1q_f64(&w->rel[k3 + 2]);
-    vw_img = vld1q_f64(&w->img[k3 + 2]);
+    vw_img = vnegq_f64(vld1q_f64(&w->img[k3 + 2]));
     GS_BUTTERFLY(vk0_rel, vk0_img, vk1_rel, vk1_img, vw_rel, vw_img, vt1_rel,
                  vt1_img);
     // Forth Quarter
@@ -1080,17 +1084,17 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
                  vt3_img);
     // Third layer (len = 2), two roots
     // First Quarter
-    GS_BUTTERFLY(vt0_rel, vt0_img, vk0_rel, vk0_img, vw2_rel, vw2_img, vj0_rel,
-                 vj0_img);
+    GS_BUTTERFLY(vj0_rel, vj0_img, vk0_rel, vk0_img, vw2_rel, vw2_img, vt0_rel,
+                 vt0_img);
     // Second Quarter
-    GS_BUTTERFLY(vt1_rel, vt1_img, vk1_rel, vk1_img, vw2_rel, vw2_img, vj1_rel,
-                 vj1_img);
+    GS_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw2_rel, vw2_img, vt1_rel,
+                 vt1_img);
     // Third Quarter
-    GS_BUTTERFLY(vt2_rel, vt2_img, vk2_rel, vk2_img, vw2_rel, vw2_img, vj2_rel,
-                 vj2_img);
+    GS_BUTTERFLY(vj2_rel, vj2_img, vk2_rel, vk2_img, vw2_rel, vw2_img, vt2_rel,
+                 vt2_img);
     // Forth Quarter
-    GS_BUTTERFLY(vt3_rel, vt3_img, vk3_rel, vk3_img, vw2_rel, vw2_img, vj3_rel,
-                 vj3_img);
+    GS_BUTTERFLY(vj3_rel, vj3_img, vk3_rel, vk3_img, vw2_rel, vw2_img, vt3_rel,
+                 vt3_img);
     // Forth layer (len = 1), one root
     // Tranpose
     // First Quarter
