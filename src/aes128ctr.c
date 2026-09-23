@@ -107,35 +107,40 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
 #ifdef __aarch64__
   uint8x16_t key0, temp0, temp1, temp2, temp3, temp4, zeros;
 
+  uint8x16_t s8, s8_2, imm;
+  uint32x4_t s32, s32_2;
+
   key0 = vld1q_u8(key);
   uint64x2_t vn = {nonce, 0};
+  uint32x4_t shifts = {-24, -16, -8, 0};
+  uint32x4_t mask8 = vdupq_n_u32(0x000000FF);
+  uint32x4_t mask16 = vdupq_n_u32(0x0000FF00);
+  uint32x4_t mask24 = vdupq_n_u32(0x00FF0000);
   vst1q_u64((uint64_t *)state->n, vn);
 
-  temp0 = key0;
+  s8 = key0;
   zeros = vdupq_n_u8(0);
   temp2 = zeros;
 
 #define BLOCK1(IMM)                                         \
-  temp1 = vextq_u8(temp0, zeros, 8);                        \
-  temp2 = vsetq_lane_u8(IMM, temp2, 4);                     \
-  temp1 = veorq_u8(vaeseq_u8(temp1, zeros), temp2);         \
-  vst1q_u8(&state->rkeys[AES128CTR_KEYBYTES * idx], temp0); \
+  vst1q_u8(&state->rkeys[AES128CTR_KEYBYTES * idx], s8);    \
   idx++;                                                    \
-  temp3 = vextq_u8(zeros, temp0, 12);                       \
-  temp4 = veorq_u8(temp0, temp3);                           \
-  temp3 = vextq_u8(zeros, temp0, 8);                        \
-  temp4 = veorq_u8(temp4, temp3);                           \
-  temp3 = vextq_u8(zeros, temp0, 4);                        \
-  temp4 = veorq_u8(temp4, temp3);                           \
-  temp0 = veorq_u8(temp4, (uint8x16_t)vdupq_laneq_u32((uint32x4_t)temp1, 1));
-
-#define BLOCK2(IMM)                                         \
-  temp1 = vextq_u8(temp0, zeros, 8);                        \
-  temp2 = vsetq_lane_u8(IMM, temp2, 4);                     \
-  temp1 = vaeseq_u8(temp1, zeros);                          \
-  vst1q_u8(&state->rkeys[AES128CTR_KEYBYTES * idx], temp0); \
-  idx++;                                                    \
-  temp0 = temp1;
+  s32 = (uint32x4_t)s8;                                     \
+  s32 = vextq_u32(s32, s32, 1);                             \
+  imm = vdupq_n_u8(IMM);                                    \
+  s8_2 = (uint8x16_t)s32;                                   \
+  s8_2 = veorq_u8(vaeseq_u8(s8_2, zeros), imm);             \
+  s32_2 = (uint32x4_t)s8_2;                                 \
+  s32_2 = vandq_u32(vshlq_u32(s32_2, shifts), mask8);       \
+  s32 = (uint32x4_t)s8;                                     \
+  s32 = veorq_u32(s32, s32_2);                              \
+  s32_2 = vshlq_u32(vandq_u32(s32, mask8), 8);              \
+  s32 = veorq_u32(s32, s32_2);                              \
+  s32_2 = vshlq_u32(vandq_u32(s32, mask16), 8);             \
+  s32 = veorq_u32(s32, s32_2);                              \
+  s32_2 = vshlq_u32(vandq_u32(s32, mask24), 8);             \
+  s32 = veorq_u32(s32, s32_2);                              \
+  s8 = (uint8x16_t)s32;                                     \
 
 #else
 
@@ -180,7 +185,7 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
   BLOCK1(0x36);
 
 #ifdef __aarch64__
-  vst1q_u8(&state->rkeys[AES128CTR_KEYBYTES * idx], temp0);
+  vst1q_u8(&state->rkeys[AES128CTR_KEYBYTES * idx], s8);
 #else
   state->rkeys[idx++] = temp0;
 #endif
