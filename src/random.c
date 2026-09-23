@@ -336,7 +336,7 @@ static uint8_t c = 0;
 int randombytes(uint8_t *output, size_t n) {
   void *buf = (void *)output;
   memset(buf, c, n);
-  c ++;
+  // c ++;
   return 0;
 #if defined(__EMSCRIPTEN__)
   return randombytes_js_randombytes_nodejs(buf, n);

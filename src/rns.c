@@ -50,25 +50,7 @@ static void rns_gen_inverse_roots(rns_params_t* params) {
 }
 
 static inline uint32_t compute_ring_dimension(uint32_t qtotal_bits) {
-  if (qtotal_bits < 27) {
-    return 1024;
-  } else if (qtotal_bits < 54) {
-    return 2048;
-  } else if (qtotal_bits < 109) {
-    return 4096;
-  } else if (qtotal_bits < 218) {
-    return 8192;
-  } else if (qtotal_bits < 438) {
-    return 16384;
-  } else if (qtotal_bits < 881) {
-    return 32768;
-  } else if (qtotal_bits < 1747) {
-    return 65536;
-  } else if (qtotal_bits < 3523) {
-    return 131072;
-  }
-  printf("Too large q: %d\n!", qtotal_bits);
-  return 1024;
+  return 512;
 }
 
 void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,

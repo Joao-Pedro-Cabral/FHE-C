@@ -65,8 +65,7 @@ static const uint8_t rcon[10] = {0x01, 0x02, 0x04, 0x08, 0x10,
  * ...
  * round_keys[160..175] = round 10 key
  */
-void aes128_key_expand(const uint8_t key[16]) {
-  uint8_t round_keys[11][16];
+void aes128_key_expand(uint8_t round_keys[11][16], const uint8_t key[16]) {
   /* Round 0 */
   for (int i = 0; i < 16; i++) round_keys[0][i] = key[i];
 
@@ -83,11 +82,126 @@ void aes128_key_expand(const uint8_t key[16]) {
     /* Remaining words */
     for (int i = 4; i < 16; i++) rk[i] = prev[i] ^ rk[i - 4];
   }
+}
 
-  for (uint32_t i = 0; i < 11; i++) {
-    for (uint32_t j = 0; j < 16; j++) {
-      printf("round[%d][%d]: 0x%02x\n", i, j, round_keys[i][j]);
-    }
+static uint8_t xtime(uint8_t x) {
+  return (uint8_t)((x << 1) ^ ((x >> 7) * 0x1b));
+}
+
+static void sub_bytes(uint8_t s[16]) {
+  for (int i = 0; i < 16; ++i) s[i] = sbox[s[i]];
+}
+
+static void shift_rows(uint8_t s[16]) {
+  uint8_t t[16];
+
+  /*
+   * AES state is column-major:
+   *
+   *  0  4  8 12
+   *  1  5  9 13
+   *  2  6 10 14
+   *  3  7 11 15
+   */
+
+  t[0] = s[0];
+  t[4] = s[4];
+  t[8] = s[8];
+  t[12] = s[12];
+
+  t[1] = s[5];
+  t[5] = s[9];
+  t[9] = s[13];
+  t[13] = s[1];
+
+  t[2] = s[10];
+  t[6] = s[14];
+  t[10] = s[2];
+  t[14] = s[6];
+
+  t[3] = s[15];
+  t[7] = s[3];
+  t[11] = s[7];
+  t[15] = s[11];
+
+  memcpy(s, t, 16);
+}
+
+static void mix_columns(uint8_t s[16]) {
+  for (int c = 0; c < 4; ++c) {
+    uint8_t *p = &s[4 * c];
+
+    uint8_t a = p[0];
+    uint8_t b = p[1];
+    uint8_t c0 = p[2];
+    uint8_t d = p[3];
+
+    uint8_t x = a ^ b ^ c0 ^ d;
+
+    p[0] ^= x ^ xtime(a ^ b);
+    p[1] ^= x ^ xtime(b ^ c0);
+    p[2] ^= x ^ xtime(c0 ^ d);
+    p[3] ^= x ^ xtime(d ^ a);
+  }
+}
+
+static void add_round_key(uint8_t s[16], const uint8_t rk[16]) {
+  for (int i = 0; i < 16; ++i) s[i] ^= rk[i];
+}
+
+static void aes128_encrypt(uint8_t out[16], const uint8_t in[16],
+                           const uint8_t round_keys[11][16]) {
+  uint8_t s[16];
+
+  memcpy(s, in, 16);
+
+  add_round_key(s, round_keys[0]);
+
+  for (int round = 1; round < 10; ++round) {
+    sub_bytes(s);
+    shift_rows(s);
+    mix_columns(s);
+    add_round_key(s, round_keys[round]);
+  }
+
+  sub_bytes(s);
+  shift_rows(s);
+  add_round_key(s, round_keys[10]);
+
+  memcpy(out, s, 16);
+}
+
+/*
+ * Increment a 128-bit big-endian counter.
+ */
+static void increment_counter(uint8_t counter[16]) {
+  for (int i = 15; i >= 0; --i) {
+    if (++counter[i] != 0) break;
+  }
+}
+
+/*
+ * Generate an AES-CTR pseudorandom stream.
+ *
+ * round_keys: AES-128 expanded key, 11 x 16 bytes
+ * counter:    16-byte initial counter; updated on return
+ * out:        output buffer
+ * len:        number of bytes to generate
+ */
+void aes128_ctr_generate(const uint8_t round_keys[11][16], uint8_t counter[16],
+                         uint8_t *out, size_t len) {
+  uint8_t stream[16];
+
+  while (len > 0) {
+    aes128_encrypt(stream, counter, round_keys);
+    increment_counter(counter);
+
+    size_t n = len < 16 ? len : 16;
+
+    memcpy(out, stream, n);
+
+    out += n;
+    len -= n;
   }
 }
 
@@ -164,10 +278,21 @@ int main() {
 
   good = true;
   uint8_t seed[SEED_BYTES];
+  uint8_t counter[16];
+  uint8_t round_keys[11][16];
   randombytes(seed, SEED_BYTES);
 
   xof((uint8_t *)e1, 8 * n, seed, SEED_BYTES);
-  // aes128_key_expand(seed);
+  aes128_key_expand(round_keys, seed);
+  memset(counter, 0, 16);
+  aes128_ctr_generate(round_keys, counter, (uint8_t *)e2, 8 * n);
+
+  for (uint32_t i = 0; i < n; i++) {
+    if (e1[i] != e2[i]) {
+      good = false;
+      printf("e1[%d]: %ld, e2[%d]: %ld\n", i, e1[i], i, e2[i]);
+    }
+  }
 
   if (good) {
     printf("AES good!\n");
