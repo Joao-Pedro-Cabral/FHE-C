@@ -175,7 +175,7 @@ static void aes128_encrypt(uint8_t out[16], const uint8_t in[16],
  * Increment a 128-bit big-endian counter.
  */
 static void increment_counter(uint8_t counter[16]) {
-  for (int i = 15; i >= 0; --i) {
+  for (int i = 0; i < 16; --i) {
     if (++counter[i] != 0) break;
   }
 }
@@ -290,7 +290,7 @@ int main() {
   for (uint32_t i = 0; i < n; i++) {
     if (e1[i] != e2[i]) {
       good = false;
-      printf("e1[%d]: %ld, e2[%d]: %ld\n", i, e1[i], i, e2[i]);
+      printf("e1[%d]: 0x%lx, e2[%d]: 0x%lx\n", i, e1[i], i, e2[i]);
     }
   }
 

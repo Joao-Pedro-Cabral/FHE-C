@@ -17,14 +17,14 @@ static void aesni_encrypt4(uint8_t out[AES128CTR_BLOCKBYTES],
   f = vld1q_u8(n);
 
   /* Increase counter in 4 consecutive blocks */
-  f0 = vrev64q_u8((uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){0, 0}));
-  f1 = vrev64q_u8((uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){1, 0}));
-  f2 = vrev64q_u8((uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){2, 0}));
-  f3 = vrev64q_u8((uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){3, 0}));
+  f0 = (uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){0, 0});
+  f1 = (uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){1, 0});
+  f2 = (uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){2, 0});
+  f3 = (uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){3, 0});
 
   /* Write counter for next iteration, increased by 4 */
   vst1_u64((uint64_t *)n,
-           vadd_u64(vget_low_u64((uint64x2_t)f), (uint64x1_t){3}));
+           vadd_u64(vget_low_u64((uint64x2_t)f), (uint64x1_t){4}));
 
   /* Actual AES encryption, 4x interleaved */
   for (int i = 0; i < 9; i++) {
@@ -57,17 +57,15 @@ static void aesni_encrypt4(uint8_t out[AES128CTR_BLOCKBYTES],
 static void aesni_encrypt4(uint8_t out[AES128CTR_BLOCKBYTES], __m128i *n,
                            const __m128i rkeys[11]) {
   __m128i f, f0, f1, f2, f3;
-  const __m128i idx =
-      _mm_set_epi8(8, 9, 10, 11, 12, 13, 14, 15, 7, 6, 5, 4, 3, 2, 1, 0);
 
   /* Load current counter value */
   f = _mm_load_si128(n);
 
   /* Increase counter in 4 consecutive blocks */
-  f0 = _mm_shuffle_epi8(_mm_add_epi64(f, _mm_set_epi64x(0, 0)), idx);
-  f1 = _mm_shuffle_epi8(_mm_add_epi64(f, _mm_set_epi64x(0, 1)), idx);
-  f2 = _mm_shuffle_epi8(_mm_add_epi64(f, _mm_set_epi64x(0, 2)), idx);
-  f3 = _mm_shuffle_epi8(_mm_add_epi64(f, _mm_set_epi64x(0, 3)), idx);
+  f0 = _mm_add_epi64(f, _mm_set_epi64x(0, 0));
+  f1 = _mm_add_epi64(f, _mm_set_epi64x(0, 1));
+  f2 = _mm_add_epi64(f, _mm_set_epi64x(0, 2));
+  f3 = _mm_add_epi64(f, _mm_set_epi64x(0, 3));
 
   /* Write counter for next iteration, increased by 4 */
   _mm_store_si128(n, _mm_add_epi64(f, _mm_set_epi64x(0, 4)));
