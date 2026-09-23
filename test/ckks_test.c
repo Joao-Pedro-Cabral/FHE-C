@@ -416,12 +416,14 @@ void check_conjugation(const vec_t* v1, const vec_t* v2, uint32_t m) {
   }
 }
 
-void check_inner_product(const vec_t* v1, const vec_t* v2, uint32_t m) {
+void check_inner_product(const vec_t* v1, const vec_t* v2, uint32_t m,
+                         uint32_t n) {
   printf("---------- VERIFY INNER PRODUCT ----------\n");
   uint8_t correct = 1;
 
+  uint32_t ratio = n / (2 * m);
   double inner_rel1 = 0, inner_img1 = 0;
-  double inner_rel2 = v2->rel[0], inner_img2 = v2->img[0];
+  double inner_rel2 = v2->rel[0] / ratio, inner_img2 = v2->img[0] / ratio;
 
   for (uint32_t i = 0; i < m; i++) {
     inner_rel1 += rel_mul(v1->rel[i], v1->img[i], v1->rel[i], v1->img[i]);
@@ -498,6 +500,7 @@ void check_linear_transform(const vec_t* v1, const vec_t* v2, const vec_t* mat,
 int main() {
   // Parameters Construction
   uint32_t l = 1;
+  uint32_t n2 = 64;
   uint32_t q0_bits = 60;
   uint32_t scale_bits = 30;
 
@@ -515,7 +518,7 @@ int main() {
 #endif
   // 10x less tests because it takes too long
   for (uint32_t i = 0; i < (N_TESTS + 9) / 10; i++) {
-    ckks_keygen(&params, q0_bits, scale_bits, l);
+    ckks_keygen(&params, q0_bits, scale_bits, n2, l);
     ckks_relinearization_keygen(&params);
     ckks_conjugation_keygen(&params);
     ckks_public_keygen(&params);
@@ -541,8 +544,8 @@ int main() {
   printf("---------- ENCODE ----------\n");
 #endif
   vec_t v;
-  vec_new(&v, params.rns.n / 2);
-  for (uint32_t i = 0; i < params.rns.n / 2; i++) {
+  vec_new(&v, n2);
+  for (uint32_t i = 0; i < n2; i++) {
     v.rel[i] = (double)i / 100000;
     v.img[i] = (double)i / 100000 + 1;
   }
@@ -628,7 +631,7 @@ int main() {
   printf("---------- DECODE ----------\n");
 #endif
   vec_t v2;
-  vec_new(&v2, params.rns.n / 2);
+  vec_new(&v2, n2);
 #ifdef __RUN_MODE__
   start = time_ns();
 #endif
@@ -636,7 +639,7 @@ int main() {
     ckks_decode(&v2, m2, ct.level, &params);
   }
 #ifdef __DEBUG_MODE__
-  check_vectors(&v, &v2, params.rns.n / 2);
+  check_vectors(&v, &v2, n2);
 #endif
   // printf("---------- DECODED VECTOR ----------\n");
   // for (uint32_t i = 0; i < n / 2; i++) {
@@ -651,7 +654,7 @@ int main() {
 
   ciphertext_t ct2;
   vec_t v3;
-  vec_new(&v3, params.rns.n);
+  vec_new(&v3, n2);
   ciphertext_new(&ct2, &params.rns);
   // Addition
 #ifdef __DEBUG_MODE__
@@ -666,11 +669,11 @@ int main() {
 #ifdef __DEBUG_MODE__
   ckks_decrypt(m2, &ct2, &params);
   ckks_decode(&v2, m2, ct2.level, &params);
-  for (uint32_t i = 0; i < params.rns.n / 2; i++) {
+  for (uint32_t i = 0; i < n2; i++) {
     v3.rel[i] = 2 * v.rel[i];
     v3.img[i] = 2 * v.img[i];
   }
-  check_vectors(&v3, &v2, params.rns.n / 2);
+  check_vectors(&v3, &v2, n2);
 #endif
 
 #ifdef __RUN_MODE__
@@ -691,11 +694,11 @@ int main() {
 #ifdef __DEBUG_MODE__
   ckks_decrypt(m2, &ct2, &params);
   ckks_decode(&v2, m2, ct2.level, &params);
-  for (uint32_t i = 0; i < params.rns.n / 2; i++) {
+  for (uint32_t i = 0; i < n2; i++) {
     v3.rel[i] = rel_mul(v.rel[i], v.img[i], v.rel[i], v.img[i]);
     v3.img[i] = img_mul(v.rel[i], v.img[i], v.rel[i], v.img[i]);
   }
-  check_vectors(&v3, &v2, params.rns.n / 2);
+  check_vectors(&v3, &v2, n2);
 #endif
 
 #ifdef __RUN_MODE__
@@ -716,11 +719,11 @@ int main() {
 #ifdef __DEBUG_MODE__
   ckks_decrypt(m2, &ct2, &params);
   ckks_decode(&v2, m2, ct2.level, &params);
-  for (uint32_t i = 0; i < params.rns.n / 2; i++) {
+  for (uint32_t i = 0; i < n2; i++) {
     v3.rel[i] = 2 * v.rel[i];
     v3.img[i] = 2 * v.img[i];
   }
-  check_vectors(&v3, &v2, params.rns.n / 2);
+  check_vectors(&v3, &v2, n2);
 #endif
 
 #ifdef __RUN_MODE__
@@ -741,11 +744,11 @@ int main() {
 #ifdef __DEBUG_MODE__
   ckks_decrypt(m2, &ct2, &params);
   ckks_decode(&v2, m2, ct2.level, &params);
-  for (uint32_t i = 0; i < params.rns.n / 2; i++) {
+  for (uint32_t i = 0; i < n2; i++) {
     v3.rel[i] = rel_mul(v.rel[i], v.img[i], v.rel[i], v.img[i]);
     v3.img[i] = img_mul(v.rel[i], v.img[i], v.rel[i], v.img[i]);
   }
-  check_vectors(&v3, &v2, params.rns.n / 2);
+  check_vectors(&v3, &v2, n2);
 #endif
 
 #ifdef __RUN_MODE__
@@ -766,7 +769,7 @@ int main() {
 #ifdef __DEBUG_MODE__
   ckks_decrypt(m2, &ct2, &params);
   ckks_decode(&v2, m2, ct2.level, &params);
-  check_conjugation(&v, &v2, params.rns.n / 2);
+  check_conjugation(&v, &v2, n2);
 #endif
 
 #ifdef __RUN_MODE__
@@ -787,7 +790,7 @@ int main() {
 #ifdef __DEBUG_MODE__
   ckks_decrypt(m2, &ct2, &params);
   ckks_decode(&v2, m2, ct2.level, &params);
-  check_vectors(&v, &v2, params.rns.n / 2);
+  check_vectors(&v, &v2, n2);
 #endif
 
 #ifdef __RUN_MODE__
@@ -808,7 +811,7 @@ int main() {
 #ifdef __DEBUG_MODE__
   ckks_decrypt(m2, &ct2, &params);
   ckks_decode(&v2, m2, ct2.level, &params);
-  check_inner_product(&v, &v2, params.rns.n / 2);
+  check_inner_product(&v, &v2, n2, params.rns.n);
 #endif
 
 #ifdef __RUN_MODE__
@@ -824,12 +827,12 @@ int main() {
   start = time_ns();
 #endif
   vec_t* mat1;
-  mat1 = malloc(params.rns.n / 2 * sizeof(vec_t));
-  for (uint32_t i = 0; i < params.rns.n / 2; i++) {
-    vec_new(&mat1[i], params.rns.n / 2);
-    for (uint32_t j = 0; j < params.rns.n / 2; j++) {
-      mat1[i].rel[j] = 0.000001 * ((params.rns.n / 2) * i + j);
-      mat1[i].img[j] = -0.000001 * ((params.rns.n / 2) * i + j);
+  mat1 = malloc(n2 * sizeof(vec_t));
+  for (uint32_t i = 0; i < n2; i++) {
+    vec_new(&mat1[i], n2);
+    for (uint32_t j = 0; j < n2; j++) {
+      mat1[i].rel[j] = 0.000001 * (n2 * i + j);
+      mat1[i].img[j] = -0.000001 * (n2 * i + j);
     }
   }
   poly_t* mat2;
@@ -844,7 +847,7 @@ int main() {
 #ifdef __DEBUG_MODE__
   ckks_decrypt(m2, &ct2, &params);
   ckks_decode(&v2, m2, ct2.level, &params);
-  check_linear_transform(&v, &v2, mat1, params.rns.n / 2);
+  check_linear_transform(&v, &v2, mat1, n2);
 #endif
 
 #ifdef __RUN_MODE__
@@ -861,7 +864,7 @@ int main() {
   vec_free(&v3);
   poly_free(&m);
   poly_free(&m2);
-  for (uint32_t i = 0; i < params.rns.n / 2; i++) {
+  for (uint32_t i = 0; i < n2; i++) {
     vec_free(&mat1[i]);
   }
   free(mat1);

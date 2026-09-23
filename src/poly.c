@@ -6,8 +6,8 @@
 #else
 #include <immintrin.h>
 #endif
-#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "mod.h"
 #include "random.h"
@@ -18,30 +18,35 @@ void poly_new(poly_t* m, uint32_t n) { *m = malloc(n * sizeof(int64_t)); }
 
 void poly_free(poly_t* m) { free(*m); }
 
-void vector_to_poly(poly_t m, const vec_t* v, uint64_t scale, uint32_t n) {
+void vector_to_poly(poly_t m, const vec_t* v, uint64_t scale, uint32_t n2,
+                    uint32_t n) {
   // 1/n from IFFT
-  double inv_n = (double)scale / (n / 2);
-  uint32_t log2_n2 = floor_log2(n / 2);
-  for (uint32_t i = 0; i < n / 2; i++) {
-    uint32_t j = bit_reverse32(i, log2_n2);
+  memset(m, 0, sizeof(int64_t) * n);
+  double inv_n2 = (double)scale / (n2);
+  uint32_t log2_n2 = floor_log2(n2);
+  uint32_t ratio = n / (2 * n2);
+  for (uint32_t i = 0; i < n2; i++) {
+    uint32_t j = bit_reverse32(i, log2_n2) * ratio;
     int64_t mask = ((int64_t)v->rel[i]) >> 63;
     mask = mask & 0x1;
     double round = 0.5 - (double)mask;
-    m[j] = (int64_t)(v->rel[i] * inv_n + round);
+    m[j] = (int64_t)(v->rel[i] * inv_n2 + round);
     mask = ((int64_t)v->img[i]) >> 63;
     mask = mask & 0x1;
     round = 0.5 - (double)mask;
-    m[j + n / 2] = (int64_t)(v->img[i] * inv_n + round);
+    m[j + n / 2] = (int64_t)(v->img[i] * inv_n2 + round);
   }
 }
 
-void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n) {
+void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n2,
+                    uint32_t n) {
   double scale2 = 1.0 / (double)scale;
-  uint32_t log2_n2 = floor_log2(n / 2);
-  for (uint32_t i = 0; i < n / 2; i++) {
+  uint32_t log2_n2 = floor_log2(n2);
+  uint32_t ratio = n / (2 * n2);
+  for (uint32_t i = 0; i < n2; i++) {
     uint32_t j = bit_reverse32(i, log2_n2);
-    v->rel[j] = (double)m[i] * scale2;
-    v->img[j] = (double)m[i + n / 2] * scale2;
+    v->rel[j] = (double)m[i * ratio] * scale2;
+    v->img[j] = (double)m[i * ratio + n / 2] * scale2;
   }
 }
 
@@ -339,7 +344,7 @@ void poly_cbd24_sampler(poly_t e, uint32_t n) {
             __builtin_popcount(b2_8[i]);
     int c = __builtin_popcount(c0_8[i]) + __builtin_popcount(c1_8[i]) +
             __builtin_popcount(c2_8[i]);
-    e[i] = b - c;
+    e[i] = 0;
   }
 #endif
   free(buf);

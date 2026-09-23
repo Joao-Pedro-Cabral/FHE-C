@@ -28,17 +28,21 @@ void poly_free(poly_t* m);
   @param v: input vector
   @param m: output polynomial
   @param scale: input Delta
+  @param n2: size of the vector slot
   @param n: size of the polynomial
 */
-void vector_to_poly(poly_t m, const vec_t* v, uint64_t scale, uint32_t n);
+void vector_to_poly(poly_t m, const vec_t* v, uint64_t scale, uint32_t n2,
+                    uint32_t n);
 
 /*
   @param v: output vector
   @param m: input polynomial
   @param scale: input Delta
+  @param n2: size of the vector slot
   @param n: size of the polynomial
 */
-void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n);
+void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n2,
+                    uint32_t n);
 
 /*
   @param s: output secret polynomial

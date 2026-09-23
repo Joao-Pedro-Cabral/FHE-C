@@ -9,6 +9,7 @@
 // Parameters for CKKS usage (should be initialized with ckks_keygen)
 typedef struct {
   vec_t w;           // odd 2n complex roots of unity
+  uint32_t n2;       // vector slot size (n2 < n)
   rns_params_t rns;  // RNS parameters
   keys_t keys;       // RLWE context (keys_t and roots)
 } ckks_params_t;
@@ -17,10 +18,11 @@ typedef struct {
   @param params: CKKS params to be initialized
   @param q0_bits: number of bits of q0
   @param scale_bits: number of bits of the scale and the other moduli
+  @param n2: size of the vector slot
   @param l: size of the rns_t
 */
 void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
-                 uint32_t l);
+                 uint32_t n2, uint32_t l);
 
 /*
   @param params: CKKS params
@@ -144,6 +146,8 @@ void ckks_server_encrypt(ciphertext_t* ct, const poly_t m,
                          const ckks_params_t* params);
 
 /*
+  BE CAREFUL! This function doesn't take into account the ratio n/2n2
+  The client must fix the value (divide by n/2n2)
   @param ct3: output ciphertext_t
   @param ct1: input ciphertext_t
   @param ct2: input ciphertext_t

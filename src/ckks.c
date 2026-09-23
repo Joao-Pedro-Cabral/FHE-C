@@ -9,13 +9,14 @@
 #include "utils.h"
 
 void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
-                 uint32_t l) {
+                 uint32_t n2, uint32_t l) {
   // RNS construction
   rns_params_new(&params->rns, q0_bits, scale_bits, l);
   // complex roots
-  vec_new(&params->w, params->rns.n / 2);
-  vec_gen_roots(&params->w, params->rns.n / 2);
-  // secret key for RLWE
+  params->n2 = n2;
+  vec_new(&params->w, n2);
+  vec_gen_roots(&params->w, n2);
+  // keys
   rlwe_keys_new(&params->keys, &params->rns);
   rlwe_gen_secret_key(&params->keys, &params->rns);
 }
@@ -112,12 +113,13 @@ void ckks_free(ckks_params_t* params) {
 
 void ckks_encode(poly_t m, const vec_t* v, const ckks_params_t* params) {
   vec_t v2;
-  vec_new(&v2, params->rns.n / 2);
-  memcpy(v2.rel, v->rel, params->rns.n * sizeof(double));
+  vec_new(&v2, params->n2);
+  memcpy(v2.rel, v->rel, 2 * params->n2 * sizeof(double));
   // First step: IFFT
-  ifft(&v2, &params->w, params->rns.n / 2);
+  ifft(&v2, &params->w, params->n2);
   // Second step: Rescale (with base scale) + Bit Reverse
-  vector_to_poly(m, &v2, params->rns.scales[params->rns.l - 1], params->rns.n);
+  vector_to_poly(m, &v2, params->rns.scales[params->rns.l - 1], params->n2,
+                 params->rns.n);
   // Free
   vec_free(&v2);
 }
@@ -125,9 +127,10 @@ void ckks_encode(poly_t m, const vec_t* v, const ckks_params_t* params) {
 void ckks_decode(vec_t* v, const poly_t m, uint32_t level,
                  const ckks_params_t* params) {
   // First step: Rescale (accordingly to the current level) + Bit Reverse
-  poly_to_vector(v, m, params->rns.scales[level - 1], params->rns.n);
+  poly_to_vector(v, m, params->rns.scales[level - 1], params->n2,
+                 params->rns.n);
   // Second step: FFT
-  fft(v, &params->w, params->rns.n / 2);
+  fft(v, &params->w, params->n2);
 }
 
 void ckks_encrypt(ciphertext_t* ct, const poly_t m,
@@ -273,9 +276,17 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
 void ckks_linear_transform_encode(poly_t* mat2, const vec_t* mat1,
                                   const ckks_params_t* params) {
   vec_t diag;
-  uint32_t m = params->rns.n / 2;
+  uint32_t m = params->n2;
+  uint32_t n = params->rns.n;
+  uint32_t ratio = n / (2 * m);
+  // Zero diagonals for sparse encoding
+  for (uint32_t i = 0; i < n; i++) {
+    if (i % ratio != 0) {
+      memset(mat2[i], 0, sizeof(int64_t) * n);
+    }
+  }
   uint32_t log2_m = floor_log2(m);
-  uint32_t log2_n2 = floor_log2(params->rns.n / (2 * N1N2_RATIO)) / 2;
+  uint32_t log2_n2 = floor_log2(m / (N1N2_RATIO)) / 2;
   uint32_t log2_n1 = log2_m - log2_n2;
   uint32_t n1 = (1 << log2_n1);
   vec_new(&diag, m);
@@ -288,8 +299,8 @@ void ckks_linear_transform_encode(poly_t* mat2, const vec_t* mat1,
     }
     // Encode
     ifft(&diag, &params->w, m);
-    vector_to_poly(mat2[i], &diag, params->rns.scales[params->rns.l - 1],
-                   params->rns.n);
+    vector_to_poly(mat2[i * ratio], &diag,
+                   params->rns.scales[params->rns.l - 1], m, params->rns.n);
   }
   vec_free(&diag);
 }
