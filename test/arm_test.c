@@ -10,11 +10,9 @@
 #include "random.h"
 #include "xof.h"
 
-void test_cbd(poly_t e, uint32_t n) {
+void test_cbd(poly_t e, xof_state_t *xof_state, uint32_t n) {
   uint8_t *buf = malloc(6 * n * sizeof(uint8_t));
-  uint8_t seed[SEED_BYTES];
-  randombytes(seed, SEED_BYTES);
-  xof(buf, 6 * n, seed, SEED_BYTES);
+  xof_squeeze(buf, 6 * n, xof_state);
   uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
   uint8_t *c0_8 = buf + 3 * n, *c1_8 = buf + 4 * n, *c2_8 = buf + 5 * n;
   for (uint32_t i = 0; i < n; i++) {
@@ -258,31 +256,17 @@ int main() {
   vec_new(&v2, n);
   vec_new(&w, n);
 
-  printf("---------- TEST CBD ----------\n");
-
-  poly_cbd24_sampler(e1, n);
-  test_cbd(e2, n);
-
-  for (uint32_t i = 0; i < n; i++) {
-    if (e1[i] != e2[i]) {
-      good = false;
-      printf("e1[%d]: %ld, e2[%d]: %ld\n", i, e1[i], i, e2[i]);
-    }
-  }
-
-  if (good) {
-    printf("CBD good!\n");
-  }
-
   printf("---------- TEST AES ----------\n");
 
   good = true;
   uint8_t seed[SEED_BYTES];
   uint8_t counter[16];
   uint8_t round_keys[11][16];
+  xof_state_t xof_state;
   randombytes(seed, SEED_BYTES);
 
-  xof((uint8_t *)e1, 8 * n, seed, SEED_BYTES);
+  xof_absorb(&xof_state, seed);
+  xof_squeeze((uint8_t *)e1, 8 * n, &xof_state);
   aes128_key_expand(round_keys, seed);
   memset(counter, 0, 16);
   aes128_ctr_generate(round_keys, counter, (uint8_t *)e2, 8 * n);
@@ -296,6 +280,24 @@ int main() {
 
   if (good) {
     printf("AES good!\n");
+  }
+
+  printf("---------- TEST CBD ----------\n");
+
+  xof_absorb(&xof_state, seed);  // Resets the counter
+  poly_cbd24_sampler(e1, &xof_state, n);
+  xof_absorb(&xof_state, seed);  // Resets the counter
+  test_cbd(e2, &xof_state, n);
+
+  for (uint32_t i = 0; i < n; i++) {
+    if (e1[i] != e2[i]) {
+      good = false;
+      printf("e1[%d]: %ld, e2[%d]: %ld\n", i, e1[i], i, e2[i]);
+    }
+  }
+
+  if (good) {
+    printf("CBD good!\n");
   }
 
   printf("---------- TEST FFT ----------\n");

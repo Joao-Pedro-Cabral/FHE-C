@@ -172,30 +172,14 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
 #endif
 }
 
-void aes128ctr_squeezeblocks(uint8_t *out, size_t nblocks,
-                             aes128ctr_ctx *state) {
-  for (size_t i = 0; i < nblocks; i++) {
+void aes128ctr_squeeze(uint8_t *out, size_t outlen, aes128ctr_ctx *state) {
+  uint8_t buf[AES128CTR_BLOCKBYTES];
+
+  while (outlen >= AES128CTR_BLOCKBYTES) {
 #ifdef __aarch64__
     aesni_encrypt4(out, state->n, state->rkeys);
 #else
     aesni_encrypt4(out, &state->n, state->rkeys);
-#endif
-    out += AES128CTR_BLOCKBYTES;
-  }
-}
-
-void aes128ctr_prf(uint8_t *out, size_t outlen,
-                   const uint8_t seed[AES128CTR_KEYBYTES], uint64_t nonce) {
-  uint8_t buf[AES128CTR_BLOCKBYTES];
-  aes128ctr_ctx state;
-
-  aes128ctr_init(&state, seed, nonce);
-
-  while (outlen >= AES128CTR_BLOCKBYTES) {
-#ifdef __aarch64__
-    aesni_encrypt4(out, state.n, state.rkeys);
-#else
-    aesni_encrypt4(out, &state.n, state.rkeys);
 #endif
     outlen -= AES128CTR_BLOCKBYTES;
     out += AES128CTR_BLOCKBYTES;
@@ -203,9 +187,9 @@ void aes128ctr_prf(uint8_t *out, size_t outlen,
 
   if (outlen) {
 #ifdef __aarch64__
-    aesni_encrypt4(buf, state.n, state.rkeys);
+    aesni_encrypt4(buf, state->n, state->rkeys);
 #else
-    aesni_encrypt4(buf, &state.n, state.rkeys);
+    aesni_encrypt4(buf, &state->n, state->rkeys);
 #endif
     for (size_t i = 0; i < outlen; i++) out[i] = buf[i];
   }

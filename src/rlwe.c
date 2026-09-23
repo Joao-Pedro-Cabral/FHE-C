@@ -6,6 +6,7 @@
 
 #include "mod.h"
 #include "utils.h"
+#include "xof.h"
 
 void rlwe_new(rlwe_t* ab, const rns_params_t* params) {
   rns_new(&ab->b, params);
@@ -87,9 +88,10 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
   free(keys->lt);
 }
 
-void rlwe_gen_secret_key(keys_t* keys, const rns_params_t* params) {
+void rlwe_gen_secret_key(keys_t* keys, xof_state_t* xof_state,
+                         const rns_params_t* params) {
   uint32_t n = params->n;
-  poly_ternary_sampler(keys->s_hat, n);
+  poly_ternary_sampler(keys->s_hat, xof_state, n);
   for (uint32_t i = 0; i < params->l; i++) {
     memcpy(&keys->s[n * i], keys->s_hat, sizeof(int64_t) * n);
     poly_ntt(&keys->s[n * i], &params->w[n * i], params->q[i], params->qRq[i],
@@ -97,7 +99,8 @@ void rlwe_gen_secret_key(keys_t* keys, const rns_params_t* params) {
   }
 }
 
-void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params) {
+void rlwe_gen_relinearization_key(keys_t* keys, xof_state_t* xof_state,
+                                  const rns_params_t* params) {
   poly_t s2, e, me;
   uint32_t n = params->n;
   poly_new(&s2, n);
@@ -110,37 +113,38 @@ void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params) {
             n);
   // Removes the INTT R^2/n factor
   poly_mulx(s2, params->qR2n[0], params->q[0], params->qinv[0], n);
-  rlwe_key_switch_encrypt(keys->r, s2, me, e, keys, params);
+  rlwe_key_switch_encrypt(keys->r, xof_state, s2, me, e, keys, params);
   poly_free(&s2);
   poly_free(&e);
   poly_free(&me);
 }
 
 // RLWE encryption step (one of the l polynomials)
-static void rlwe_encrypt_step(poly_t a, poly_t b, poly_t m2, const poly_t m,
+static void rlwe_encrypt_step(poly_t a, poly_t b, poly_t m2,
+                              xof_state_t* xof_state, const poly_t m,
                               const poly_t s, const poly_t w, uint64_t q,
                               int64_t qRq, int64_t qinv, uint32_t n) {
   // B = -AS + DeltaM + E
   poly_mod(m2, m, q, qRq, n);
   poly_ntt(m2, w, q, qRq, qinv, n);
-  poly_uniform_sampler(a, q, qRq, n);  // A
+  poly_uniform_sampler(a, xof_state, q, qRq, n);  // A
   poly_pointwise_mul(b, a, s, q, qinv, n);
   poly_rsub(b, m2, q, qRq, n);
 }
 
-void rlwe_plaintext_encrypt(rlwe_t* ab, const poly_t m, const keys_t* keys,
-                            const rns_params_t* params) {
+void rlwe_plaintext_encrypt(rlwe_t* ab, xof_state_t* xof_state, const poly_t m,
+                            const keys_t* keys, const rns_params_t* params) {
   // DeltaM + E
   poly_t e, me;
   uint32_t n = params->n;
   poly_new(&e, n);
   poly_new(&me, n);
-  poly_cbd24_sampler_add(e, m, n);
+  poly_cbd24_sampler_add(e, xof_state, m, n);
   // B = -(-A)S + DeltaM + E
   for (uint32_t i = 0; i < params->l; i++) {
-    rlwe_encrypt_step(&ab->a[n * i], &ab->b[n * i], me, e, &keys->s[n * i],
-                      &params->w[n * i], params->q[i], params->qRq[i],
-                      params->qinv[i], n);
+    rlwe_encrypt_step(&ab->a[n * i], &ab->b[n * i], me, xof_state, e,
+                      &keys->s[n * i], &params->w[n * i], params->q[i],
+                      params->qRq[i], params->qinv[i], n);
   }
   poly_free(&e);
   poly_free(&me);
@@ -168,26 +172,26 @@ void rlwe_plaintext_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
 
 // Since this function is normally called several times by other primitives,
 // we ask them to allocate e and me
-void rlwe_key_switch_encrypt(switch_t key_switch, const poly_t m, poly_t me,
-                             poly_t e, const keys_t* keys,
-                             const rns_params_t* params) {
+void rlwe_key_switch_encrypt(switch_t key_switch, xof_state_t* xof_state,
+                             const poly_t m, poly_t me, poly_t e,
+                             const keys_t* keys, const rns_params_t* params) {
   uint32_t n = params->n;
   // B = -(-A)S + DeltaM + E
   for (uint32_t k = 0; k < params->l; k++) {
     // E
-    poly_cbd24_sampler(e, n);
+    poly_cbd24_sampler(e, xof_state, n);
     // Encrypt 0
     for (uint32_t i = 0; i < params->l; i++) {
       if (i == k) continue;
-      rlwe_encrypt_step(&key_switch[k].a[n * i], &key_switch[k].b[n * i], me, e,
-                        &keys->s[n * i], &params->w[n * i], params->q[i],
-                        params->qRq[i], params->qinv[i], n);
+      rlwe_encrypt_step(&key_switch[k].a[n * i], &key_switch[k].b[n * i], me,
+                        xof_state, e, &keys->s[n * i], &params->w[n * i],
+                        params->q[i], params->qRq[i], params->qinv[i], n);
     }
     // k level (Encrypt s^2)
     poly_add_no_mod(e, m, n);
-    rlwe_encrypt_step(&key_switch[k].a[n * k], &key_switch[k].b[n * k], me, e,
-                      &keys->s[n * k], &params->w[n * k], params->q[k],
-                      params->qRq[k], params->qinv[k], n);
+    rlwe_encrypt_step(&key_switch[k].a[n * k], &key_switch[k].b[n * k], me,
+                      xof_state, e, &keys->s[n * k], &params->w[n * k],
+                      params->q[k], params->qRq[k], params->qinv[k], n);
   }
 }
 
@@ -230,7 +234,8 @@ void rlwe_key_switch(rlwe_t* ab, const rns_t a, const switch_t r, poly_t tmp,
   }
 }
 
-void rlwe_plaintext_encrypt_server(rlwe_t* ab, const poly_t m, const rlwe_t pk,
+void rlwe_plaintext_encrypt_server(rlwe_t* ab, xof_state_t* xof_state,
+                                   const poly_t m, const rlwe_t pk,
                                    const rns_params_t* params) {
   poly_t u, e1, e2;
   poly_t u_ntt, e1_ntt, e2_ntt;
@@ -241,9 +246,9 @@ void rlwe_plaintext_encrypt_server(rlwe_t* ab, const poly_t m, const rlwe_t pk,
   poly_new(&u_ntt, n);
   poly_new(&e1_ntt, n);
   poly_new(&e2_ntt, n);
-  poly_ternary_sampler(u, n);
-  poly_cbd24_sampler_add(e1, m, n);
-  poly_cbd24_sampler(e2, n);
+  poly_ternary_sampler(u, xof_state, n);
+  poly_cbd24_sampler_add(e1, xof_state, m, n);
+  poly_cbd24_sampler(e2, xof_state, n);
   for (uint32_t i = 0; i < params->l; i++) {
     memcpy(u_ntt, u, sizeof(int64_t) * n);
     poly_ntt(u_ntt, &params->w[n * i], params->q[i], params->qRq[i],

@@ -20,8 +20,7 @@ CC := gcc
 
 ARCH_CFLAGS := \
           -O3 \
-          -mavx2 -mfma -march=native \
-          -Isrc/blake3
+          -mavx2 -mfma -march=native
 
 BUILD_DIR := build
 
@@ -57,22 +56,11 @@ CFLAGS := $(COMMON_CFLAGS) $(ARCH_CFLAGS)
 
 LDLIBS := -lm
 
-
-# ----------------------------------------------------------------------
-# Optional AES
-# ----------------------------------------------------------------------
-
-ifeq ($(AES),1)
-CFLAGS += -D__AES_MODE__
-endif
-
-
 # ----------------------------------------------------------------------
 # Directories
 # ----------------------------------------------------------------------
 
 SRC_DIR := src
-BLAKE3_DIR := $(SRC_DIR)/blake3
 TEST_DIR := test
 
 
@@ -80,21 +68,9 @@ TEST_DIR := test
 # Sources
 # ----------------------------------------------------------------------
 
-ifeq ($(ARCH),x86)
-
-SRC_C := $(wildcard $(SRC_DIR)/*.c) \
-         $(wildcard $(BLAKE3_DIR)/*.c)
-
-SRC_S := $(wildcard $(SRC_DIR)/*.S) \
-         $(wildcard $(BLAKE3_DIR)/*.S)
-
-else
-
 SRC_C := $(wildcard $(SRC_DIR)/*.c)
 
 SRC_S := $(wildcard $(SRC_DIR)/*.S)
-
-endif
 
 
 # ----------------------------------------------------------------------

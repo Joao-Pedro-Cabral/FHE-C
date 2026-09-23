@@ -49,15 +49,19 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params);
 
 /*
   @param keys: keys
+  @param xof_state: XOF state
   @param params: RNS params
 */
-void rlwe_gen_secret_key(keys_t* keys, const rns_params_t* params);
+void rlwe_gen_secret_key(keys_t* keys, xof_state_t* xof_state,
+                         const rns_params_t* params);
 
 /*
   @param keys: keys
+  @param xof_state: XOF state
   @param params: RNS params
 */
-void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params);
+void rlwe_gen_relinearization_key(keys_t* keys, xof_state_t* xof_state,
+                                  const rns_params_t* params);
 
 /*
   @param m: input polynomial
@@ -65,8 +69,8 @@ void rlwe_gen_relinearization_key(keys_t* keys, const rns_params_t* params);
   @param params: RNS params
   @param ab: output encrypted RLWE
 */
-void rlwe_plaintext_encrypt(rlwe_t* ab, const poly_t m, const keys_t* keys,
-                            const rns_params_t* params);
+void rlwe_plaintext_encrypt(rlwe_t* ab, xof_state_t* xof_state, const poly_t m,
+                            const keys_t* keys, const rns_params_t* params);
 
 /*
   @param params: RNS params
@@ -79,14 +83,15 @@ void rlwe_plaintext_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
 
 /*
   @param params: RNS params
+  @param xof_state: XOF state
   @param keys: RLWE context
   @param key_switch: output key switch
   @param e: error polynomial (allocated by caller)
   @param m: output polynomial
 */
-void rlwe_key_switch_encrypt(switch_t key_switch, const poly_t m, poly_t me,
-                             poly_t e, const keys_t* keys,
-                             const rns_params_t* params);
+void rlwe_key_switch_encrypt(switch_t key_switch, xof_state_t* xof_state,
+                             const poly_t m, poly_t me, poly_t e,
+                             const keys_t* keys, const rns_params_t* params);
 
 /*
   @param params: RNS params
@@ -110,11 +115,13 @@ void rlwe_key_switch(rlwe_t* ab, const rns_t a, const switch_t r, poly_t tmp,
 
 /*
   @param params: RNS params
+  @param xof_state: XOF state
   @param pk: public key
   @param m: plaintext
   @param ab: output RLWE
 */
-void rlwe_plaintext_encrypt_server(rlwe_t* ab, const poly_t m, const rlwe_t pk,
+void rlwe_plaintext_encrypt_server(rlwe_t* ab, xof_state_t* xof_state,
+                                   const poly_t m, const rlwe_t pk,
                                    const rns_params_t* params);
 
 #endif  // __RLWE_H__

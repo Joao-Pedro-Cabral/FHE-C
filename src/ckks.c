@@ -18,11 +18,15 @@ void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   vec_gen_roots(&params->w, n2);
   // keys
   rlwe_keys_new(&params->keys, &params->rns);
-  rlwe_gen_secret_key(&params->keys, &params->rns);
+  rlwe_gen_secret_key(&params->keys, &params->xof_state, &params->rns);
+  // XOF state
+  uint8_t seed[SEED_BYTES];
+  randombytes(seed, SEED_BYTES);
+  xof_absorb(&params->xof_state, seed);
 }
 
 void ckks_relinearization_keygen(ckks_params_t* params) {
-  rlwe_gen_relinearization_key(&params->keys, &params->rns);
+  rlwe_gen_relinearization_key(&params->keys, &params->xof_state, &params->rns);
 }
 
 // KeySwitch(S^{-1})
@@ -33,8 +37,8 @@ void ckks_conjugation_keygen(ckks_params_t* params) {
   poly_new(&me, params->rns.n);
   uint32_t exp = 2 * params->rns.n - 1;
   poly_permute(s2, params->keys.s_hat, exp, params->rns.n);
-  rlwe_key_switch_encrypt(params->keys.cg, s2, me, e, &params->keys,
-                          &params->rns);
+  rlwe_key_switch_encrypt(params->keys.cg, &params->xof_state, s2, me, e,
+                          &params->keys, &params->rns);
   poly_free(&s2);
   poly_free(&e);
   poly_free(&me);
@@ -45,7 +49,8 @@ void ckks_public_keygen(ckks_params_t* params) {
   poly_t m;
   poly_new(&m, params->rns.n);
   memset(m, 0, sizeof(int64_t) * params->rns.n);
-  rlwe_plaintext_encrypt(&params->keys.pk, m, &params->keys, &params->rns);
+  rlwe_plaintext_encrypt(&params->keys.pk, &params->xof_state, m, &params->keys,
+                         &params->rns);
   poly_free(&m);
 }
 
@@ -64,8 +69,8 @@ void ckks_inner_product_keygen(ckks_params_t* params) {
     uint32_t exp = params->rns.n >> (i + 2);
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.ip[i], s2, me, e, &params->keys,
-                            &params->rns);
+    rlwe_key_switch_encrypt(params->keys.ip[i], &params->xof_state, s2, me, e,
+                            &params->keys, &params->rns);
   }
   poly_free(&s2);
   poly_free(&e);
@@ -90,15 +95,15 @@ void ckks_linear_transform_keygen(ckks_params_t* params) {
     uint32_t exp = i;
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.lt[i], s2, me, e, &params->keys,
-                            &params->rns);
+    rlwe_key_switch_encrypt(params->keys.lt[i], &params->xof_state, s2, me, e,
+                            &params->keys, &params->rns);
   }
   for (uint32_t i = 0; i < n2; i++) {
     uint32_t exp = n1 * i;
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.lt[n1 + i], s2, me, e, &params->keys,
-                            &params->rns);
+    rlwe_key_switch_encrypt(params->keys.lt[n1 + i], &params->xof_state, s2, me,
+                            e, &params->keys, &params->rns);
   }
   poly_free(&s2);
   poly_free(&e);
@@ -133,9 +138,9 @@ void ckks_decode(vec_t* v, const poly_t m, uint32_t level,
   fft(v, &params->w, params->n2);
 }
 
-void ckks_encrypt(ciphertext_t* ct, const poly_t m,
-                  const ckks_params_t* params) {
-  rlwe_plaintext_encrypt(&ct->ab, m, &params->keys, &params->rns);
+void ckks_encrypt(ciphertext_t* ct, const poly_t m, ckks_params_t* params) {
+  rlwe_plaintext_encrypt(&ct->ab, &params->xof_state, m, &params->keys,
+                         &params->rns);
 }
 
 void ckks_decrypt(poly_t m, const ciphertext_t* ct,
@@ -172,8 +177,9 @@ void ckks_ciphertext_plaintext_multiplication(ciphertext_t* ct2,
 }
 
 void ckks_server_encrypt(ciphertext_t* ct, const poly_t m,
-                         const ckks_params_t* params) {
-  rlwe_plaintext_encrypt_server(&ct->ab, m, params->keys.pk, &params->rns);
+                         ckks_params_t* params) {
+  rlwe_plaintext_encrypt_server(&ct->ab, &params->xof_state, m, params->keys.pk,
+                                &params->rns);
 }
 
 void ckks_ciphertext_conjugation(ciphertext_t* ct2, const ciphertext_t* ct1,

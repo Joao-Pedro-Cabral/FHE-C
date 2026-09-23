@@ -10,7 +10,6 @@
 #include <string.h>
 
 #include "mod.h"
-#include "random.h"
 #include "utils.h"
 #include "xof.h"
 
@@ -71,17 +70,12 @@ static const uint32_t perm_table[16][8] = {
     /* 0xF */ {0, 1, 2, 3, 4, 5, 6, 7}};
 #endif
 
-void poly_ternary_sampler(poly_t s, uint32_t n) {
-  // Initialize PRNG
-  uint8_t seed[SEED_BYTES];
-  randombytes(seed, SEED_BYTES);
-  xof_state_t state;
-  xof_absorb(&state, seed, SEED_BYTES);
+void poly_ternary_sampler(poly_t s, xof_state_t* xof_state, uint32_t n) {
   // Sample
   size_t blocks = (((4 * (n / 4) + 2) / 3) + XOF_RATE - 1) / XOF_RATE;
   size_t buflen = blocks * XOF_RATE;
   uint8_t* buf = malloc(buflen);  // Initial guess
-  xof_squeeze(buf, buflen, &state);
+  xof_squeeze(buf, buflen, xof_state);
   uint32_t i = 0, j = 0;
 #ifndef __aarch64__
   __m256i v0123 = _mm256_set_epi64x(3, 2, 1, 0);
@@ -94,7 +88,7 @@ void poly_ternary_sampler(poly_t s, uint32_t n) {
     // We're probably almost at the end so just fetch one more block
     if (j == buflen) {
       buflen = XOF_RATE;
-      xof_squeeze(buf, buflen, &state);
+      xof_squeeze(buf, buflen, xof_state);
       j = 0;
     }
 #ifdef __aarch64__
@@ -135,12 +129,8 @@ void poly_ternary_sampler(poly_t s, uint32_t n) {
 }
 
 // AVX2 doesn't support int64_t multiplication
-void poly_uniform_sampler(poly_t a, uint64_t q, int64_t qRq, uint32_t n) {
-  uint8_t seed[SEED_BYTES];
-  randombytes(seed, SEED_BYTES);
-  // Initialize PRNG
-  xof_state_t state;
-  xof_absorb(&state, seed, SEED_BYTES);
+void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
+                          int64_t qRq, uint32_t n) {
   // Sample
   uint64_t bound = UINT64_C(-1) / q;
   bound *= q;
@@ -151,13 +141,13 @@ void poly_uniform_sampler(poly_t a, uint64_t q, int64_t qRq, uint32_t n) {
   size_t bufbytes = blocks * XOF_RATE;
   // The rate is multiple of 8 so it's fine
   uint64_t* buf = (uint64_t*)malloc(bufbytes);  // Initial guess
-  xof_squeeze((uint8_t*)buf, bufbytes, &state);
+  xof_squeeze((uint8_t*)buf, bufbytes, xof_state);
   uint32_t i = 0, j = 0;
   while (i < n) {
     // We're probably almost at the end so just fetch one more block
     if (j == bufbytes / sizeof(int64_t)) {
       bufbytes = XOF_RATE;
-      xof_squeeze((uint8_t*)buf, bufbytes, &state);
+      xof_squeeze((uint8_t*)buf, bufbytes, xof_state);
       j = 0;
     }
     uint64_t x = buf[j];
@@ -173,11 +163,10 @@ void poly_uniform_sampler(poly_t a, uint64_t q, int64_t qRq, uint32_t n) {
 
 // AVX2 doesn't support popcnt
 // TODO: With error the things doesn't work well...
-void poly_cbd24_sampler_add(poly_t e, const poly_t m, uint32_t n) {
+void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state, const poly_t m,
+                            uint32_t n) {
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
-  uint8_t seed[SEED_BYTES];
-  randombytes(seed, SEED_BYTES);
-  xof(buf, 6 * n, seed, SEED_BYTES);
+  xof_squeeze(buf, 6 * n, xof_state);
   uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
   uint8_t *c0_8 = buf + 3 * n, *c1_8 = buf + 4 * n, *c2_8 = buf + 5 * n;
 #ifdef __aarch64__
@@ -270,11 +259,9 @@ void poly_cbd24_sampler_add(poly_t e, const poly_t m, uint32_t n) {
   free(buf);
 }
 
-void poly_cbd24_sampler(poly_t e, uint32_t n) {
+void poly_cbd24_sampler(poly_t e, xof_state_t* xof_state, uint32_t n) {
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
-  uint8_t seed[SEED_BYTES];
-  randombytes(seed, SEED_BYTES);
-  xof(buf, 6 * n, seed, SEED_BYTES);
+  xof_squeeze(buf, 6 * n, xof_state);
   uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
   uint8_t *c0_8 = buf + 3 * n, *c1_8 = buf + 4 * n, *c2_8 = buf + 5 * n;
 #ifdef __aarch64__

@@ -5,13 +5,15 @@
 #include "ciphertext.h"
 #include "rlwe.h"
 #include "vector.h"
+#include "xof.h"
 
 // Parameters for CKKS usage (should be initialized with ckks_keygen)
 typedef struct {
-  vec_t w;           // odd 2n complex roots of unity
-  uint32_t n2;       // vector slot size (n2 < n)
-  rns_params_t rns;  // RNS parameters
-  keys_t keys;       // RLWE context (keys_t and roots)
+  vec_t w;                // odd 2n complex roots of unity
+  uint32_t n2;            // vector slot size (n2 < n)
+  rns_params_t rns;       // RNS parameters
+  keys_t keys;            // RLWE context (keys_t and roots)
+  xof_state_t xof_state;  // XOF state
 } ckks_params_t;
 
 /*
@@ -75,8 +77,7 @@ void ckks_decode(vec_t* v, const poly_t m, uint32_t level,
   @param params: CKKS params
   @param ct: output ciphertext_t
 */
-void ckks_encrypt(ciphertext_t* ct, const poly_t m,
-                  const ckks_params_t* params);
+void ckks_encrypt(ciphertext_t* ct, const poly_t m, ckks_params_t* params);
 
 /*
   @param ct: input ciphertext_t
@@ -143,7 +144,7 @@ void ckks_ciphertext_conjugation(ciphertext_t* ct2, const ciphertext_t* ct1,
   @param params: CKKS params
 */
 void ckks_server_encrypt(ciphertext_t* ct, const poly_t m,
-                         const ckks_params_t* params);
+                         ckks_params_t* params);
 
 /*
   BE CAREFUL! This function doesn't take into account the ratio n/2n2

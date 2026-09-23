@@ -14,6 +14,7 @@
 #define AES128CTR_KEYBYTES 16
 #define AES128CTR_BLOCKBYTES 64
 
+// We support until 2^64 blocks
 typedef struct {
 #ifdef __aarch64__
   uint8_t rkeys[AES128CTR_KEYBYTES * 11];
@@ -27,10 +28,6 @@ typedef struct {
 void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
                     uint64_t nonce);
 
-void aes128ctr_squeezeblocks(uint8_t *out, size_t nblocks,
-                             aes128ctr_ctx *state);
-
-void aes128ctr_prf(uint8_t *out, size_t outlen,
-                   const uint8_t key[AES128CTR_KEYBYTES], uint64_t nonce);
+void aes128ctr_squeeze(uint8_t *out, size_t outlen, aes128ctr_ctx *state);
 
 #endif  // __AES128CTR_H__
