@@ -57,10 +57,16 @@ static inline uint64_t gcd(uint64_t a, uint64_t b) {
 }
 
 #define MILLER_N_TESTS 7
+#define MILLER_BASIS_PRIMES 6
 
 // Enough for p < 2^64
-static const uint64_t miller_primes[MILLER_N_TESTS] = {
+static const uint64_t miller_basis[MILLER_N_TESTS] = {
     2UL, 325UL, 9375UL, 28178UL, 450775UL, 9780504UL, 1795265022UL};
+
+// We need to check these guys first to prevent these primes being considered as
+// composite
+static const uint64_t miller_base_primes[MILLER_BASIS_PRIMES] = {
+    13UL, 19UL, 73UL, 193UL, 407521UL, 299210837UL};
 
 // We suppose that the input is on the form d2^s+1
 static bool miller_rabin_primality_test(uint64_t p) {
@@ -68,9 +74,12 @@ static bool miller_rabin_primality_test(uint64_t p) {
   uint64_t d = (p - 1) >> s;
   // Check some base cases
   if ((p % 2 == 0) || (p % 3 == 0) || (p % 5 == 0)) return false;
+  for (uint32_t i = 0; i < MILLER_BASIS_PRIMES; i++) {
+    if (p == miller_base_primes[i]) return true;
+  }
   // Test
   for (uint32_t i = 0; i < MILLER_N_TESTS; i++) {
-    uint64_t a = miller_primes[i];
+    uint64_t a = miller_basis[i];
     uint64_t x = mod_pow0(a, d, p);
     bool composity;
     for (uint32_t j = 0; j < s; j++) {

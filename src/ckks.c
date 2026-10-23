@@ -16,13 +16,13 @@ void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   params->n2 = n2;
   vec_new(&params->w, n2);
   vec_gen_roots(&params->w, n2);
-  // keys
-  rlwe_keys_new(&params->keys, &params->rns);
-  rlwe_gen_secret_key(&params->keys, &params->xof_state, &params->rns);
   // XOF state
   uint8_t seed[SEED_BYTES];
   randombytes(seed, SEED_BYTES);
   xof_absorb(&params->xof_state, seed);
+  // keys
+  rlwe_keys_new(&params->keys, &params->rns);
+  rlwe_gen_secret_key(&params->keys, &params->xof_state, &params->rns);
 }
 
 void ckks_relinearization_keygen(ckks_params_t* params) {
