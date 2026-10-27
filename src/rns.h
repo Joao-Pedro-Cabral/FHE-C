@@ -6,16 +6,17 @@
 
 typedef int64_t* rns_t;  // L polynomials (one per q_i)
 
+// Notation: x_ymz = (x/y) mod z
 typedef struct {
   uint64_t* q;       // l modulus
-  int64_t* qinv;     // inverse of the l q's mod 2^64
-  int64_t* qinvq;    // R(q_i)-1 mod q_j
-  int64_t* qR;       // R=2^64 in the l modulis
-  int64_t* qR2;      // R^2=2^128 in the l modulis
-  int64_t* qRq;      // R/q, round even
-  int64_t* qn;       // 1/n, R=2^64 in q modulis
-  int64_t* qRn;      // R/n, R=2^64 in q modulis
-  int64_t* qR2n;     // R^2/n, R=2^64 in q modulis
+  int64_t* qinvmR;   // inverse of the l q's mod 2^64
+  int64_t* Rqinvmq;  // R(q_i)-1 mod q_j
+  int64_t* Rmq;      // R=2^64 in the l modulis
+  int64_t* R2mq;     // R^2=2^128 in the l modulis
+  int64_t* R_q;      // R/q, round even
+  int64_t* _nmq;     // 1/n, R=2^64 in q modulis
+  int64_t* R_nmq;    // R/n, R=2^64 in q modulis
+  int64_t* R2_nmq;   // R^2/n, R=2^64 in q modulis
   uint64_t* scales;  // scales for each moduli
   uint32_t l;        // size of the rns
   uint32_t n;        // size of the polynomials

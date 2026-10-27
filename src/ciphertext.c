@@ -19,9 +19,9 @@ void ciphertext_ciphertext_addition(ciphertext_t* ct3, const ciphertext_t* ct1,
   uint32_t n = params->n;
   for (uint32_t i = 0; i < ct1->level; i++) {
     poly_add2(&ct3->ab.a[n * i], &ct2->ab.a[n * i], &ct1->ab.a[n * i],
-              params->q[i], params->qRq[i], n);
+              params->q[i], params->R_q[i], n);
     poly_add2(&ct3->ab.b[n * i], &ct2->ab.b[n * i], &ct1->ab.b[n * i],
-              params->q[i], params->qRq[i], n);
+              params->q[i], params->R_q[i], n);
   }
 }
 
@@ -39,38 +39,38 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
   for (uint32_t i = 0; i < ct1->level; i++) {
     // D0
     poly_pointwise_mul(&ct3->ab.b[n * i], &ct1->ab.b[n * i], &ct2->ab.b[n * i],
-                       params->q[i], params->qinv[i], n);  // R-1
+                       params->q[i], params->qinvmR[i], n);  // R-1
     // D1
     poly_pointwise_mul(&ct3->ab.a[n * i], &ct1->ab.b[n * i], &ct2->ab.a[n * i],
-                       params->q[i], params->qinv[i], n);  // 1
+                       params->q[i], params->qinvmR[i], n);  // 1
     poly_pointwise_mul(tmp, &ct1->ab.a[n * i], &ct2->ab.b[n * i], params->q[i],
-                       params->qinv[i], n);  // 1
-    poly_add(&ct3->ab.a[n * i], tmp, params->q[i], params->qRq[i],
+                       params->qinvmR[i], n);  // 1
+    poly_add(&ct3->ab.a[n * i], tmp, params->q[i], params->R_q[i],
              n);  // 1
     // D2
     poly_pointwise_mul(&d2[n * i], &ct1->ab.a[n * i], &ct2->ab.a[n * i],
-                       params->q[i], params->qinv[i], n);  // R
-    poly_mulx(&d2[n * i], 1, params->q[i], params->qinv[i],
+                       params->q[i], params->qinvmR[i], n);  // R
+    poly_mulx(&d2[n * i], 1, params->q[i], params->qinvmR[i],
               n);  // 1
   }
   // Relinearization
   for (uint32_t i = 0; i < ct1->level; i++) {
     for (uint32_t j = 0; j < ct1->level; j++) {
       poly_pointwise_mul(tmp, &d2[n * i], &r[i].b[n * j], params->q[j],
-                         params->qinv[j],
+                         params->qinvmR[j],
                          n);  // R-1
-      poly_add(&ct3->ab.b[n * j], tmp, params->q[j], params->qRq[j],
+      poly_add(&ct3->ab.b[n * j], tmp, params->q[j], params->R_q[j],
                n);  // R-1
       poly_pointwise_mul(tmp, &d2[n * i], &r[i].a[n * j], params->q[j],
-                         params->qinv[j],
+                         params->qinvmR[j],
                          n);  // 1
-      poly_add(&ct3->ab.a[n * j], tmp, params->q[j], params->qRq[j],
+      poly_add(&ct3->ab.a[n * j], tmp, params->q[j], params->R_q[j],
                n);  // 1
     }
   }
   for (uint32_t i = 0; i < ct1->level; i++) {
     // Add R factor
-    poly_mulx(&ct3->ab.b[n * i], params->qR2[i], params->q[i], params->qinv[i],
+    poly_mulx(&ct3->ab.b[n * i], params->R2mq[i], params->q[i], params->qinvmR[i],
               n);  // 1
   }
   // Rescaling (ModSwitch)
@@ -85,10 +85,10 @@ void ciphertext_plaintext_addition(ciphertext_t* ct2, const ciphertext_t* ct1,
   ct2->level = ct1->level;
   uint32_t n = params->n;
   for (uint32_t i = 0; i < ct1->level; i++) {
-    poly_mod(&ct2->ab.b[n * i], m, params->q[i], params->qRq[i], n);
-    poly_ntt(&ct2->ab.b[n * i], &params->w[n * i], params->q[i], params->qRq[i],
-             params->qinv[i], n);
-    poly_add(&ct2->ab.b[n * i], &ct1->ab.b[n * i], params->q[i], params->qRq[i],
+    poly_mod(&ct2->ab.b[n * i], m, params->q[i], params->R_q[i], n);
+    poly_ntt(&ct2->ab.b[n * i], &params->w[n * i], params->q[i], params->R_q[i],
+             params->qinvmR[i], n);
+    poly_add(&ct2->ab.b[n * i], &ct1->ab.b[n * i], params->q[i], params->R_q[i],
              n);
     memcpy(&ct2->ab.a[n * i], &ct1->ab.a[n * i], n * sizeof(int64_t));
   }
@@ -101,14 +101,14 @@ void ciphertext_plaintext_base_multiplication(ciphertext_t* ct2,
   ct2->level = ct1->level;
   uint32_t n = params->n;
   for (uint32_t i = 0; i < ct1->level; i++) {
-    poly_mod(&ct2->ab.b[n * i], m, params->q[i], params->qRq[i], n);
-    poly_ntt(&ct2->ab.b[n * i], &params->w[n * i], params->q[i], params->qRq[i],
-             params->qinv[i], n);
+    poly_mod(&ct2->ab.b[n * i], m, params->q[i], params->R_q[i], n);
+    poly_ntt(&ct2->ab.b[n * i], &params->w[n * i], params->q[i], params->R_q[i],
+             params->qinvmR[i], n);
     poly_pointwise_mul(&ct2->ab.a[n * i], &ct1->ab.a[n * i], &ct2->ab.b[n * i],
-                       params->q[i], params->qinv[i], n);
+                       params->q[i], params->qinvmR[i], n);
     poly_pointwise_mul(&ct2->ab.b[n * i], &ct1->ab.b[n * i], &ct2->ab.b[n * i],
-                       params->q[i], params->qinv[i], n);
-    poly_mulx(&ct2->ab.b[n * i], params->qR2[i], params->q[i], params->qinv[i],
+                       params->q[i], params->qinvmR[i], n);
+    poly_mulx(&ct2->ab.b[n * i], params->R2mq[i], params->q[i], params->qinvmR[i],
               n);
   }
 }
@@ -123,7 +123,7 @@ void ciphertext_mod_switch(ciphertext_t* ct, poly_t tmp,
   // Add R factor
   uint32_t n = params->n;
   for (uint32_t i = 0; i < ct->level; i++) {
-    poly_mulx(&ct->ab.a[n * i], params->qR2[i], params->q[i], params->qinv[i],
+    poly_mulx(&ct->ab.a[n * i], params->R2mq[i], params->q[i], params->qinvmR[i],
               n);
   }
 }
@@ -148,20 +148,20 @@ void ciphertext_rotation(ciphertext_t* ct2, const ciphertext_t* ct1, uint32_t h,
   uint32_t n = params->n;
   for (uint32_t i = 0; i < ct1->level; i++) {
     // X -> X^(5^h)
-    poly_mulx2(tmp_p, &ct1->ab.a[n * i], params->qRn[i], params->q[i],
-               params->qinv[i], n);
-    poly_intt(tmp_p, &params->w_1[n * i], params->q[i], params->qRq[i],
-              params->qinv[i], n);
+    poly_mulx2(tmp_p, &ct1->ab.a[n * i], params->R_nmq[i], params->q[i],
+               params->qinvmR[i], n);
+    poly_intt(tmp_p, &params->w_1[n * i], params->q[i], params->R_q[i],
+              params->qinvmR[i], n);
     poly_permute(&tmp_r[n * i], tmp_p, h, n);
-    poly_ntt(&tmp_r[n * i], &params->w[n * i], params->q[i], params->qRq[i],
-             params->qinv[i], n);
-    poly_mulx2(tmp_p, &ct1->ab.b[n * i], params->qRn[i], params->q[i],
-               params->qinv[i], n);
-    poly_intt(tmp_p, &params->w_1[n * i], params->q[i], params->qRq[i],
-              params->qinv[i], n);
+    poly_ntt(&tmp_r[n * i], &params->w[n * i], params->q[i], params->R_q[i],
+             params->qinvmR[i], n);
+    poly_mulx2(tmp_p, &ct1->ab.b[n * i], params->R_nmq[i], params->q[i],
+               params->qinvmR[i], n);
+    poly_intt(tmp_p, &params->w_1[n * i], params->q[i], params->R_q[i],
+              params->qinvmR[i], n);
     poly_permute(&ct2->ab.b[n * i], tmp_p, h, n);
-    poly_ntt(&ct2->ab.b[n * i], &params->w[n * i], params->q[i], params->qRq[i],
-             params->qinv[i], n);
+    poly_ntt(&ct2->ab.b[n * i], &params->w[n * i], params->q[i], params->R_q[i],
+             params->qinvmR[i], n);
   }
   // Key Switch
   ct2->level = ct1->level;

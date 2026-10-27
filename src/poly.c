@@ -130,7 +130,7 @@ void poly_ternary_sampler(poly_t s, xof_state_t* xof_state, uint32_t n) {
 
 // AVX2 doesn't support int64_t multiplication
 void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
-                          int64_t qRq, uint32_t n) {
+                          int64_t R_q, uint32_t n) {
   // Sample
   uint64_t bound = UINT64_C(-1) / q;
   bound *= q;
@@ -152,7 +152,7 @@ void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
     }
     uint64_t x = buf[j];
     if (x < bound) {
-      int64_t y = mod_ct_exact((int64_t)x, (int64_t)q, qRq);
+      int64_t y = mod_ct_exact((int64_t)x, (int64_t)q, R_q);
       a[i] = y;
       i++;
     }
@@ -351,61 +351,61 @@ void poly_sub_no_mod(poly_t a, const poly_t b, uint32_t n) {
   }
 }
 
-void poly_add(poly_t a, const poly_t b, uint64_t q, int64_t qRq, uint32_t n) {
+void poly_add(poly_t a, const poly_t b, uint64_t q, int64_t R_q, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod_ct_exact(a[i] + b[i], (int64_t)q, qRq);
+    a[i] = mod_ct_exact(a[i] + b[i], (int64_t)q, R_q);
   }
 }
 
 void poly_add2(poly_t c, const poly_t a, const poly_t b, uint64_t q,
-               int64_t qRq, uint32_t n) {
+               int64_t R_q, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    c[i] = mod_ct_exact(a[i] + b[i], (int64_t)q, qRq);
+    c[i] = mod_ct_exact(a[i] + b[i], (int64_t)q, R_q);
   }
 }
 
-void poly_rsub(poly_t a, const poly_t b, uint64_t q, int64_t qRq, uint32_t n) {
+void poly_rsub(poly_t a, const poly_t b, uint64_t q, int64_t R_q, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod_ct_exact(b[i] - a[i], (int64_t)q, qRq);
+    a[i] = mod_ct_exact(b[i] - a[i], (int64_t)q, R_q);
   }
 }
 
-void poly_sub(poly_t a, const poly_t b, uint64_t q, int64_t qRq, uint32_t n) {
+void poly_sub(poly_t a, const poly_t b, uint64_t q, int64_t R_q, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod_ct_exact(a[i] - b[i], (int64_t)q, qRq);
+    a[i] = mod_ct_exact(a[i] - b[i], (int64_t)q, R_q);
   }
 }
 
 void poly_pointwise_mul(poly_t c, const poly_t a, const poly_t b, uint64_t q,
-                        int64_t qinv, uint32_t n) {
+                        int64_t qinvmR, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    c[i] = mod_mul_ct(a[i], b[i], (int64_t)q, qinv);
+    c[i] = mod_mul_ct(a[i], b[i], (int64_t)q, qinvmR);
   }
 }
 
-void poly_mulx(poly_t a, int64_t x, uint64_t q, int64_t qinv, uint32_t n) {
+void poly_mulx(poly_t a, int64_t x, uint64_t q, int64_t qinvmR, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod_mul_ct(a[i], x, (int64_t)q, qinv);
+    a[i] = mod_mul_ct(a[i], x, (int64_t)q, qinvmR);
   }
 }
 
-void poly_mulx2(poly_t a, const poly_t b, int64_t x, uint64_t q, int64_t qinv,
+void poly_mulx2(poly_t a, const poly_t b, int64_t x, uint64_t q, int64_t qinvmR,
                 uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod_mul_ct(b[i], x, (int64_t)q, qinv);
+    a[i] = mod_mul_ct(b[i], x, (int64_t)q, qinvmR);
   }
 }
 
-void poly_mulx_exact(poly_t a, int64_t x, uint64_t q, int64_t qinv,
+void poly_mulx_exact(poly_t a, int64_t x, uint64_t q, int64_t qinvmR,
                      uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    a[i] = mod_mul_ct_exact(a[i], x, (int64_t)q, qinv);
+    a[i] = mod_mul_ct_exact(a[i], x, (int64_t)q, qinvmR);
   }
 }
 
-void poly_mod(poly_t b, const poly_t a, uint64_t q, int64_t qRq, uint32_t n) {
+void poly_mod(poly_t b, const poly_t a, uint64_t q, int64_t R_q, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
-    b[i] = mod_ct(a[i], (int64_t)q, qRq);
+    b[i] = mod_ct(a[i], (int64_t)q, R_q);
   }
 }
 
@@ -424,13 +424,13 @@ void poly_permute(poly_t a, const poly_t b, uint32_t h, uint32_t n) {
 
 #define CT_BUTTERFLY(aj, ak, zeta, t)                 \
   do {                                                \
-    (t) = mod_mul_ct((zeta), (ak), (int64_t)q, qinv); \
-    (ak) = mod_ct((aj) - (t), (int64_t)q, qRq);       \
-    (aj) = mod_ct((aj) + (t), (int64_t)q, qRq);       \
+    (t) = mod_mul_ct((zeta), (ak), (int64_t)q, qinvmR); \
+    (ak) = mod_ct((aj) - (t), (int64_t)q, R_q);       \
+    (aj) = mod_ct((aj) + (t), (int64_t)q, R_q);       \
   } while (0)
 
-void poly_ntt(poly_t a, const poly_t roots, uint64_t q, int64_t qRq,
-              int64_t qinv, uint32_t n) {
+void poly_ntt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
+              int64_t qinvmR, uint32_t n) {
   int64_t zeta, t;
 
   uint32_t log2_n = floor_log2(n / 16);
@@ -655,12 +655,12 @@ void poly_ntt(poly_t a, const poly_t roots, uint64_t q, int64_t qRq,
 #define GS_BUTTERFLY(aj, ak, zeta, t)                 \
   do {                                                \
     (t) = (aj) - (ak);                                \
-    (aj) = mod_ct((aj) + (ak), (int64_t)q, qRq);      \
-    (ak) = mod_mul_ct((zeta), (t), (int64_t)q, qinv); \
+    (aj) = mod_ct((aj) + (ak), (int64_t)q, R_q);      \
+    (ak) = mod_mul_ct((zeta), (t), (int64_t)q, qinvmR); \
   } while (0)
 
-void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t qRq,
-               int64_t qinv, uint32_t n) {
+void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
+               int64_t qinvmR, uint32_t n) {
   int64_t t, zeta;
   // Merge first 4 layers using 16+ registers
   uint32_t k1 = n / 2;
@@ -883,23 +883,23 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t qRq,
   // R^2/n multiplication performed in poly_add/poly_rsub
 }
 
-void poly_gen_roots(poly_t roots, uint32_t n, int64_t q, int64_t qR,
-                    int64_t qinv) {
+void poly_gen_roots(poly_t roots, uint32_t n, int64_t q, int64_t Rmq,
+                    int64_t qinvmR) {
   // Find one primitive root (n > 2)
   uint32_t log2_n = floor_log2(n);
-  int64_t root0 = find_smallest_2nth_root(n, q, qR, qinv);
-  root0 = mod_mul(root0, qR, q);  // montgomery factor
+  int64_t root0 = find_smallest_2nth_root(n, q, Rmq, qinvmR);
+  root0 = mod_mul(root0, Rmq, q);  // montgomery factor
   roots[0] = 1;
   int64_t etan = root0;
   roots[n / 2] = etan;
   for (uint32_t i = 2; i < n; i++) {
-    etan = mod_mul_ct(etan, root0, q, qinv);
+    etan = mod_mul_ct(etan, root0, q, qinvmR);
     roots[bit_reverse32(i, log2_n)] = etan;
   }
 }
 
 void poly_gen_inverse_roots(poly_t roots, int64_t root0, uint32_t n, int64_t q,
-                            int64_t qinv) {
+                            int64_t qinvmR) {
   // Find one primitive root (n > 2)
   uint32_t log2_n = floor_log2(n);
   int64_t etan = -1;  // x^n
@@ -907,7 +907,7 @@ void poly_gen_inverse_roots(poly_t roots, int64_t root0, uint32_t n, int64_t q,
   etan = mod_mul(etan, root0, q);
   roots[n - 1] = etan;  // bit_reverse32(n - 1, log2_n)
   for (uint32_t i = 2; i < n; i++) {
-    etan = mod_mul_ct(etan, root0, q, qinv);
+    etan = mod_mul_ct(etan, root0, q, qinvmR);
     roots[bit_reverse32(n - i, log2_n)] = etan;
   }
 }

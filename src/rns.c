@@ -18,21 +18,21 @@ void rns_mod_switch(rns_t a, poly_t tmp, uint32_t level,
   uint32_t n = params->n;
   // FastBConv mod q_i
   poly_intt(&a[n * level], &params->w_1[n * level], params->q[level],
-            params->qRq[level], params->qinv[level], n);
-  poly_mulx(&a[n * level], params->qRn[level], params->q[level],
-            params->qinv[level], n);
+            params->R_q[level], params->qinvmR[level], n);
+  poly_mulx(&a[n * level], params->R_nmq[level], params->q[level],
+            params->qinvmR[level], n);
   for (uint32_t i = 0; i < level; i++) {
-    poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->qRq[i],
-              params->qinv[i], n);
-    poly_mulx(&a[n * i], params->qRn[i], params->q[i], params->qinv[i], n);
+    poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
+              params->qinvmR[i], n);
+    poly_mulx(&a[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
     // FastBConv mod b_j
-    poly_mod(tmp, &a[n * level], params->q[i], params->qRq[i], n);
+    poly_mod(tmp, &a[n * level], params->q[i], params->R_q[i], n);
     //
-    poly_sub(&a[n * i], tmp, params->q[i], params->qRq[i], n);
-    poly_mulx(&a[n * i], params->qinvq[level * params->l + i], params->q[i],
-              params->qinv[i], n);
-    poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->qRq[i],
-             params->qinv[i], n);
+    poly_sub(&a[n * i], tmp, params->q[i], params->R_q[i], n);
+    poly_mulx(&a[n * i], params->Rqinvmq[level * params->l + i], params->q[i],
+              params->qinvmR[i], n);
+    poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->R_q[i],
+             params->qinvmR[i], n);
   }
 }
 
@@ -42,42 +42,42 @@ void rns_mod_switch_p(rns_t a, poly_t tmp1, poly_t tmp2, uint32_t level,
   uint32_t n = params->n;
   // FastBConv mod q_i
   uint32_t l = params->l;
-  poly_intt(&a[n * l], &params->w_1[n * l], params->q[l], params->qRq[l],
-            params->qinv[l], n);
-  poly_mulx(&a[n * l], params->qRn[l], params->q[l], params->qinv[l], n);
-  poly_mulx(&a[n * l], params->qinvq[(l + 1) * (l + 2) + l], params->q[l],
-            params->qinv[l], n);
+  poly_intt(&a[n * l], &params->w_1[n * l], params->q[l], params->R_q[l],
+            params->qinvmR[l], n);
+  poly_mulx(&a[n * l], params->R_nmq[l], params->q[l], params->qinvmR[l], n);
+  poly_mulx(&a[n * l], params->Rqinvmq[(l + 1) * (l + 2) + l], params->q[l],
+            params->qinvmR[l], n);
   poly_intt(&a[n * (l + 1)], &params->w_1[n * (l + 1)], params->q[(l + 1)],
-            params->qRq[(l + 1)], params->qinv[(l + 1)], n);
-  poly_mulx(&a[n * (l + 1)], params->qRn[(l + 1)], params->q[(l + 1)],
-            params->qinv[(l + 1)], n);
-  poly_mulx(&a[n * (l + 1)], params->qinvq[l * (l + 2) + (l + 1)],
-            params->q[(l + 1)], params->qinv[(l + 1)], n);
+            params->R_q[(l + 1)], params->qinvmR[(l + 1)], n);
+  poly_mulx(&a[n * (l + 1)], params->R_nmq[(l + 1)], params->q[(l + 1)],
+            params->qinvmR[(l + 1)], n);
+  poly_mulx(&a[n * (l + 1)], params->Rqinvmq[l * (l + 2) + (l + 1)],
+            params->q[(l + 1)], params->qinvmR[(l + 1)], n);
   for (uint32_t i = 0; i < level; i++) {
-    poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->qRq[i],
-              params->qinv[i], n);
-    poly_mulx(&a[n * i], params->qRn[i], params->q[i], params->qinv[i], n);
+    poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
+              params->qinvmR[i], n);
+    poly_mulx(&a[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
     // FastBConv mod b_j
-    poly_mulx2(tmp1, &a[n * l], params->q[l + 1], params->q[i], params->qinv[i],
+    poly_mulx2(tmp1, &a[n * l], params->q[l + 1], params->q[i], params->qinvmR[i],
                n);
     poly_mulx2(tmp2, &a[n * (l + 1)], params->q[l], params->q[i],
-               params->qinv[i], n);
-    poly_add(tmp1, tmp2, params->q[i], params->qRq[i], n);
-    poly_mulx(tmp1, params->qR2[i], params->q[i], params->qinv[i], n);
+               params->qinvmR[i], n);
+    poly_add(tmp1, tmp2, params->q[i], params->R_q[i], n);
+    poly_mulx(tmp1, params->R2mq[i], params->q[i], params->qinvmR[i], n);
     //
-    poly_sub(&a[n * i], tmp1, params->q[i], params->qRq[i], n);
-    poly_mulx(&a[n * i], params->qinvq[level * (l + 2) + i], params->q[i],
-              params->qinv[i], n);
-    poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->qRq[i],
-             params->qinv[i], n);
+    poly_sub(&a[n * i], tmp1, params->q[i], params->R_q[i], n);
+    poly_mulx(&a[n * i], params->Rqinvmq[level * (l + 2) + i], params->q[i],
+              params->qinvmR[i], n);
+    poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->R_q[i],
+             params->qinvmR[i], n);
   }
 }
 
 static void rns_gen_roots(rns_params_t* params) {
   uint32_t n = params->n;
   for (uint32_t i = 0; i < params->l; i++) {
-    poly_gen_roots(&params->w[n * i], n, (int64_t)params->q[i], params->qR[i],
-                   params->qinv[i]);
+    poly_gen_roots(&params->w[n * i], n, (int64_t)params->q[i], params->Rmq[i],
+                   params->qinvmR[i]);
   }
 }
 
@@ -85,7 +85,7 @@ static void rns_gen_inverse_roots(rns_params_t* params) {
   uint32_t n = params->n;
   for (uint32_t i = 0; i < params->l; i++) {
     poly_gen_inverse_roots(&params->w_1[n * i], params->w[n * i + n / 2], n,
-                           (int64_t)params->q[i], params->qinv[i]);
+                           (int64_t)params->q[i], params->qinvmR[i]);
   }
 }
 
@@ -102,14 +102,14 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   params->n = n;
   params->l = l;
   params->q = malloc(sizeof(int64_t) * l);
-  params->qR2n = malloc(sizeof(int64_t) * l);
-  params->qn = malloc(sizeof(int64_t) * l);
-  params->qRn = malloc(sizeof(int64_t) * l);
-  params->qR = malloc(sizeof(int64_t) * l);
-  params->qR2 = malloc(sizeof(int64_t) * l);
-  params->qRq = malloc(sizeof(int64_t) * l);
-  params->qinv = malloc(sizeof(int64_t) * l);
-  params->qinvq = malloc(sizeof(int64_t) * l * l);
+  params->R2_nmq = malloc(sizeof(int64_t) * l);
+  params->_nmq = malloc(sizeof(int64_t) * l);
+  params->R_nmq = malloc(sizeof(int64_t) * l);
+  params->Rmq = malloc(sizeof(int64_t) * l);
+  params->R2mq = malloc(sizeof(int64_t) * l);
+  params->R_q = malloc(sizeof(int64_t) * l);
+  params->qinvmR = malloc(sizeof(int64_t) * l);
+  params->Rqinvmq = malloc(sizeof(int64_t) * l * l);
   params->scales = malloc(sizeof(int64_t) * l);
   rns_new(&params->w, params);
   rns_new(&params->w_1, params);
@@ -117,62 +117,62 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   find_primes(params->q, q0_bits, scale_bits, 2 * n, l);
   // Init data (less roots)
   for (uint32_t i = 0; i < l; i++) {
-    // qinv
-    params->qinv[i] = (int64_t)mod64_pow_ct(
+    // qinvmR
+    params->qinvmR[i] = (int64_t)mod64_pow_ct(
         params->q[i], (1UL << 63) - 1);  // q-1 = q^(phi-1) mod 2^64
-    // qR
+    // Rmq
     uint64_t R = (uint64_t)(((__uint128_t)1 << 64) - params->q[i]);
-    params->qR[i] = (int64_t)(R % params->q[i]);
-    if (params->qR[i] > (int64_t)(params->q[i] / 2))
-      params->qR[i] -= (int64_t)params->q[i];
-    // qR2
-    params->qR2[i] =
-        (int64_t)(((__int128_t)params->qR[i] * params->qR[i]) % params->q[i]);
-    if (params->qR2[i] > (int64_t)(params->q[i] / 2))
-      params->qR2[i] -= (int64_t)params->q[i];
-    if (params->qR2[i] < (int64_t) - (params->q[i] / 2))
-      params->qR2[i] += (int64_t)params->q[i];
-    // qn
-    params->qn[i] = mod_pow_ct(n, params->q[i] - 2, (int64_t)params->q[i],
-                               params->qR[i], params->qinv[i]);  // 1/n
-    if (params->qn[i] > (int64_t)(params->q[i] / 2))
-      params->qn[i] -= (int64_t)params->q[i];
-    if (params->qn[i] < (int64_t) - (params->q[i] / 2))
-      params->qn[i] += (int64_t)params->q[i];
-    // qRn
-    params->qRn[i] = (int64_t)(((__int128_t)params->qR[i] * params->qn[i]) %
+    params->Rmq[i] = (int64_t)(R % params->q[i]);
+    if (params->Rmq[i] > (int64_t)(params->q[i] / 2))
+      params->Rmq[i] -= (int64_t)params->q[i];
+    // R2mq
+    params->R2mq[i] =
+        (int64_t)(((__int128_t)params->Rmq[i] * params->Rmq[i]) % params->q[i]);
+    if (params->R2mq[i] > (int64_t)(params->q[i] / 2))
+      params->R2mq[i] -= (int64_t)params->q[i];
+    if (params->R2mq[i] < (int64_t) - (params->q[i] / 2))
+      params->R2mq[i] += (int64_t)params->q[i];
+    // _nmq
+    params->_nmq[i] = mod_pow_ct(n, params->q[i] - 2, (int64_t)params->q[i],
+                               params->Rmq[i], params->qinvmR[i]);  // 1/n
+    if (params->_nmq[i] > (int64_t)(params->q[i] / 2))
+      params->_nmq[i] -= (int64_t)params->q[i];
+    if (params->_nmq[i] < (int64_t) - (params->q[i] / 2))
+      params->_nmq[i] += (int64_t)params->q[i];
+    // R_nmq
+    params->R_nmq[i] = (int64_t)(((__int128_t)params->Rmq[i] * params->_nmq[i]) %
                                params->q[i]);  // R/n
-    if (params->qRn[i] > (int64_t)(params->q[i] / 2))
-      params->qRn[i] -= (int64_t)params->q[i];
-    if (params->qRn[i] < (int64_t) - (params->q[i] / 2))
-      params->qRn[i] += (int64_t)params->q[i];
-    // qR2n
-    params->qR2n[i] = (int64_t)(((__int128_t)params->qR[i] * params->qRn[i]) %
+    if (params->R_nmq[i] > (int64_t)(params->q[i] / 2))
+      params->R_nmq[i] -= (int64_t)params->q[i];
+    if (params->R_nmq[i] < (int64_t) - (params->q[i] / 2))
+      params->R_nmq[i] += (int64_t)params->q[i];
+    // R2_nmq
+    params->R2_nmq[i] = (int64_t)(((__int128_t)params->Rmq[i] * params->R_nmq[i]) %
                                 params->q[i]);  // R^2/n
-    if (params->qR2n[i] > (int64_t)(params->q[i] / 2))
-      params->qR2n[i] -= (int64_t)params->q[i];
-    if (params->qR2n[i] < (int64_t) - (params->q[i] / 2))
-      params->qR2n[i] += (int64_t)params->q[i];
-    // qRq
-    params->qRq[i] =
+    if (params->R2_nmq[i] > (int64_t)(params->q[i] / 2))
+      params->R2_nmq[i] -= (int64_t)params->q[i];
+    if (params->R2_nmq[i] < (int64_t) - (params->q[i] / 2))
+      params->R2_nmq[i] += (int64_t)params->q[i];
+    // R_q
+    params->R_q[i] =
         (int64_t)((((__uint128_t)1 << 64) + params->q[i] / 2) / params->q[i]);
   }
-  // qinvq
+  // Rqinvmq
   for (uint32_t j = 0; j < l; j++) {
     for (uint32_t i = 0; i < l; i++) {
       if (i == j) {
-        params->qinvq[i * l + j] = 0;  // placeholder (never used)
+        params->Rqinvmq[i * l + j] = 0;  // placeholder (never used)
       } else {
-        params->qinvq[i * l + j] = mod_pow_ct(
+        params->Rqinvmq[i * l + j] = mod_pow_ct(
             (int64_t)params->q[i], params->q[j] - 2, (int64_t)params->q[j],
-            params->qR[j], params->qinv[j]);  // (q_i)-1
-        params->qinvq[i * l + j] =
-            (int64_t)(((__int128_t)params->qR[j] * params->qinvq[i * l + j]) %
+            params->Rmq[j], params->qinvmR[j]);  // (q_i)-1
+        params->Rqinvmq[i * l + j] =
+            (int64_t)(((__int128_t)params->Rmq[j] * params->Rqinvmq[i * l + j]) %
                       params->q[j]);  // Add R factor
-        if (params->qinvq[i * l + j] > (int64_t)(params->q[j] / 2))
-          params->qinvq[i * l + j] -= (int64_t)params->q[j];
-        if (params->qinvq[i * l + j] < (int64_t) - (params->q[j] / 2))
-          params->qinvq[i * l + j] += (int64_t)params->q[j];
+        if (params->Rqinvmq[i * l + j] > (int64_t)(params->q[j] / 2))
+          params->Rqinvmq[i * l + j] -= (int64_t)params->q[j];
+        if (params->Rqinvmq[i * l + j] < (int64_t) - (params->q[j] / 2))
+          params->Rqinvmq[i * l + j] += (int64_t)params->q[j];
       }
     }
   }
@@ -189,15 +189,15 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
 }
 
 void rns_params_free(rns_params_t* params) {
-  free(params->qinv);
-  free(params->qinvq);
-  free(params->qRq);
-  free(params->qR);
-  free(params->qR2);
+  free(params->qinvmR);
+  free(params->Rqinvmq);
+  free(params->R_q);
+  free(params->Rmq);
+  free(params->R2mq);
   free(params->q);
-  free(params->qR2n);
-  free(params->qRn);
-  free(params->qn);
+  free(params->R2_nmq);
+  free(params->R_nmq);
+  free(params->_nmq);
   free(params->scales);
   rns_free(&params->w);
   rns_free(&params->w_1);

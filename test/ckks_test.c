@@ -27,16 +27,16 @@ static uint64_t time_ns(void) {
 }
 #endif
 
-void check_q_aux(const uint64_t* q, const int64_t* qR, const int64_t* qR2,
-                 const int64_t* qRq, const int64_t* qinv, const int64_t* qn,
-                 const int64_t* qRn, const int64_t* qR2n, uint32_t l) {
+void check_q_aux(const uint64_t* q, const int64_t* Rmq, const int64_t* R2mq,
+                 const int64_t* R_q, const int64_t* qinvmR, const int64_t* _nmq,
+                 const int64_t* R_nmq, const int64_t* R2_nmq, uint32_t l) {
   printf("---------- VERIFY Q AUXILIARIES ROOTS ----------\n");
   for (uint32_t i = 0; i < l; i++) {
     printf(
-        "qR: %ld, qR2: %ld, qinv: %ld, qRq: %ld, qn: %ld, qRn: %ld , qR2n: %ld "
+        "Rmq: %ld, R2mq: %ld, qinvmR: %ld, R_q: %ld, _nmq: %ld, R_nmq: %ld , R2_nmq: %ld "
         "mod "
         "%ld\n",
-        qR[i], qR2[i], qinv[i], qRq[i], qn[i], qRn[i], qR2n[i], q[i]);
+        Rmq[i], R2mq[i], qinvmR[i], R_q[i], _nmq[i], R_nmq[i], R2_nmq[i], q[i]);
   }
 }
 
@@ -68,8 +68,8 @@ void check_secret_key(const ckks_params_t* params) {
   for (uint32_t i = 0; i < params->rns.l; i++) {
     memcpy(s_hat, &params->keys.s[n * i], n * sizeof(uint64_t));
     poly_intt(s_hat, &params->rns.w_1[n * i], params->rns.q[i],
-              params->rns.qRq[i], params->rns.qinv[i], n);
-    poly_mulx(s_hat, params->rns.qRn[i], params->rns.q[i], params->rns.qinv[i],
+              params->rns.R_q[i], params->rns.qinvmR[i], n);
+    poly_mulx(s_hat, params->rns.R_nmq[i], params->rns.q[i], params->rns.qinvmR[i],
               n);  // multiply by R^2/n
     for (uint32_t j = 0; j < n; j++) {
       if (s_hat[j] != params->keys.s_hat[j]) {
@@ -264,9 +264,9 @@ bool check_ntt_mod_switch(rns_t a, rns_t a2, const rns_params_t* params) {
   bool correct = true;
   uint32_t n = params->n;
   for (uint32_t i = 0; i < params->l - 1; i++) {
-    poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->qRq[i],
-              params->qinv[i], n);
-    poly_mulx(&a[n * i], params->qRn[i], params->q[i], params->qinv[i], n);
+    poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
+              params->qinvmR[i], n);
+    poly_mulx(&a[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
     for (uint32_t j = 0; j < n; j++) {
       int64_t new_a =
           (int64_t)(((__int128_t)params->q[params->l - 1] * a[n * i + j] +
@@ -303,8 +303,8 @@ void check_mod_switch(const rns_params_t* params) {
   }
   memcpy(a2, a, n * params->l * sizeof(int64_t));
   for (uint32_t i = 0; i < params->l; i++) {
-    poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->qRq[i],
-             params->qinv[i], n);
+    poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->R_q[i],
+             params->qinvmR[i], n);
   }
   rns_mod_switch(a, tmp, params->l - 1, params);
   correct = check_ntt_mod_switch(a, a2, params);
@@ -333,9 +333,9 @@ void check_d0(const ciphertext_t* ct2, const ciphertext_t* ct,
           (int64_t)(((__int128_t)ct->ab.b[n * i + j] * ct->ab.b[n * i + j]) %
                     (int64_t)params->q[i]);
     }
-    poly_intt(&d0[n * i], &params->w_1[n * i], params->q[i], params->qRq[i],
-              params->qinv[i], n);
-    poly_mulx(&d0[n * i], params->qRn[i], params->q[i], params->qinv[i], n);
+    poly_intt(&d0[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
+              params->qinvmR[i], n);
+    poly_mulx(&d0[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
     for (uint32_t j = 0; j < n; j++) {
       if (d0[n * i + j] < 0) d0[n * i + j] += (int64_t)params->q[i];
     }
@@ -369,9 +369,9 @@ void check_d1(const ciphertext_t* ct2, const ciphertext_t* ct,
       d1[n * i + j] =
           (int64_t)(((__int128_t)2 * d1[n * i + j]) % (int64_t)params->q[i]);
     }
-    poly_intt(&d1[n * i], &params->w_1[n * i], params->q[i], params->qRq[i],
-              params->qinv[i], n);
-    poly_mulx(&d1[n * i], params->qRn[i], params->q[i], params->qinv[i], n);
+    poly_intt(&d1[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
+              params->qinvmR[i], n);
+    poly_mulx(&d1[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
     for (uint32_t j = 0; j < n; j++) {
       if (d1[n * i + j] < 0) d1[n * i + j] += (int64_t)params->q[i];
     }
@@ -526,8 +526,8 @@ int main() {
     ckks_linear_transform_keygen(&params);
   }
 #ifdef __DEBUG_MODE__
-  check_q_aux(params.rns.q, params.rns.qR, params.rns.qR2, params.rns.qRq,
-              params.rns.qinv, params.rns.qn, params.rns.qRn, params.rns.qR2n,
+  check_q_aux(params.rns.q, params.rns.Rmq, params.rns.R2mq, params.rns.R_q,
+              params.rns.qinvmR, params.rns._nmq, params.rns.R_nmq, params.rns.R2_nmq,
               params.rns.l);
   check_roots(params.rns.w, params.rns.q, params.rns.l, params.rns.n);
   check_roots(params.rns.w_1, params.rns.q, params.rns.l, params.rns.n);

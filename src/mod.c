@@ -6,11 +6,11 @@
 
 #include "utils.h"
 
-int64_t mod_pow_ct(int64_t a, uint64_t b, int64_t q, int64_t qR, int64_t qinv) {
-  int64_t c = 1, d = mod_mul(a, qR, q);
+int64_t mod_pow_ct(int64_t a, uint64_t b, int64_t q, int64_t Rmq, int64_t qinvmR) {
+  int64_t c = 1, d = mod_mul(a, Rmq, q);
   while (b > 0) {
-    if ((b & 0x1) == 1) c = mod_mul_ct(c, d, q, qinv);
-    d = mod_mul_ct(d, d, q, qinv);
+    if ((b & 0x1) == 1) c = mod_mul_ct(c, d, q, qinvmR);
+    d = mod_mul_ct(d, d, q, qinvmR);
     b >>= 1;
   }
   return c;
@@ -186,7 +186,7 @@ static uint32_t find_primes_factors(uint64_t* s, uint64_t m) {
   return find_primes_factors_rec(s, k, m);
 }
 
-static uint64_t find_primitive_root(int64_t q, int64_t qR, int64_t qinv) {
+static uint64_t find_primitive_root(int64_t q, int64_t Rmq, int64_t qinvmR) {
   uint64_t log2_q =
       ceil64_log2((uint64_t)q);  // at maximum log2_q prime factors
   uint64_t* primes = malloc(log2_q * sizeof(uint64_t));
@@ -199,7 +199,7 @@ static uint64_t find_primitive_root(int64_t q, int64_t qR, int64_t qinv) {
   for (r = 2; r <= phi; r++) {
     bool find = true;
     for (uint32_t j = 0; j < k; j++) {
-      if (mod_pow_ct(r, primes[j], q, qR, qinv) == 1) {
+      if (mod_pow_ct(r, primes[j], q, Rmq, qinvmR) == 1) {
         find = false;
         break;
       }
@@ -210,20 +210,20 @@ static uint64_t find_primitive_root(int64_t q, int64_t qR, int64_t qinv) {
   return (uint64_t)r;
 }
 
-int64_t find_smallest_2nth_root(uint64_t n, int64_t q, int64_t qR,
-                                int64_t qinv) {
-  uint64_t q_1th_root = find_primitive_root(q, qR, qinv);
+int64_t find_smallest_2nth_root(uint64_t n, int64_t q, int64_t Rmq,
+                                int64_t qinvmR) {
+  uint64_t q_1th_root = find_primitive_root(q, Rmq, qinvmR);
   int64_t smallest =
-      mod_pow_ct((int64_t)q_1th_root, ((uint64_t)q - 1) / (2 * n), q, qR, qinv);
+      mod_pow_ct((int64_t)q_1th_root, ((uint64_t)q - 1) / (2 * n), q, Rmq, qinvmR);
   // To [0, 2q[
   if (smallest < 0) smallest += q;
-  int64_t root2 = (int64_t)(((__int128_t)smallest * qR) % q);  // xR
-  root2 = mod_mul_ct(root2, root2, q, qinv);                   // x^2R
+  int64_t root2 = (int64_t)(((__int128_t)smallest * Rmq) % q);  // xR
+  root2 = mod_mul_ct(root2, root2, q, qinvmR);                   // x^2R
   int64_t root = smallest;
   // Find smallest nth root (OpenFHE API)
   for (uint32_t i = 1; i < n; i++) {
     // mod_mul_ct is centered, but here I want [0, q[
-    root = mod_mul_ct(root, root2, q, qinv);  // xy
+    root = mod_mul_ct(root, root2, q, qinvmR);  // xy
     if (root < 0) root += q;
     if ((root < smallest) && (root != 1)) smallest = root;
   }
