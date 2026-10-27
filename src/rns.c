@@ -16,6 +16,7 @@ void rns_mod_switch(rns_t a, poly_t tmp, uint32_t level,
                     const rns_params_t* params) {
   // For ModSwitch we need to come back to the normal domain
   uint32_t n = params->n;
+  // FastBConv mod q_i
   poly_intt(&a[n * level], &params->w_1[n * level], params->q[level],
             params->qRq[level], params->qinv[level], n);
   poly_mulx(&a[n * level], params->qRn[level], params->q[level],
@@ -24,9 +25,48 @@ void rns_mod_switch(rns_t a, poly_t tmp, uint32_t level,
     poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->qRq[i],
               params->qinv[i], n);
     poly_mulx(&a[n * i], params->qRn[i], params->q[i], params->qinv[i], n);
+    // FastBConv mod b_j
     poly_mod(tmp, &a[n * level], params->q[i], params->qRq[i], n);
+    //
     poly_sub(&a[n * i], tmp, params->q[i], params->qRq[i], n);
     poly_mulx(&a[n * i], params->qinvq[level * params->l + i], params->q[i],
+              params->qinv[i], n);
+    poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->qRq[i],
+             params->qinv[i], n);
+  }
+}
+
+void rns_mod_switch_p(rns_t a, poly_t tmp1, poly_t tmp2, uint32_t level,
+                      const rns_params_t* params) {
+  // For ModSwitch we need to come back to the normal domain
+  uint32_t n = params->n;
+  // FastBConv mod q_i
+  uint32_t l = params->l;
+  poly_intt(&a[n * l], &params->w_1[n * l], params->q[l], params->qRq[l],
+            params->qinv[l], n);
+  poly_mulx(&a[n * l], params->qRn[l], params->q[l], params->qinv[l], n);
+  poly_mulx(&a[n * l], params->qinvq[(l + 1) * (l + 2) + l], params->q[l],
+            params->qinv[l], n);
+  poly_intt(&a[n * (l + 1)], &params->w_1[n * (l + 1)], params->q[(l + 1)],
+            params->qRq[(l + 1)], params->qinv[(l + 1)], n);
+  poly_mulx(&a[n * (l + 1)], params->qRn[(l + 1)], params->q[(l + 1)],
+            params->qinv[(l + 1)], n);
+  poly_mulx(&a[n * (l + 1)], params->qinvq[l * (l + 2) + (l + 1)],
+            params->q[(l + 1)], params->qinv[(l + 1)], n);
+  for (uint32_t i = 0; i < level; i++) {
+    poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->qRq[i],
+              params->qinv[i], n);
+    poly_mulx(&a[n * i], params->qRn[i], params->q[i], params->qinv[i], n);
+    // FastBConv mod b_j
+    poly_mulx2(tmp1, &a[n * l], params->q[l + 1], params->q[i], params->qinv[i],
+               n);
+    poly_mulx2(tmp2, &a[n * (l + 1)], params->q[l], params->q[i],
+               params->qinv[i], n);
+    poly_add(tmp1, tmp2, params->q[i], params->qRq[i], n);
+    poly_mulx(tmp1, params->qR2[i], params->q[i], params->qinv[i], n);
+    //
+    poly_sub(&a[n * i], tmp1, params->q[i], params->qRq[i], n);
+    poly_mulx(&a[n * i], params->qinvq[level * (l + 2) + i], params->q[i],
               params->qinv[i], n);
     poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->qRq[i],
              params->qinv[i], n);

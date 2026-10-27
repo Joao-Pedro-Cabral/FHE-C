@@ -500,9 +500,9 @@ void check_linear_transform(const vec_t* v1, const vec_t* v2, const vec_t* mat,
 int main() {
   // Parameters Construction
   uint32_t l = 1;
-  uint32_t n2 = 64;
+  uint32_t n2 = 16;
   uint32_t q0_bits = 60;
-  uint32_t scale_bits = 30;
+  uint32_t scale_bits = 40;
 
   ckks_params_t params;
 
@@ -546,8 +546,8 @@ int main() {
   vec_t v;
   vec_new(&v, n2);
   for (uint32_t i = 0; i < n2; i++) {
-    v.rel[i] = (double)i / 100000;
-    v.img[i] = (double)i / 100000 + 1;
+    v.rel[i] = (double)0.25 * i;
+    v.img[i] = 0;
   }
   // printf("---------- ENCODE VECTOR ----------\n");
   // for (uint32_t i = 0; i < n / 2; i++) {
@@ -592,8 +592,8 @@ int main() {
 #endif
   // printf("---------- ENCRYPTED B ----------\n");
   // for (uint32_t i = 0; i < l; i++) {
-  //   for (uint32_t j = 0; j < n; j++) {
-  //     printf("b[%d][%d]: %ld\n", i, j, ct->ab.b[n*i+j]);
+  //   for (uint32_t j = 0; j < params.rns.n; j++) {
+  //     printf("b[%d][%d]: %ld\n", i, j, ct.ab.b[params.rns.n * i + j]);
   //   }
   // }
 
