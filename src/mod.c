@@ -6,7 +6,8 @@
 
 #include "utils.h"
 
-int64_t mod_pow_ct(int64_t a, uint64_t b, int64_t q, int64_t Rmq, int64_t qinvmR) {
+int64_t mod_pow_ct(int64_t a, uint64_t b, int64_t q, int64_t Rmq,
+                   int64_t qinvmR) {
   int64_t c = 1, d = mod_mul(a, Rmq, q);
   while (b > 0) {
     if ((b & 0x1) == 1) c = mod_mul_ct(c, d, q, qinvmR);
@@ -213,12 +214,12 @@ static uint64_t find_primitive_root(int64_t q, int64_t Rmq, int64_t qinvmR) {
 int64_t find_smallest_2nth_root(uint64_t n, int64_t q, int64_t Rmq,
                                 int64_t qinvmR) {
   uint64_t q_1th_root = find_primitive_root(q, Rmq, qinvmR);
-  int64_t smallest =
-      mod_pow_ct((int64_t)q_1th_root, ((uint64_t)q - 1) / (2 * n), q, Rmq, qinvmR);
+  int64_t smallest = mod_pow_ct((int64_t)q_1th_root,
+                                ((uint64_t)q - 1) / (2 * n), q, Rmq, qinvmR);
   // To [0, 2q[
   if (smallest < 0) smallest += q;
   int64_t root2 = (int64_t)(((__int128_t)smallest * Rmq) % q);  // xR
-  root2 = mod_mul_ct(root2, root2, q, qinvmR);                   // x^2R
+  root2 = mod_mul_ct(root2, root2, q, qinvmR);                  // x^2R
   int64_t root = smallest;
   // Find smallest nth root (OpenFHE API)
   for (uint32_t i = 1; i < n; i++) {
@@ -267,13 +268,14 @@ static uint64_t previous_prime(uint64_t p, uint32_t n) {
   return p;
 }
 
-void find_primes(uint64_t* q, uint32_t q0_bits, uint32_t scale_bits, uint32_t n,
-                 uint32_t l) {
+void find_primes(uint64_t* q, uint32_t q0_bits, uint32_t scale_bits,
+                 uint32_t p_bits, uint32_t n, uint32_t l, uint32_t k) {
   // First find the l scale_bits primes
   uint64_t q1 = first_prime(scale_bits, n);
   q[l - 1] = q1;
   double q_approx = (double)q1;
   uint64_t q_max = q1;
+  uint64_t q_0, q_p;
   uint32_t cnt = 0;
   for (uint32_t i = l - 2; i > 0; i--, cnt++) {
     q_approx = (double)(q_approx * q_approx) / (double)q[i + 1];
@@ -313,8 +315,21 @@ void find_primes(uint64_t* q, uint32_t q0_bits, uint32_t scale_bits, uint32_t n,
   }
   // Find q0
   if (q0_bits == scale_bits) {
-    q[0] = next_prime(q_max, n);
+    q_0 = next_prime(q_max, n);
+    q_max = q_0;
   } else {
-    q[0] = first_prime(q0_bits, n);
+    q_0 = first_prime(q0_bits, n);
   }
+  q[0] = q_0;
+  // Find P moduli
+  if (p_bits == scale_bits) {
+    q_p = next_prime(q_max, n);
+  } else if (p_bits == q0_bits) {
+    q_p = next_prime(q_0, n);
+  } else {
+    q_p = first_prime(p_bits, n);
+  }
+  q[l] = q_p;
+  q_p = next_prime(q_p, n);
+  q[l + 1] = q_p;
 }

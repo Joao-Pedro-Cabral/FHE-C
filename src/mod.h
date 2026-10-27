@@ -7,7 +7,8 @@
 
 // We do static inline here for remove function call overhead
 
-int64_t mod_pow_ct(int64_t a, uint64_t b, int64_t q, int64_t Rmq, int64_t qinvmR);
+int64_t mod_pow_ct(int64_t a, uint64_t b, int64_t q, int64_t Rmq,
+                   int64_t qinvmR);
 
 uint64_t mod64_pow_ct(uint64_t a, uint64_t b);
 
@@ -73,8 +74,8 @@ static inline int64_t mod_mul(int64_t a, int64_t b, int64_t q) {
 int64_t find_smallest_2nth_root(uint64_t n, int64_t q, int64_t Rmq,
                                 int64_t qinvmR);
 
-void find_primes(uint64_t* q, uint32_t q0_bits, uint32_t scale_bits, uint32_t n,
-                 uint32_t l);
+void find_primes(uint64_t* q, uint32_t q0_bits, uint32_t scale_bits,
+                 uint32_t p_bits, uint32_t n, uint32_t l, uint32_t k);
 
 uint32_t mod_pow2(uint32_t a, uint32_t b, uint32_t q);
 

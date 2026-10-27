@@ -17,7 +17,7 @@ typedef rlwe_t* switch_t;  // L RLWS's for Key Switch (one per q_i)
 typedef struct {
   poly_t s_hat;  // secrt key in normal domain
   rns_t s;       // secret key in l NTT domains
-  switch_t r;    // relinearization key (l RLWE's)
+  switch_t r;    // relinearization key (l+k RLWE's)
   rlwe_t pk;     // public key
   switch_t cg;   // conjugation key
   switch_t* ip;  // log2_n - 1 inner product rotation keys by 5^h, h = 2^i

@@ -6,19 +6,28 @@
 
 typedef int64_t* rns_t;  // L polynomials (one per q_i)
 
+// Using dnum = 1, these values are always fine for P
+#define P_MOD_BITS 62
+#define P_MOD_SIZE 2
+
 // Notation: x_ymz = (x/y) mod z
 typedef struct {
-  uint64_t* q;       // l modulus
-  int64_t* qinvmR;   // inverse of the l q's mod 2^64
+  uint64_t* q;       // l+k modulus
+  int64_t* qinvmR;   // inverse of the l+k q's mod 2^64
   int64_t* Rqinvmq;  // R(q_i)-1 mod q_j
-  int64_t* Rmq;      // R=2^64 in the l modulis
-  int64_t* R2mq;     // R^2=2^128 in the l modulis
+  int64_t* Rmq;      // R=2^64 in the l+k modulis
+  int64_t* R2mq;     // R^2=2^128 in the l+k modulis
   int64_t* R_q;      // R/q, round even
   int64_t* _nmq;     // 1/n, R=2^64 in q modulis
   int64_t* R_nmq;    // R/n, R=2^64 in q modulis
   int64_t* R2_nmq;   // R^2/n, R=2^64 in q modulis
+  int64_t* zRbq;     // zR's for FastBConv(, b, q): k elements
+  int64_t* yRbq;     // yR's for FastBConv(, b, q): k*l elements
+  int64_t* zRqb;     // zR's for FastBConv(, q, b): l*l elements
+  int64_t* yRqb;     // yR's for FastBConv(, q, b): l*k*l elements
   uint64_t* scales;  // scales for each moduli
-  uint32_t l;        // size of the rns
+  uint32_t k;        // size of the rns P (ModRaise)
+  uint32_t l;        // size of the rns Q (BaseMod)
   uint32_t n;        // size of the polynomials
   rns_t w;           // NTT roots for each ring
   rns_t w_1;         // INTT roots for each ring

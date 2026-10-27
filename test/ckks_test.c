@@ -29,21 +29,23 @@ static uint64_t time_ns(void) {
 
 void check_q_aux(const uint64_t* q, const int64_t* Rmq, const int64_t* R2mq,
                  const int64_t* R_q, const int64_t* qinvmR, const int64_t* _nmq,
-                 const int64_t* R_nmq, const int64_t* R2_nmq, uint32_t l) {
+                 const int64_t* R_nmq, const int64_t* R2_nmq, uint32_t lk) {
   printf("---------- VERIFY Q AUXILIARIES ROOTS ----------\n");
-  for (uint32_t i = 0; i < l; i++) {
+  for (uint32_t i = 0; i < lk; i++) {
     printf(
-        "Rmq: %ld, R2mq: %ld, qinvmR: %ld, R_q: %ld, _nmq: %ld, R_nmq: %ld , R2_nmq: %ld "
+        "Rmq: %ld, R2mq: %ld, qinvmR: %ld, R_q: %ld, _nmq: %ld, R_nmq: %ld , "
+        "R2_nmq: %ld "
         "mod "
         "%ld\n",
         Rmq[i], R2mq[i], qinvmR[i], R_q[i], _nmq[i], R_nmq[i], R2_nmq[i], q[i]);
   }
 }
 
-void check_roots(const rns_t roots, const uint64_t* q, uint32_t l, uint32_t n) {
+void check_roots(const rns_t roots, const uint64_t* q, uint32_t lk,
+                 uint32_t n) {
   printf("---------- VERIFY RNS ROOTS ----------\n");
   uint8_t correct = 1;
-  for (uint32_t i = 0; i < l; i++) {
+  for (uint32_t i = 0; i < lk; i++) {
     for (uint32_t j = 0; j < n; j++) {
       if ((roots[n * i + j] >= (int64_t)q[i]) |
           (roots[n * i + j] <= -(int64_t)q[i])) {
@@ -69,7 +71,8 @@ void check_secret_key(const ckks_params_t* params) {
     memcpy(s_hat, &params->keys.s[n * i], n * sizeof(uint64_t));
     poly_intt(s_hat, &params->rns.w_1[n * i], params->rns.q[i],
               params->rns.R_q[i], params->rns.qinvmR[i], n);
-    poly_mulx(s_hat, params->rns.R_nmq[i], params->rns.q[i], params->rns.qinvmR[i],
+    poly_mulx(s_hat, params->rns.R_nmq[i], params->rns.q[i],
+              params->rns.qinvmR[i],
               n);  // multiply by R^2/n
     for (uint32_t j = 0; j < n; j++) {
       if (s_hat[j] != params->keys.s_hat[j]) {
@@ -527,10 +530,12 @@ int main() {
   }
 #ifdef __DEBUG_MODE__
   check_q_aux(params.rns.q, params.rns.Rmq, params.rns.R2mq, params.rns.R_q,
-              params.rns.qinvmR, params.rns._nmq, params.rns.R_nmq, params.rns.R2_nmq,
-              params.rns.l);
-  check_roots(params.rns.w, params.rns.q, params.rns.l, params.rns.n);
-  check_roots(params.rns.w_1, params.rns.q, params.rns.l, params.rns.n);
+              params.rns.qinvmR, params.rns._nmq, params.rns.R_nmq,
+              params.rns.R2_nmq, params.rns.l + params.rns.k);
+  check_roots(params.rns.w, params.rns.q, params.rns.l + params.rns.k,
+              params.rns.n);
+  check_roots(params.rns.w_1, params.rns.q, params.rns.l + params.rns.k,
+              params.rns.n);
   check_keys(&params);
 #endif
 

@@ -20,10 +20,11 @@ void rlwe_free(rlwe_t* ab) {
 
 void rlwe_keys_new(keys_t* keys, const rns_params_t* params) {
   uint32_t n = params->n;
+  uint32_t lk = params->l + params->k;
   poly_new(&keys->s_hat, n);
   rns_new(&keys->s, params);
-  keys->r = malloc(params->l * sizeof(rlwe_t));
-  for (uint32_t i = 0; i < params->l; i++) {
+  keys->r = malloc(lk * sizeof(rlwe_t));
+  for (uint32_t i = 0; i < lk; i++) {
     rlwe_new(&keys->r[i], params);
   }
   rlwe_new(&keys->pk, params);
@@ -57,7 +58,7 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
   uint32_t n = params->n;
   poly_free(&keys->s_hat);
   rns_free(&keys->s);
-  for (uint32_t i = 0; i < params->l; i++) {
+  for (uint32_t i = 0; i < params->l + params->k; i++) {
     rlwe_free(&keys->r[i]);
   }
   free(keys->r);
@@ -109,8 +110,8 @@ void rlwe_gen_relinearization_key(keys_t* keys, xof_state_t* xof_state,
   // Compute S^2 in the first (biggest) NTT domain
   poly_pointwise_mul(s2, &keys->s[0], &keys->s[0], params->q[0],
                      params->qinvmR[0], n);
-  poly_intt(s2, &params->w_1[0], params->q[0], params->R_q[0], params->qinvmR[0],
-            n);
+  poly_intt(s2, &params->w_1[0], params->q[0], params->R_q[0],
+            params->qinvmR[0], n);
   // Removes the INTT R^2/n factor
   poly_mulx(s2, params->R2_nmq[0], params->q[0], params->qinvmR[0], n);
   rlwe_key_switch_encrypt(keys->r, xof_state, s2, me, e, keys, params);
