@@ -269,7 +269,8 @@ static uint64_t previous_prime(uint64_t p, uint32_t n) {
 }
 
 void find_primes(uint64_t* q, uint32_t q0_bits, uint32_t scale_bits,
-                 uint32_t p_bits, uint32_t n, uint32_t l, uint32_t k) {
+                 uint32_t p_bits, uint32_t p2_bits, uint32_t n, uint32_t l,
+                 uint32_t k) {
   // First find the l scale_bits primes
   uint64_t q1 = first_prime(scale_bits, n);
   q[l - 1] = q1;
@@ -330,8 +331,12 @@ void find_primes(uint64_t* q, uint32_t q0_bits, uint32_t scale_bits,
     q_p = first_prime(p_bits, n);
   }
   q[l] = q_p;
-  for (uint32_t i = 1; i < k; i++) {
+  for (uint32_t i = 1; i < k - 1; i++) {
     q_p = next_prime(q_p, n);
-    q[l + 1] = q_p;
+    q[l + i] = q_p;
   }
+  // Find the last (smaller) P moduli
+  // Which has a unique number of bits
+  q_p = first_prime(p2_bits, n);
+  q[l + k - 1] = q_p;
 }
