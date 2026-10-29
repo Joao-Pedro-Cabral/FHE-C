@@ -14,18 +14,18 @@ void rns_free(rns_t* a) { free(*a); }
 
 // x is in the normal domain
 static void rns_fastb_conv(rns_t o, const rns_t x, const uint64_t* q,
-                           const uint64_t* b, const uint64_t* z,
-                           const uint64_t* y, const uint64_t* qinvmR,
-                           const uint64_t* binvmR, const uint64_t* R_b,
+                           const uint64_t* b, const int64_t* z,
+                           const int64_t* y, const int64_t* qinvmR,
+                           const int64_t* binvmR, const int64_t* R_b,
                            uint32_t n, uint32_t k, uint32_t l) {
   for (uint32_t i = 0; i < l; i++) {
     for (uint32_t j = 0; j < n; n++) {
       int64_t acc = 0;
       for (uint32_t ii = 0; ii < k; ii++) {
         int64_t tmp = x[n * ii + j];
-        tmp = mod_mul_ct(tmp, z[ii], q[i], qinvmR[i]);
-        tmp = mod_mul_ct(tmp, y[k * i + ii], b[j], binvmR[j]);
-        acc = mod_ct(acc + tmp, b[j], R_b[j]);
+        tmp = mod_mul_ct(tmp, z[ii], (int64_t)q[i], qinvmR[i]);
+        tmp = mod_mul_ct(tmp, y[k * i + ii], (int64_t)b[j], binvmR[j]);
+        acc = mod_ct(acc + tmp, (int64_t)b[j], R_b[j]);
       }
       o[n * i + j] = acc;
     }
@@ -46,7 +46,6 @@ void rns_mod_switch(rns_t a, rns_t tmp, uint32_t level,
   rns_fastb_conv(tmp, &a[n * params->l], &params->q[params->l], params->q,
                  params->zRbq, params->yRbq, &params->qinvmR[params->l],
                  params->qinvmR, params->R_q, params->n, level, params->k);
-  rns_t tmp2 = &a[n * level];
   for (uint32_t i = 0; i < level; i++) {
     poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
               params->qinvmR[i], n);
@@ -59,8 +58,7 @@ void rns_mod_switch(rns_t a, rns_t tmp, uint32_t level,
   }
 }
 
-void rns_mode_raise(rns_t a, rns_t tmp, uint32_t level,
-                    const rns_params_t* params) {
+void rns_mode_raise(rns_t a, uint32_t level, const rns_params_t* params) {
   rns_fastb_conv(&a[params->n * params->l], a, params->q, &params->q[params->l],
                  &params->zRqb[params->l * level],
                  &params->yRqb[params->l * level * params->k], params->qinvmR,
@@ -85,7 +83,7 @@ static void rns_gen_inverse_roots(rns_params_t* params) {
 }
 
 static inline uint32_t compute_ring_dimension(uint32_t qtotal_bits) {
-  return 512;
+  return 128;
 }
 
 void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
@@ -93,6 +91,7 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   // Allocate Memory
   uint32_t qtotal_bits = q0_bits + l * scale_bits;
   l++;  // q0 prime + l for multiplicative depth
+  uint32_t k = P_MOD_SIZE;
   uint32_t n = compute_ring_dimension(qtotal_bits);
   params->n = n;
   params->l = l;
@@ -108,6 +107,10 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   params->qinvmR = malloc(sizeof(int64_t) * lk);
   params->Rqinvmq = malloc(sizeof(int64_t) * l * l);  // only for rescaling
   params->scales = malloc(sizeof(int64_t) * l);  // Scales only for Q moduli
+  params->zRbq = malloc(sizeof(int64_t) * k);
+  params->yRbq = malloc(sizeof(int64_t) * k * l);
+  params->zRqb = malloc(sizeof(int64_t) * l * l);
+  params->yRqb = malloc(sizeof(int64_t) * k * l * l);
   rns_new(&params->w, params);
   rns_new(&params->w_1, params);
   // 2n: negacyclic
@@ -150,9 +153,10 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
       if (i == j) {
         params->Rqinvmq[i * l + j] = 0;  // placeholder (never used)
       } else {
-        params->Rqinvmq[i * l + j] = mod_pow_ct(
-            (int64_t)params->q[i], params->q[j] - 2, (int64_t)params->q[j],
-            params->Rmq[j], params->qinvmR[j]);  // (q_i)-1
+        params->Rqinvmq[i * l + j] =
+            mod_pow_ct((int64_t)params->q[i], params->q[j] - 2,
+                       (int64_t)params->q[j], params->Rmq[j],
+                       params->qinvmR[j]);  // (q_i)-1
         params->Rqinvmq[i * l + j] =
             q_to_q2((int64_t)(((__int128_t)params->Rmq[j] *
                                params->Rqinvmq[i * l + j]) %
@@ -173,13 +177,15 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
     int64_t acc = 1;
     for (uint32_t j = params->l; j < params->l + params->k; j++) {
       if (i == j) continue;
-      acc = mod_mul_ct(
-          mod_mul_ct(acc, params->q[j], params->q[i], params->qinvmR[i]),
-          params->R2mq[i], params->q[i], params->qinvmR[i]);
+      acc =
+          mod_mul_ct(mod_mul_ct(acc, (int64_t)params->q[j],
+                                (int64_t)params->q[i], params->qinvmR[i]),
+                     params->R2mq[i], (int64_t)params->q[i], params->qinvmR[i]);
     }
     acc = mod_pow_ct(acc, params->q[i] - 2, (int64_t)params->q[i],
                      params->Rmq[i], params->qinvmR[i]);
-    acc = mod_mul_ct(acc, params->R2mq[i], params->q[i], params->qinvmR[i]);
+    acc = mod_mul_ct(acc, params->R2mq[i], (int64_t)params->q[i],
+                     params->qinvmR[i]);
     params->zRbq[i - params->l] = q_to_q2(acc, (int64_t)(params->q[i]));
   }
   // yRbq
@@ -188,11 +194,13 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
       int64_t acc = 1;
       for (uint32_t ii = params->l; ii < params->l + params->k; ii++) {
         if (j == ii) continue;
-        acc = mod_mul_ct(
-            mod_mul_ct(acc, params->q[ii], params->q[i], params->qinvmR[i]),
-            params->R2mq[i], params->q[i], params->qinvmR[i]);
+        acc = mod_mul_ct(mod_mul_ct(acc, (int64_t)params->q[ii],
+                                    (int64_t)params->q[i], params->qinvmR[i]),
+                         params->R2mq[i], (int64_t)params->q[i],
+                         params->qinvmR[i]);
       }
-      params->yRbq[params->k * i + j] = q_to_q2(acc, (int64_t)(params->q[i]));
+      params->yRbq[params->k * i + j - params->l] =
+          q_to_q2(acc, (int64_t)(params->q[i]));
     }
   }
   // zRqb
@@ -203,14 +211,14 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   for (uint32_t i = 2; i < params->l; i++) {
     for (uint32_t j = 0; j < i; j++) {
       int64_t tmp = mod_mul_ct(params->zRqb[(i - 1) * params->l + j],
-                               params->Rqinvmq[j * params->l + i], params->q[j],
-                               params->qinvmR[j]);
+                               params->Rqinvmq[j * params->l + i],
+                               (int64_t)params->q[j], params->qinvmR[j]);
       params->zRqb[i * params->l + j] = q_to_q2(tmp, (int64_t)(params->q[i]));
     }
     int64_t acc = params->Rqinvmq[i * params->l];
     for (uint32_t j = 1; j < i; j++) {
-      acc = mod_mul_ct(acc, params->Rqinvmq[i * params->l + j], params->q[i],
-                       params->qinvmR[i]);
+      acc = mod_mul_ct(acc, params->Rqinvmq[i * params->l + j],
+                       (int64_t)params->q[i], params->qinvmR[i]);
     }
     params->zRqb[i * params->l + i] = q_to_q2(acc, (int64_t)(params->q[i]));
   }
@@ -226,8 +234,8 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
       for (uint32_t ii = 0; ii < j; ii++) {
         tmp = mod_mul_ct(
             params->yRqb[(j - 1) * params->l * params->k + i * params->l + ii],
-            params->q[j], params->q[li], params->qinvmR[li]);
-        tmp = mod_mul_ct(tmp, params->R2mq[li], params->q[li],
+            (int64_t)params->q[j], (int64_t)params->q[li], params->qinvmR[li]);
+        tmp = mod_mul_ct(tmp, params->R2mq[li], (int64_t)params->q[li],
                          params->qinvmR[li]);
         params->yRqb[j * params->l * params->k + i * params->l + ii] =
             q_to_q2(tmp, (int64_t)(params->q[li]));
@@ -235,9 +243,10 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
       tmp = mod_mul_ct(
           params
               ->yRqb[(j - 1) * params->l * params->k + i * params->l + (j - 1)],
-          params->q[j - 1], params->q[li], params->qinvmR[li]);
-      tmp =
-          mod_mul_ct(tmp, params->R2mq[li], params->q[li], params->qinvmR[li]);
+          (int64_t)params->q[j - 1], (int64_t)params->q[li],
+          params->qinvmR[li]);
+      tmp = mod_mul_ct(tmp, params->R2mq[li], (int64_t)params->q[li],
+                       params->qinvmR[li]);
       params->yRqb[j * params->l * params->k + i * params->l + j] =
           q_to_q2(tmp, (int64_t)(params->q[li]));
     }
@@ -257,6 +266,10 @@ void rns_params_free(rns_params_t* params) {
   free(params->R2_nmq);
   free(params->R_nmq);
   free(params->_nmq);
+  free(params->zRbq);
+  free(params->yRbq);
+  free(params->zRqb);
+  free(params->yRqb);
   free(params->scales);
   rns_free(&params->w);
   rns_free(&params->w_1);

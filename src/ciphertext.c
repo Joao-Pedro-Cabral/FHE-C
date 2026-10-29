@@ -31,9 +31,11 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
                                           const switch_t r,
                                           const rns_params_t* params) {
   poly_t tmp;
+  rns_t tmp_r;
   rns_t d2;
   uint32_t n = params->n;
   poly_new(&tmp, n);
+  rns_new(&tmp_r, params);
   rns_new(&d2, params);
   // Basic Multiplication
   for (uint32_t i = 0; i < ct1->level; i++) {
@@ -70,13 +72,15 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
   }
   for (uint32_t i = 0; i < ct1->level; i++) {
     // Add R factor
-    poly_mulx(&ct3->ab.b[n * i], params->R2mq[i], params->q[i], params->qinvmR[i],
+    poly_mulx(&ct3->ab.b[n * i], params->R2mq[i], params->q[i],
+              params->qinvmR[i],
               n);  // 1
   }
   // Rescaling (ModSwitch)
   ct3->level = ct1->level;
-  ciphertext_mod_switch(ct3, tmp, params);
+  ciphertext_mod_switch(ct3, tmp_r, params);
   poly_free(&tmp);
+  rns_free(&tmp_r);
   rns_free(&d2);
 }
 
@@ -108,13 +112,13 @@ void ciphertext_plaintext_base_multiplication(ciphertext_t* ct2,
                        params->q[i], params->qinvmR[i], n);
     poly_pointwise_mul(&ct2->ab.b[n * i], &ct1->ab.b[n * i], &ct2->ab.b[n * i],
                        params->q[i], params->qinvmR[i], n);
-    poly_mulx(&ct2->ab.b[n * i], params->R2mq[i], params->q[i], params->qinvmR[i],
-              n);
+    poly_mulx(&ct2->ab.b[n * i], params->R2mq[i], params->q[i],
+              params->qinvmR[i], n);
   }
 }
 
 // BE CAREFUL: HERE ct->ab.a doesn't have the montgomery factor
-void ciphertext_mod_switch(ciphertext_t* ct, poly_t tmp,
+void ciphertext_mod_switch(ciphertext_t* ct, rns_t tmp,
                            const rns_params_t* params) {
   ct->level = ct->level - 1;
   // Rescaling (Mod Switch)
@@ -123,8 +127,8 @@ void ciphertext_mod_switch(ciphertext_t* ct, poly_t tmp,
   // Add R factor
   uint32_t n = params->n;
   for (uint32_t i = 0; i < ct->level; i++) {
-    poly_mulx(&ct->ab.a[n * i], params->R2mq[i], params->q[i], params->qinvmR[i],
-              n);
+    poly_mulx(&ct->ab.a[n * i], params->R2mq[i], params->q[i],
+              params->qinvmR[i], n);
   }
 }
 
@@ -132,13 +136,12 @@ void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
                                          const ciphertext_t* ct1,
                                          const poly_t m,
                                          const rns_params_t* params) {
-  poly_t tmp;
-  uint32_t n = params->n;
-  poly_new(&tmp, n);
+  rns_t tmp;
+  rns_new(&tmp, params);
   ct2->level = ct1->level;
   ciphertext_plaintext_base_multiplication(ct2, ct1, m, params);
   ciphertext_mod_switch(ct2, tmp, params);
-  poly_free(&tmp);
+  rns_free(&tmp);
 }
 
 // Rotate by 5^h

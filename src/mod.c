@@ -330,6 +330,8 @@ void find_primes(uint64_t* q, uint32_t q0_bits, uint32_t scale_bits,
     q_p = first_prime(p_bits, n);
   }
   q[l] = q_p;
-  q_p = next_prime(q_p, n);
-  q[l + 1] = q_p;
+  for (uint32_t i = 1; i < k; i++) {
+    q_p = next_prime(q_p, n);
+    q[l + 1] = q_p;
+  }
 }
