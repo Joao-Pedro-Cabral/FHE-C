@@ -47,10 +47,11 @@ void rns_free(rns_t* a);
 /*
   @param a: RNS
   @param tmp: auxiliar RNS
-  @param level: new level
+  @param l: remaining levels (0-(l-1))
+  @param m + k: levels to be removed (m-(m+k-1))
   @param params: RNS params
 */
-void rns_mod_switch(rns_t a, rns_t tmp, uint32_t level,
+void rns_mod_switch(rns_t a, rns_t tmp, uint32_t l, uint32_t m, uint32_t k,
                     const rns_params_t* params);
 
 /*

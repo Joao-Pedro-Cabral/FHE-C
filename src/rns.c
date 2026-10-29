@@ -19,39 +19,38 @@ static void rns_fastb_conv(rns_t o, const rns_t x, const uint64_t* q,
                            const int64_t* binvmR, const int64_t* R_b,
                            uint32_t n, uint32_t k, uint32_t l) {
   for (uint32_t i = 0; i < l; i++) {
-    for (uint32_t j = 0; j < n; n++) {
+    for (uint32_t j = 0; j < n; j++) {
       int64_t acc = 0;
       for (uint32_t ii = 0; ii < k; ii++) {
         int64_t tmp = x[n * ii + j];
-        tmp = mod_mul_ct(tmp, z[ii], (int64_t)q[i], qinvmR[i]);
-        tmp = mod_mul_ct(tmp, y[k * i + ii], (int64_t)b[j], binvmR[j]);
-        acc = mod_ct(acc + tmp, (int64_t)b[j], R_b[j]);
+        tmp = mod_mul_ct(tmp, z[ii], (int64_t)q[ii], qinvmR[ii]);
+        tmp = mod_mul_ct(tmp, y[k * i + ii], (int64_t)b[i], binvmR[i]);
+        acc = mod_ct(acc + tmp, (int64_t)b[i], R_b[i]);
       }
       o[n * i + j] = acc;
     }
   }
 }
 
-void rns_mod_switch(rns_t a, rns_t tmp, uint32_t level,
+void rns_mod_switch(rns_t a, rns_t tmp, uint32_t l, uint32_t m, uint32_t k,
                     const rns_params_t* params) {
   // For ModSwitch we need to come back to the normal domain
   uint32_t n = params->n;
   // To normal domain
-  for (uint32_t i = 0; i < params->k; i++) {
-    poly_intt(&a[n * (params->l + i)], &params->w_1[n * (params->l + i)],
-              params->q[(params->l + i)], params->R_q[(params->l + i)],
-              params->qinvmR[(params->l + i)], n);
+  for (uint32_t i = 0; i < k; i++) {
+    poly_intt(&a[n * (m + i)], &params->w_1[n * (m + i)], params->q[(m + i)],
+              params->R_q[(m + i)], params->qinvmR[(m + i)], n);
   }
   // FastBConv
-  rns_fastb_conv(tmp, &a[n * params->l], &params->q[params->l], params->q,
-                 params->zRbq, params->yRbq, &params->qinvmR[params->l],
-                 params->qinvmR, params->R_q, params->n, level, params->k);
-  for (uint32_t i = 0; i < level; i++) {
+  rns_fastb_conv(tmp, &a[n * m], &params->q[m], params->q, params->zRbq,
+                 params->yRbq, &params->qinvmR[m], params->qinvmR, params->R_q,
+                 params->n, l, k);
+  for (uint32_t i = 0; i < l; i++) {
     poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
               params->qinvmR[i], n);
     poly_mulx(&a[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
     poly_sub(&a[n * i], &tmp[n * i], params->q[i], params->R_q[i], n);
-    poly_mulx(&a[n * i], params->Rqinvmq[level * params->l + i], params->q[i],
+    poly_mulx(&a[n * i], params->Rqinvmq[l * params->l + i], params->q[i],
               params->qinvmR[i], n);
     poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->R_q[i],
              params->qinvmR[i], n);
