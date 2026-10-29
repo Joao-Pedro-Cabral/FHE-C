@@ -24,11 +24,13 @@ static void rns_fastb_conv(rns_t o, const rns_t x, const uint64_t* q,
       int64_t acc = 0;
       for (uint32_t ii = 0; ii < k; ii++) {
         int64_t tmp = x[n * ii + j];
-        // printf("x[%d]: %ld, y[%d]: %ld, z[%d]: %ld\n", n * ii + j,
-        //        x[n * ii + j], k * i + ii, y[k * i + ii], ii, z[ii]);
-        tmp = mod_mul_ct(tmp, z[ii], (int64_t)q[ii], qinvmR[ii]);
+        tmp = mod_mul_ct(tmp, z[ii], (int64_t)b[i], binvmR[i]);
         tmp = mod_mul_ct(tmp, y[k * i + ii], (int64_t)b[i], binvmR[i]);
         acc = mod_ct(acc + tmp, (int64_t)b[i], R_b[i]);
+        // if (j == 0)
+        //   printf("x[%d]: %ld, y[%d]: %ld, z[%d]: %ld, tmp: %ld, acc: %ld\n",
+        //          n * ii + j, x[n * ii + j], k * i + ii, y[k * i + ii], ii,
+        //          z[ii], tmp, acc);
       }
       o[n * i + j] = acc;
     }
@@ -94,6 +96,9 @@ void rns_mod_raise(rns_t a, uint32_t level, const rns_params_t* params) {
                  &params->R_q[params->l], params->n, level, params->k);
   for (uint32_t i = 0; i < params->l + params->k; i++) {
     if (i >= level && i < params->l) continue;
+    // for (uint32_t j = 0; j < 1; j++) {
+    //   printf("a[%d]: %ld\n", n * i + j, a[n * i + j]);
+    // }
     poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->R_q[i],
              params->qinvmR[i], n);
   }
@@ -194,6 +199,7 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
             mod_pow_ct((int64_t)params->q[i], params->q[j] - 2,
                        (int64_t)params->q[j], params->Rmq[j],
                        params->qinvmR[j]);  // (q_i)-1
+        // printf("qinvq[%d]: %ld\n", i * lk + j, params->Rqinvmq[i * lk + j]);
         params->Rqinvmq[i * lk + j] =
             q_to_q2((int64_t)(((__int128_t)params->Rmq[j] *
                                params->Rqinvmq[i * lk + j]) %
