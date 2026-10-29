@@ -68,7 +68,7 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
   }
   // Hybrid method for B
   rns_mod_raise(d2, ct1->level, params);
-  memset(tmp_r, 0, (params->l+params->k)*params->n*sizeof(int64_t));
+  memset(tmp_r, 0, (params->l + params->k) * params->n * sizeof(int64_t));
   for (uint32_t i = 0; i < params->l + params->k; i++) {
     if (i >= ct1->level && i < params->l) continue;
     for (uint32_t j = 0; j < params->l + params->k; j++) {
@@ -80,8 +80,8 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
                n);  // R-1
     }
   }
-  rns_mod_switch(tmp_r, d2, ct1->level, params->l, params->k,
-                 params->zRbq, params->yRbq, params);
+  rns_mod_switch(tmp_r, d2, ct1->level, params->l, params->k, params->zRbq,
+                 params->yRbq, params);
   for (uint32_t i = 0; i < ct1->level; i++) {
     poly_add(&ct3->ab.b[n * i], &tmp_r[n * i], params->q[i], params->R_q[i],
              n);  // R-1

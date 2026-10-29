@@ -30,8 +30,9 @@ static uint64_t time_ns(void) {
 void check_q_aux(const uint64_t* q, const int64_t* Rmq, const int64_t* R2mq,
                  const int64_t* R_q, const int64_t* qinvmR, const int64_t* _nmq,
                  const int64_t* R_nmq, const int64_t* R2_nmq,
-                 const int64_t* zRbq, const int64_t* yRbq, const int64_t* zRqb,
-                 const int64_t* yRqb, uint32_t l, uint32_t k) {
+                 const int64_t* Rqinvmq, const int64_t* zRbq,
+                 const int64_t* yRbq, const int64_t* zRqb, const int64_t* yRqb,
+                 uint32_t l, uint32_t k) {
   printf("---------- VERIFY Q AUXILIARIES ROOTS ----------\n");
   for (uint32_t i = 0; i < l + k; i++) {
     printf(
@@ -40,6 +41,12 @@ void check_q_aux(const uint64_t* q, const int64_t* Rmq, const int64_t* R2mq,
         "mod "
         "%ld\n",
         Rmq[i], R2mq[i], qinvmR[i], R_q[i], _nmq[i], R_nmq[i], R2_nmq[i], q[i]);
+  }
+  for (uint32_t i = 0; i < l + k; i++) {
+    for (uint32_t j = 0; j < l + k; j++) {
+      printf("Rqinvmq[%d]: %ld mod %ld\n", (l + k) * i + j,
+             Rqinvmq[(l + k) * i + j], q[j]);
+    }
   }
   for (uint32_t i = 0; i < k; i++) {
     printf("zRbq[%d]: %ld mod %ld\n", i, zRbq[i], q[l + i]);
@@ -57,7 +64,8 @@ void check_q_aux(const uint64_t* q, const int64_t* Rmq, const int64_t* R2mq,
   for (uint32_t i = 0; i < l; i++) {
     for (uint32_t j = 0; j < k; j++) {
       for (uint32_t m = 0; m <= i; m++) {
-        printf("yRqb[%d]: %ld mod %ld\n", l * k * i + l * j + m, yRqb[l * k * i + l * j + m], q[m]);
+        printf("yRqb[%d]: %ld mod %ld\n", l * k * i + l * j + m,
+               yRqb[l * k * i + l * j + m], q[l + j]);
       }
     }
   }
@@ -525,7 +533,7 @@ void check_linear_transform(const vec_t* v1, const vec_t* v2, const vec_t* mat,
 
 int main() {
   // Parameters Construction
-  uint32_t l = 3;
+  uint32_t l = 1;
   uint32_t n2 = 16;
   uint32_t q0_bits = 60;
   uint32_t scale_bits = 40;
@@ -554,8 +562,9 @@ int main() {
 #ifdef __DEBUG_MODE__
   check_q_aux(params.rns.q, params.rns.Rmq, params.rns.R2mq, params.rns.R_q,
               params.rns.qinvmR, params.rns._nmq, params.rns.R_nmq,
-              params.rns.R2_nmq, params.rns.zRbq, params.rns.yRbq,
-              params.rns.zRqb, params.rns.yRqb, params.rns.l, params.rns.k);
+              params.rns.R2_nmq, params.rns.Rqinvmq, params.rns.zRbq,
+              params.rns.yRbq, params.rns.zRqb, params.rns.yRqb, params.rns.l,
+              params.rns.k);
   check_roots(params.rns.w, params.rns.q, params.rns.l + params.rns.k,
               params.rns.n);
   check_roots(params.rns.w_1, params.rns.q, params.rns.l + params.rns.k,
