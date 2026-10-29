@@ -260,7 +260,7 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
                                                mat[n1 * i + j], &params->rns);
       ciphertext_ciphertext_addition(&acc, &acc, &tmp_c, &params->rns);
     }
-    ciphertext_mod_switch(&acc, tmp_p, &params->rns);
+    ciphertext_mod_switch(&acc, tmp_r, &params->rns);
     // Rotate and Accumulate
     uint32_t exp = mod_pow2(5, n1 * i, 2 * n);
     ciphertext_rotation(&tmp_c, &acc, exp, tmp_r, tmp_p,

@@ -513,7 +513,7 @@ void check_linear_transform(const vec_t* v1, const vec_t* v2, const vec_t* mat,
 
 int main() {
   // Parameters Construction
-  uint32_t l = 1;
+  uint32_t l = 3;
   uint32_t n2 = 16;
   uint32_t q0_bits = 60;
   uint32_t scale_bits = 40;

@@ -46,8 +46,8 @@ void rns_mod_switch(rns_t a, rns_t tmp, uint32_t l, uint32_t m, uint32_t k,
   }
   // FastBConv
   rns_fastb_conv(tmp, &a[n * m], &params->q[m], params->q, z, y,
-                 &params->qinvmR[m], params->qinvmR, params->R_q, params->n, l,
-                 k);
+                 &params->qinvmR[m], params->qinvmR, params->R_q, params->n, k,
+                 l);
   for (uint32_t i = 0; i < l; i++) {
     poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
               params->qinvmR[i], n);

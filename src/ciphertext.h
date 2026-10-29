@@ -80,7 +80,7 @@ void ciphertext_plaintext_base_multiplication(ciphertext_t* ct2,
   @param tmp: input plaintext
   @param params: CKKS params
 */
-void ciphertext_mod_switch(ciphertext_t* ct, poly_t tmp,
+void ciphertext_mod_switch(ciphertext_t* ct, rns_t tmp,
                            const rns_params_t* params);
 
 /*
