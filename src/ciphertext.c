@@ -122,8 +122,10 @@ void ciphertext_mod_switch(ciphertext_t* ct, rns_t tmp,
                            const rns_params_t* params) {
   ct->level = ct->level - 1;
   // Rescaling (Mod Switch)
-  rns_mod_switch(ct->ab.b, tmp, ct->level, ct->level, 1, params);
-  rns_mod_switch(ct->ab.a, tmp, ct->level, ct->level, 1, params);
+  rns_mod_switch(ct->ab.b, tmp, ct->level, ct->level, 1,
+                 &params->Rmq[ct->level], params->Rmq, params);
+  rns_mod_switch(ct->ab.a, tmp, ct->level, ct->level, 1,
+                 &params->Rmq[ct->level], params->Rmq, params);
   // Add R factor
   uint32_t n = params->n;
   for (uint32_t i = 0; i < ct->level; i++) {

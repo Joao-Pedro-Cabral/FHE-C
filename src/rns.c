@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "mod.h"
 
@@ -33,25 +34,29 @@ static void rns_fastb_conv(rns_t o, const rns_t x, const uint64_t* q,
 }
 
 void rns_mod_switch(rns_t a, rns_t tmp, uint32_t l, uint32_t m, uint32_t k,
+                    const int64_t* z, const int64_t* y,
                     const rns_params_t* params) {
   // For ModSwitch we need to come back to the normal domain
   uint32_t n = params->n;
   // To normal domain
-  for (uint32_t i = 0; i < k; i++) {
-    poly_intt(&a[n * (m + i)], &params->w_1[n * (m + i)], params->q[(m + i)],
-              params->R_q[(m + i)], params->qinvmR[(m + i)], n);
+  for (uint32_t i = m; i < m + k; i++) {
+    poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
+              params->qinvmR[i], n);
+    poly_mulx(&a[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
   }
   // FastBConv
-  rns_fastb_conv(tmp, &a[n * m], &params->q[m], params->q, params->zRbq,
-                 params->yRbq, &params->qinvmR[m], params->qinvmR, params->R_q,
-                 params->n, l, k);
+  rns_fastb_conv(tmp, &a[n * m], &params->q[m], params->q, z, y,
+                 &params->qinvmR[m], params->qinvmR, params->R_q, params->n, l,
+                 k);
   for (uint32_t i = 0; i < l; i++) {
     poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
               params->qinvmR[i], n);
     poly_mulx(&a[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
     poly_sub(&a[n * i], &tmp[n * i], params->q[i], params->R_q[i], n);
-    poly_mulx(&a[n * i], params->Rqinvmq[l * params->l + i], params->q[i],
-              params->qinvmR[i], n);
+    for (uint32_t j = 0; j < k; j++) {
+      poly_mulx(&a[n * i], params->Rqinvmq[(m + j) * params->l + i],
+                params->q[i], params->qinvmR[i], n);
+    }
     poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->R_q[i],
              params->qinvmR[i], n);
   }
@@ -100,7 +105,7 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   params->R2_nmq = malloc(sizeof(int64_t) * lk);
   params->_nmq = malloc(sizeof(int64_t) * lk);
   params->R_nmq = malloc(sizeof(int64_t) * lk);
-  params->Rmq = malloc(sizeof(int64_t) * lk);
+  params->Rmq = malloc(sizeof(int64_t) * lk * k);  // k times for ModSwitch
   params->R2mq = malloc(sizeof(int64_t) * lk);
   params->R_q = malloc(sizeof(int64_t) * lk);
   params->qinvmR = malloc(sizeof(int64_t) * lk);
@@ -145,6 +150,10 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
     // R_q
     params->R_q[i] =
         (int64_t)((((__uint128_t)1 << 64) + params->q[i] / 2) / params->q[i]);
+  }
+  // Complete Rmq
+  for (uint32_t i = 1; i < k; i++) {
+    memcpy(&params->Rmq[i * lk], params->Rmq, sizeof(int64_t) * lk);
   }
   // Rqinvmq
   for (uint32_t j = 0; j < l; j++) {

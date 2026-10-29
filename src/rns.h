@@ -15,7 +15,7 @@ typedef struct {
   uint64_t* q;       // l+k modulus
   int64_t* qinvmR;   // inverse of the l+k q's mod 2^64
   int64_t* Rqinvmq;  // R(q_i)-1 mod q_j
-  int64_t* Rmq;      // R=2^64 in the l+k modulis
+  int64_t* Rmq;      // R=2^64 in the l+k modulis repeated k times
   int64_t* R2mq;     // R^2=2^128 in the l+k modulis
   int64_t* R_q;      // R/q, round even
   int64_t* _nmq;     // 1/n, R=2^64 in q modulis
@@ -45,13 +45,17 @@ void rns_new(rns_t* a, const rns_params_t* params);
 void rns_free(rns_t* a);
 
 /*
+  I have z and y here because they could come from 2 different vectors
   @param a: RNS
   @param tmp: auxiliar RNS
   @param l: remaining levels (0-(l-1))
   @param m + k: levels to be removed (m-(m+k-1))
+  @param z: fastbconv parameter
+  @param y: fastbconv parameter
   @param params: RNS params
 */
 void rns_mod_switch(rns_t a, rns_t tmp, uint32_t l, uint32_t m, uint32_t k,
+                    const int64_t* z, const int64_t* y,
                     const rns_params_t* params);
 
 /*
