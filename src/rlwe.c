@@ -93,7 +93,7 @@ void rlwe_gen_secret_key(keys_t* keys, xof_state_t* xof_state,
                          const rns_params_t* params) {
   uint32_t n = params->n;
   poly_ternary_sampler(keys->s_hat, xof_state, n);
-  for (uint32_t i = 0; i < params->l; i++) {
+  for (uint32_t i = 0; i < params->l + params->k; i++) {
     memcpy(&keys->s[n * i], keys->s_hat, sizeof(int64_t) * n);
     poly_ntt(&keys->s[n * i], &params->w[n * i], params->q[i], params->R_q[i],
              params->qinvmR[i], n);
@@ -194,10 +194,16 @@ void rlwe_key_switch_encrypt(switch_t key_switch, xof_state_t* xof_state,
     }
     // k level (Encrypt s^2)
     if (mulP) {
-      memcpy(tmp2, m, n*sizeof(int64_t));
-      for (uint32_t i = params->l; i < params->l + params->k; i++) {
-        poly_mulx(tmp2, (int64_t)params->q[i], params->q[k], params->qinvmR[k], n);
-        poly_mulx(tmp2, params->R2mq[k], params->q[k], params->qinvmR[k], n);
+      // Encrypt Ps^2
+      if (k < params->l) {
+        memcpy(tmp2, m, n*sizeof(int64_t));
+        for (uint32_t i = params->l; i < params->l + params->k; i++) {
+          poly_mulx(tmp2, (int64_t)params->q[i], params->q[k], params->qinvmR[k], n);
+          poly_mulx(tmp2, params->R2mq[k], params->q[k], params->qinvmR[k], n);
+        }
+      // Encrypt 0
+      } else {
+        memset(tmp2, 0, n*sizeof(int64_t));
       }
       poly_add_no_mod(e, tmp2, n);
     } else {
