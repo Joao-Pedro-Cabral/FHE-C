@@ -102,11 +102,12 @@ void rlwe_gen_secret_key(keys_t* keys, xof_state_t* xof_state,
 
 void rlwe_gen_relinearization_key(keys_t* keys, xof_state_t* xof_state,
                                   const rns_params_t* params) {
-  poly_t s2, e, me;
+  poly_t s2, e, tmp, tmp2;
   uint32_t n = params->n;
   poly_new(&s2, n);
   poly_new(&e, n);
-  poly_new(&me, n);
+  poly_new(&tmp, n);
+  poly_new(&tmp2, n);
   // Compute S^2 in the first (biggest) NTT domain
   poly_pointwise_mul(s2, &keys->s[0], &keys->s[0], params->q[0],
                      params->qinvmR[0], n);
@@ -114,10 +115,12 @@ void rlwe_gen_relinearization_key(keys_t* keys, xof_state_t* xof_state,
             params->qinvmR[0], n);
   // Removes the INTT R^2/n factor
   poly_mulx(s2, params->R2_nmq[0], params->q[0], params->qinvmR[0], n);
-  rlwe_key_switch_encrypt(keys->r, xof_state, s2, me, e, keys, params);
+  rlwe_key_switch_encrypt(keys->r, xof_state, s2, tmp, tmp2, e, keys, params,
+                          true, params->l + params->k);
   poly_free(&s2);
   poly_free(&e);
-  poly_free(&me);
+  poly_free(&tmp);
+  poly_free(&tmp2);
 }
 
 // RLWE encryption step (one of the l polynomials)
@@ -174,23 +177,33 @@ void rlwe_plaintext_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
 // Since this function is normally called several times by other primitives,
 // we ask them to allocate e and me
 void rlwe_key_switch_encrypt(switch_t key_switch, xof_state_t* xof_state,
-                             const poly_t m, poly_t me, poly_t e,
-                             const keys_t* keys, const rns_params_t* params) {
+                             const poly_t m, poly_t tmp, poly_t tmp2, poly_t e,
+                             const keys_t* keys, const rns_params_t* params,
+                             bool mulP, uint32_t l) {
   uint32_t n = params->n;
   // B = -(-A)S + DeltaM + E
-  for (uint32_t k = 0; k < params->l; k++) {
+  for (uint32_t k = 0; k < l; k++) {
     // E
     poly_cbd24_sampler(e, xof_state, n);
     // Encrypt 0
-    for (uint32_t i = 0; i < params->l; i++) {
+    for (uint32_t i = 0; i < l; i++) {
       if (i == k) continue;
-      rlwe_encrypt_step(&key_switch[k].a[n * i], &key_switch[k].b[n * i], me,
+      rlwe_encrypt_step(&key_switch[k].a[n * i], &key_switch[k].b[n * i], tmp,
                         xof_state, e, &keys->s[n * i], &params->w[n * i],
                         params->q[i], params->R_q[i], params->qinvmR[i], n);
     }
     // k level (Encrypt s^2)
-    poly_add_no_mod(e, m, n);
-    rlwe_encrypt_step(&key_switch[k].a[n * k], &key_switch[k].b[n * k], me,
+    if (mulP) {
+      memcpy(tmp2, m, n*sizeof(int64_t));
+      for (uint32_t i = params->l; i < params->l + params->k; i++) {
+        poly_mulx(tmp2, params->q[i], params->q[k], params->qinvmR[k], n);
+        poly_mulx(tmp2, params->R2mq[k], params->q[k], params->qinvmR[k], n);
+      }
+      poly_add_no_mod(e, tmp2, n);
+    } else {
+      poly_add_no_mod(e, m, n);
+    }
+    rlwe_encrypt_step(&key_switch[k].a[n * k], &key_switch[k].b[n * k], tmp,
                       xof_state, e, &keys->s[n * k], &params->w[n * k],
                       params->q[k], params->R_q[k], params->qinvmR[k], n);
   }

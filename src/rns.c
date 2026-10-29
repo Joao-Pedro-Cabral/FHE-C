@@ -62,7 +62,7 @@ void rns_mod_switch(rns_t a, rns_t tmp, uint32_t l, uint32_t m, uint32_t k,
   }
 }
 
-void rns_mode_raise(rns_t a, uint32_t level, const rns_params_t* params) {
+void rns_mod_raise(rns_t a, uint32_t level, const rns_params_t* params) {
   rns_fastb_conv(&a[params->n * params->l], a, params->q, &params->q[params->l],
                  &params->zRqb[params->l * level],
                  &params->yRqb[params->l * level * params->k], params->qinvmR,

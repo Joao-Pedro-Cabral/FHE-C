@@ -3,6 +3,7 @@
 #define __RLWE_H__
 
 #include "rns.h"
+#include <stdbool.h>
 
 #define N1N2_RATIO 2
 
@@ -84,14 +85,19 @@ void rlwe_plaintext_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
 /*
   @param params: RNS params
   @param xof_state: XOF state
+  @param tmp, tmp2: temporary polynomials
   @param keys: RLWE context
   @param key_switch: output key switch
   @param e: error polynomial (allocated by caller)
   @param m: output polynomial
+  @param params: RNS params
+  @param mulP: multiply by P? (only useful for relinearization key)
+  @param l: RNS size
 */
 void rlwe_key_switch_encrypt(switch_t key_switch, xof_state_t* xof_state,
-                             const poly_t m, poly_t me, poly_t e,
-                             const keys_t* keys, const rns_params_t* params);
+                             const poly_t m, poly_t tmp, poly_t tmp2, poly_t e,
+                             const keys_t* keys, const rns_params_t* params,
+                             bool mulP, uint32_t l);
 
 /*
   @param params: RNS params
