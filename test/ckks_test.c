@@ -46,7 +46,19 @@ void check_q_aux(const uint64_t* q, const int64_t* Rmq, const int64_t* R2mq,
   }
   for (uint32_t i = 0; i < k; i++) {
     for (uint32_t j = 0; j < l; j++) {
-      printf("yRbq[%d]: %ld mod %ld\n", i, yRbq[l * i + j], q[j]);
+      printf("yRbq[%d]: %ld mod %ld\n", l * i + j, yRbq[l * i + j], q[j]);
+    }
+  }
+  for (uint32_t i = 0; i < l; i++) {
+    for (uint32_t j = 0; j < l; j++) {
+      printf("zRqb[%d]: %ld mod %ld\n", l * i + j, zRqb[l * i + j], q[j]);
+    }
+  }
+  for (uint32_t i = 0; i < l; i++) {
+    for (uint32_t j = 0; j < k; j++) {
+      for (uint32_t m = 0; m < l; m++) {
+        printf("yRqb[%d]: %ld mod %ld\n", l * k * i + l * j + m, yRqb[l * k * i + l * j + m], q[m]);
+      }
     }
   }
 }

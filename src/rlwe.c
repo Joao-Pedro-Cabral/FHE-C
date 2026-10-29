@@ -196,7 +196,7 @@ void rlwe_key_switch_encrypt(switch_t key_switch, xof_state_t* xof_state,
     if (mulP) {
       memcpy(tmp2, m, n*sizeof(int64_t));
       for (uint32_t i = params->l; i < params->l + params->k; i++) {
-        poly_mulx(tmp2, params->q[i], params->q[k], params->qinvmR[k], n);
+        poly_mulx(tmp2, (int64_t)params->q[i], params->q[k], params->qinvmR[k], n);
         poly_mulx(tmp2, params->R2mq[k], params->q[k], params->qinvmR[k], n);
       }
       poly_add_no_mod(e, tmp2, n);

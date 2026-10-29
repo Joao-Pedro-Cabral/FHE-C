@@ -80,7 +80,7 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
                n);  // R-1
     }
   }
-  rns_mod_switch(tmp_r, tmp, ct1->level, params->l, params->k,
+  rns_mod_switch(tmp_r, d2, ct1->level, params->l, params->k,
                  params->zRbq, params->yRbq, params);
   for (uint32_t i = 0; i < ct1->level; i++) {
     poly_add(&ct3->ab.b[n * i], &tmp_r[n * i], params->q[i], params->R_q[i],

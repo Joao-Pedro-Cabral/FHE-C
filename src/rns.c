@@ -54,7 +54,7 @@ void rns_mod_switch(rns_t a, rns_t tmp, uint32_t l, uint32_t m, uint32_t k,
     poly_mulx(&a[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
     poly_sub(&a[n * i], &tmp[n * i], params->q[i], params->R_q[i], n);
     for (uint32_t j = 0; j < k; j++) {
-      poly_mulx(&a[n * i], params->Rqinvmq[(m + j) * params->l + i],
+      poly_mulx(&a[n * i], params->Rqinvmq[(m + j) * (params->l + params->k) + i],
                 params->q[i], params->qinvmR[i], n);
     }
     poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->R_q[i],
@@ -64,10 +64,10 @@ void rns_mod_switch(rns_t a, rns_t tmp, uint32_t l, uint32_t m, uint32_t k,
 
 void rns_mod_raise(rns_t a, uint32_t level, const rns_params_t* params) {
   rns_fastb_conv(&a[params->n * params->l], a, params->q, &params->q[params->l],
-                 &params->zRqb[params->l * level],
-                 &params->yRqb[params->l * level * params->k], params->qinvmR,
+                 &params->zRqb[params->l * (level - 1)],
+                 &params->yRqb[params->l * (level - 1) * params->k], params->qinvmR,
                  &params->qinvmR[params->l], &params->R_q[params->l], params->n,
-                 params->k, level);
+                 level, params->k);
 }
 
 static void rns_gen_roots(rns_params_t* params) {
@@ -109,7 +109,7 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   params->R2mq = malloc(sizeof(int64_t) * lk);
   params->R_q = malloc(sizeof(int64_t) * lk);
   params->qinvmR = malloc(sizeof(int64_t) * lk);
-  params->Rqinvmq = malloc(sizeof(int64_t) * l * l);  // only for rescaling
+  params->Rqinvmq = malloc(sizeof(int64_t) * lk * lk);  // only for rescaling
   params->scales = malloc(sizeof(int64_t) * l);  // Scales only for Q moduli
   params->zRbq = malloc(sizeof(int64_t) * k);
   params->yRbq = malloc(sizeof(int64_t) * k * l);
@@ -156,18 +156,18 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
     memcpy(&params->Rmq[i * lk], params->Rmq, sizeof(int64_t) * lk);
   }
   // Rqinvmq
-  for (uint32_t j = 0; j < l; j++) {
-    for (uint32_t i = 0; i < l; i++) {
+  for (uint32_t j = 0; j < lk; j++) {
+    for (uint32_t i = 0; i < lk; i++) {
       if (i == j) {
-        params->Rqinvmq[i * l + j] = 0;  // placeholder (never used)
+        params->Rqinvmq[i * lk + j] = 0;  // placeholder (never used)
       } else {
-        params->Rqinvmq[i * l + j] =
+        params->Rqinvmq[i * lk + j] =
             mod_pow_ct((int64_t)params->q[i], params->q[j] - 2,
                        (int64_t)params->q[j], params->Rmq[j],
                        params->qinvmR[j]);  // (q_i)-1
-        params->Rqinvmq[i * l + j] =
+        params->Rqinvmq[i * lk + j] =
             q_to_q2((int64_t)(((__int128_t)params->Rmq[j] *
-                               params->Rqinvmq[i * l + j]) %
+                               params->Rqinvmq[i * lk + j]) %
                               params->q[j]),
                     (int64_t)(params->q[j]));  // Add R factor
       }
