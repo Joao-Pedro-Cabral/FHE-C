@@ -24,6 +24,8 @@ static void rns_fastb_conv(rns_t o, const rns_t x, const uint64_t* q,
       int64_t acc = 0;
       for (uint32_t ii = 0; ii < k; ii++) {
         int64_t tmp = x[n * ii + j];
+        // printf("x[%d]: %ld, y[%d]: %ld, z[%d]: %ld\n", n * ii + j,
+        //        x[n * ii + j], k * i + ii, y[k * i + ii], ii, z[ii]);
         tmp = mod_mul_ct(tmp, z[ii], (int64_t)q[ii], qinvmR[ii]);
         tmp = mod_mul_ct(tmp, y[k * i + ii], (int64_t)b[i], binvmR[i]);
         acc = mod_ct(acc + tmp, (int64_t)b[i], R_b[i]);
@@ -44,10 +46,20 @@ void rns_mod_switch(rns_t a, rns_t tmp, uint32_t l, uint32_t m, uint32_t k,
               params->qinvmR[i], n);
     poly_mulx(&a[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
   }
+  // for (uint32_t i = 0; i < m + k; i++) {
+  //   for (uint32_t j = 0; j < params->n; j++) {
+  //     printf("a[%d]: %ld\n", n * i + j, a[n * i + j]);
+  //   }
+  // }
   // FastBConv
   rns_fastb_conv(tmp, &a[n * m], &params->q[m], params->q, z, y,
                  &params->qinvmR[m], params->qinvmR, params->R_q, params->n, k,
                  l);
+  // for (uint32_t i = 0; i < params->l; i++) {
+  //   for (uint32_t j = 0; j < params->n; j++) {
+  //     printf("tmp[%d]: %ld\n", n * i + j, tmp[n * i + j]);
+  //   }
+  // }
   for (uint32_t i = 0; i < l; i++) {
     poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
               params->qinvmR[i], n);
@@ -61,14 +73,30 @@ void rns_mod_switch(rns_t a, rns_t tmp, uint32_t l, uint32_t m, uint32_t k,
     poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->R_q[i],
              params->qinvmR[i], n);
   }
+  // for (uint32_t i = 0; i < params->l; i++) {
+  //   for (uint32_t j = 0; j < params->n; j++) {
+  //     printf("a[%d]: %ld\n", n * i + j, a[n * i + j]);
+  //   }
+  // }
 }
 
 void rns_mod_raise(rns_t a, uint32_t level, const rns_params_t* params) {
+  uint32_t n = params->n;
+  for (uint32_t i = 0; i < level; i++) {
+    poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
+              params->qinvmR[i], n);
+    poly_mulx(&a[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
+  }
   rns_fastb_conv(&a[params->n * params->l], a, params->q, &params->q[params->l],
                  &params->zRqb[params->l * (level - 1)],
                  &params->yRqb[params->l * (level - 1) * params->k],
                  params->qinvmR, &params->qinvmR[params->l],
                  &params->R_q[params->l], params->n, level, params->k);
+  for (uint32_t i = 0; i < params->l + params->k; i++) {
+    if (i >= level && i < params->l) continue;
+    poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->R_q[i],
+             params->qinvmR[i], n);
+  }
 }
 
 static void rns_gen_roots(rns_params_t* params) {

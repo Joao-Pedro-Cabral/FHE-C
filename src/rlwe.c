@@ -115,6 +115,7 @@ void rlwe_gen_relinearization_key(keys_t* keys, xof_state_t* xof_state,
             params->qinvmR[0], n);
   // Removes the INTT R^2/n factor
   poly_mulx(s2, params->R2_nmq[0], params->q[0], params->qinvmR[0], n);
+  memset(s2, 1, n * sizeof(int64_t));
   rlwe_key_switch_encrypt(keys->r, xof_state, s2, tmp, tmp2, e, keys, params,
                           true, params->l + params->k);
   poly_free(&s2);
@@ -196,14 +197,15 @@ void rlwe_key_switch_encrypt(switch_t key_switch, xof_state_t* xof_state,
     if (mulP) {
       // Encrypt Ps^2
       if (k < params->l) {
-        memcpy(tmp2, m, n*sizeof(int64_t));
+        memcpy(tmp2, m, n * sizeof(int64_t));
         for (uint32_t i = params->l; i < params->l + params->k; i++) {
-          poly_mulx(tmp2, (int64_t)params->q[i], params->q[k], params->qinvmR[k], n);
+          poly_mulx(tmp2, (int64_t)params->q[i], params->q[k],
+                    params->qinvmR[k], n);
           poly_mulx(tmp2, params->R2mq[k], params->q[k], params->qinvmR[k], n);
         }
-      // Encrypt 0
+        // Encrypt 0
       } else {
-        memset(tmp2, 0, n*sizeof(int64_t));
+        memset(tmp2, 0, n * sizeof(int64_t));
       }
       poly_add_no_mod(e, tmp2, n);
     } else {

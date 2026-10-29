@@ -531,6 +531,47 @@ void check_linear_transform(const vec_t* v1, const vec_t* v2, const vec_t* mat,
   }
 }
 
+void check_hybrid_multiplication(xof_state_t* xof_state,
+                                 const rns_params_t* params) {
+  printf("---------- HYBRID MULTIPLICATION ----------\n");
+  rns_t d, d2, d3;
+  uint32_t n = params->n;
+
+  rns_new(&d, params);
+  rns_new(&d2, params);
+  rns_new(&d3, params);
+
+  for (uint32_t i = 0; i < params->l; i++) {
+    poly_uniform_sampler(&d[n * i], xof_state, params->q[i], params->R_q[i], n);
+    memcpy(&d2[n * i], &d[n * i], n * sizeof(int64_t));
+    for (uint32_t j = 0; j < params->k; j++) {
+      poly_mulx(&d[n * i], params->q[params->l + j], params->q[i],
+                params->qinvmR[i], n);
+    }
+  }
+  rns_mod_raise(d, params->l, params);
+
+  rns_mod_switch(d, d3, params->l, params->l, params->k, params->zRbq,
+                 params->yRbq, params);
+
+  for (uint32_t i = 0; i < params->l; i++) {
+    poly_intt(&d[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
+              params->qinvmR[i], n);
+    poly_mulx(&d[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
+    poly_intt(&d2[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
+              params->qinvmR[i], n);
+    poly_mulx(&d2[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
+    for (uint32_t j = 0; j < n; j++) {
+      printf("d[%d]: %ld, d2[%d]: %ld\n", n * i + j, d[n * i + j], n * i + j,
+             d2[n * i + j]);
+    }
+  }
+
+  rns_free(&d);
+  rns_free(&d2);
+  rns_free(&d3);
+}
+
 int main() {
   // Parameters Construction
   uint32_t l = 1;
@@ -571,6 +612,8 @@ int main() {
               params.rns.n);
   check_keys(&params);
 #endif
+
+  check_hybrid_multiplication(&params.xof_state, &params.rns);
 
 #ifdef __RUN_MODE__
   end = time_ns();
