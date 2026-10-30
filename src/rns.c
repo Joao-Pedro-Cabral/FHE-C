@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "mod.h"
 
@@ -32,6 +33,41 @@ static void rns_fastb_conv(rns_t o, const rns_t x, const uint64_t* q,
         //          n * ii + j, x[n * ii + j], k * i + ii, y[k * i + ii],
         //          k * i + ii, z[k * i + ii], tmp, acc);
       }
+      o[n * i + j] = acc;
+    }
+  }
+}
+
+static void rns_fastb_conv_error_reduced(rns_t o, const rns_t x, const uint64_t* q,
+                                         const uint64_t* b, const int64_t* z,
+                                         const int64_t* y, const int64_t* qinvmR,
+                                         const int64_t* binvmR, const int64_t* R_b,
+                                         const int64_t* R2mb,
+                                         uint32_t n, uint32_t k, uint32_t l) {
+  for (uint32_t i = 0; i < l; i++) {
+    for (uint32_t j = 0; j < n; j++) {
+      int64_t acc = 0;
+      double acc_d = 0.0;
+      for (uint32_t ii = 0; ii < k; ii++) {
+        int64_t tmp = x[n * ii + j];
+        tmp = mod_mul_ct_exact(tmp, z[k * i + ii], (int64_t)b[i], binvmR[i]);
+        double tmp_d = (double)tmp/q[ii];
+        acc_d += tmp_d;
+        tmp = mod_mul_ct(tmp, y[k * i + ii], (int64_t)b[i], binvmR[i]);
+        acc = mod_ct(acc + tmp, (int64_t)b[i], R_b[i]);
+        // if (j == 0)
+        //   printf("x[%d]: %ld, y[%d]: %ld, z[%d]: %ld, tmp: %ld, acc: %ld, tmp_d: %.4lf, acc_d: %.4lf\n",
+        //          n * ii + j, x[n * ii + j], k * i + ii, y[k * i + ii],
+        //          k * i + ii, z[k * i + ii], tmp, acc, tmp_d, acc_d);
+      }
+      
+      int64_t v = (int64_t)(round(acc_d));
+      int64_t v_acc = v;
+      for (uint32_t ii = 0; ii < k; ii++) {
+        v_acc = mod_mul_ct(mod_mul_ct(v, q[ii], (int64_t)b[i], binvmR[i]),
+                                      R2mb[i], (int64_t)b[i], binvmR[i]);
+      }
+      acc = mod_ct_exact(acc - v_acc, (int64_t)b[i], R_b[i]);
       o[n * i + j] = acc;
     }
   }
@@ -93,11 +129,11 @@ void rns_mod_raise(rns_t a, uint32_t level, const rns_params_t* params) {
               params->qinvmR[i], n);
     poly_mulx(&a[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
   }
-  rns_fastb_conv(&a[params->n * params->l], a, params->q, &params->q[params->l],
+  rns_fastb_conv_error_reduced(&a[params->n * params->l], a, params->q, &params->q[params->l],
                  &params->zRqb[params->l * (level - 1) * params->k],
                  &params->yRqb[params->l * (level - 1) * params->k],
                  params->qinvmR, &params->qinvmR[params->l],
-                 &params->R_q[params->l], params->n, level, params->k);
+                 &params->R_q[params->l], &params->R2mq[params->l], params->n, level, params->k);
   for (uint32_t i = 0; i < params->l + params->k; i++) {
     if (i >= level && i < params->l) continue;
     // for (uint32_t j = 0; j < 1; j++) {
