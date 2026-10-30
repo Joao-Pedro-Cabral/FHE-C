@@ -29,8 +29,8 @@ static void rns_fastb_conv(rns_t o, const rns_t x, const uint64_t* q,
         acc = mod_ct(acc + tmp, (int64_t)b[i], R_b[i]);
         // if (j == 0)
         //   printf("x[%d]: %ld, y[%d]: %ld, z[%d]: %ld, tmp: %ld, acc: %ld\n",
-        //          n * ii + j, x[n * ii + j], k * i + ii, y[k * i + ii], ii,
-        //          z[ii], tmp, acc);
+        //          n * ii + j, x[n * ii + j], k * i + ii, y[k * i + ii],
+        //          k * i + ii, z[k * i + ii], tmp, acc);
       }
       o[n * i + j] = acc;
     }
@@ -66,12 +66,16 @@ void rns_mod_switch(rns_t a, rns_t tmp, uint32_t l, uint32_t m, uint32_t k,
     poly_intt(&a[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
               params->qinvmR[i], n);
     poly_mulx(&a[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
+    printf("old a[%d]: %ld\n", n * i + 0, a[n * i + 0]);
     poly_sub(&a[n * i], &tmp[n * i], params->q[i], params->R_q[i], n);
+    printf("a[%d]: %ld, tmp[%d]: %ld\n", n * i + 0, a[n * i + 0], n * i,
+           tmp[n * i]);
     for (uint32_t j = 0; j < k; j++) {
       poly_mulx(&a[n * i],
                 params->Rqinvmq[(m + j) * (params->l + params->k) + i],
                 params->q[i], params->qinvmR[i], n);
     }
+    printf("a[%d]: %ld\n", n * i + 0, a[n * i + 0]);
     poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->R_q[i],
              params->qinvmR[i], n);
   }
@@ -204,7 +208,7 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
             mod_pow_ct((int64_t)params->q[i], params->q[j] - 2,
                        (int64_t)params->q[j], params->Rmq[j],
                        params->qinvmR[j]);  // (q_i)-1
-        // printf("qinvq[%d]: %ld\n", i * lk + j, params->Rqinvmq[i * lk + j]);
+        printf("qinvq[%d]: %ld\n", i * lk + j, params->Rqinvmq[i * lk + j]);
         params->Rqinvmq[i * lk + j] =
             q_to_q2((int64_t)(((__int128_t)params->Rmq[j] *
                                params->Rqinvmq[i * lk + j]) %
@@ -265,20 +269,30 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
       acc = mod_mul_ct(acc, params->Rqinvmq[k2 * lk + i], (int64_t)params->q[i],
                        params->qinvmR[i]);
       for (uint32_t kk = 0; kk < params->k; kk++) {
-        int64_t tmp = mod_mul_ct(acc, params->R2mq[kk], (int64_t)params->q[kk],
-                                 params->qinvmR[kk]);
+        int64_t tmp = mod_mul_ct(acc, params->R2mq[params->l + kk],
+                                 (int64_t)params->q[params->l + kk],
+                                 params->qinvmR[params->l + kk]);
         params->zRqb[i * params->l * params->k + kk * params->l + i] =
-            q_to_q2(tmp, (int64_t)(params->q[kk]));
+            q_to_q2(tmp, (int64_t)(params->q[params->l + kk]));
+        printf("zRqb[%d]: %ld, acc: %ld, tmp: %ld mod %ld\n",
+               i * params->l * params->k + kk * params->l + i,
+               params->zRqb[i * params->l * params->k + kk * params->l + i],
+               acc, tmp, params->q[params->l + kk]);
       }
     }
     for (uint32_t j = i + 1; j < params->l; j++) {
       acc = mod_mul_ct(acc, params->Rqinvmq[j * lk + i], (int64_t)params->q[i],
                        params->qinvmR[i]);
       for (uint32_t k2 = 0; k2 < params->k; k2++) {
-        int64_t tmp = mod_mul_ct(acc, params->R2mq[k2], (int64_t)params->q[k2],
-                                 params->qinvmR[k2]);
+        int64_t tmp = mod_mul_ct(acc, params->R2mq[params->l + k2],
+                                 (int64_t)params->q[params->l + k2],
+                                 params->qinvmR[params->l + k2]);
         params->zRqb[j * params->l * params->k + k2 * params->l + i] =
-            q_to_q2(tmp, (int64_t)(params->q[k2]));
+            q_to_q2(tmp, (int64_t)(params->q[params->l + k2]));
+        printf("zRqb[%d]: %ld, acc: %ld, tmp: %ld mod %ld\n",
+               j * params->l * params->k + k2 * params->l + i,
+               params->zRqb[j * params->l * params->k + k2 * params->l + i],
+               acc, tmp, params->q[params->l + k2]);
       }
     }
   }

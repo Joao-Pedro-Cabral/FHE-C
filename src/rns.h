@@ -7,7 +7,7 @@
 typedef int64_t* rns_t;  // L polynomials (one per q_i)
 
 // Using dnum = 1, these values are always fine for P
-#define P_MOD_BITS 62
+#define P_MOD_BITS 61
 #define P_MOD_SIZE 2
 
 // Notation: x_ymz = (x/y) mod z

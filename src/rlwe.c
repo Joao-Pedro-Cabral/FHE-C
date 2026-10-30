@@ -115,7 +115,7 @@ void rlwe_gen_relinearization_key(keys_t* keys, xof_state_t* xof_state,
             params->qinvmR[0], n);
   // Removes the INTT R^2/n factor
   poly_mulx(s2, params->R2_nmq[0], params->q[0], params->qinvmR[0], n);
-  memset(s2, 1, n * sizeof(int64_t));
+  // memset(s2, 1, n * sizeof(int64_t));
   rlwe_key_switch_encrypt(keys->r, xof_state, s2, tmp, tmp2, e, keys, params,
                           true, params->l + params->k);
   poly_free(&s2);
