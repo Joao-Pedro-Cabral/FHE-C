@@ -533,15 +533,17 @@ void check_linear_transform(const vec_t* v1, const vec_t* v2, const vec_t* mat,
 
 void check_hybrid_multiplication(xof_state_t* xof_state,
                                  const rns_params_t* params) {
-  printf("---------- HYBRID MULTIPLICATION ----------\n");
+  printf("---------- VERIFY HYBRID MULTIPLICATION ----------\n");
   rns_t d, d2, d3;
   uint32_t n = params->n;
+  uint8_t correct = 1;
 
   rns_new(&d, params);
   rns_new(&d2, params);
   rns_new(&d3, params);
 
   for (uint32_t i = 0; i < params->l; i++) {
+    poly_uniform_sampler(&d[n * i], xof_state, params->q[i], params->R_q[i], n);
     for (uint32_t j = 0; j < n; j++) {
       d[n * i + j] = 1;
     }
@@ -552,22 +554,12 @@ void check_hybrid_multiplication(xof_state_t* xof_state,
     poly_ntt(&d[n * i], &params->w[n * i], params->q[i], params->R_q[i],
              params->qinvmR[i], n);
     for (uint32_t j = 0; j < params->k; j++) {
-      poly_mulx(&d[n * i], params->q[params->l + j], params->q[i],
+      poly_mulx(&d[n * i], (int64_t)params->q[params->l + j], params->q[i],
                 params->qinvmR[i], n);
       poly_mulx(&d[n * i], params->R2mq[i], params->q[i], params->qinvmR[i], n);
     }
   }
   rns_mod_raise(d, params->l, params);
-  // for (uint32_t i = 0; i < params->l + params->k; i++) {
-  //   poly_intt(&d[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
-  //             params->qinvmR[i], n);
-  //   poly_mulx(&d[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i],
-  //   n);
-  //   for (uint32_t j = 0; j < n; j++) {
-  //     printf("d[%d]: %ld\n", n * i + j, d[n * i + j]);
-  //   }
-  // }
-
   rns_mod_switch(d, d3, params->l, params->l, params->k, params->zRbq,
                  params->yRbq, params);
 
@@ -576,14 +568,22 @@ void check_hybrid_multiplication(xof_state_t* xof_state,
               params->qinvmR[i], n);
     poly_mulx(&d[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
     for (uint32_t j = 0; j < n; j++) {
-      printf("d[%d]: %ld, d2[%d]: %ld\n", n * i + j, d[n * i + j], n * i + j,
-             d2[n * i + j]);
+      if (d2[n * i + j] != d[n * i + j]) {
+        correct = 0;
+        printf("d[%d]: %ld, d2[%d]: %ld\n", n * i + j, d[n * i + j], n * i + j,
+               d2[n * i + j]);
+      }
     }
   }
 
   rns_free(&d);
   rns_free(&d2);
   rns_free(&d3);
+  if (correct) {
+    printf("---------- HYBRID MULTIPLICATION CORRECT ----------\n");
+  } else {
+    printf("---------- HYBRID MULTIPLICATION WRONG ----------\n");
+  }
 }
 
 int main() {
