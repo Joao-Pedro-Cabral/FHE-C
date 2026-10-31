@@ -49,16 +49,22 @@ void check_q_aux(const uint64_t* q, const int64_t* Rmq, const int64_t* R2mq,
     }
   }
   for (uint32_t i = 0; i < k; i++) {
+    printf("zRbq[%d]: %ld mod %ld\n", i, zRbq[i], q[l + i]);
+  }
+  for (uint32_t i = 0; i < k; i++) {
     for (uint32_t j = 0; j < l; j++) {
-      printf("zRbq[%d]: %ld, yRbq[%d]: %ld mod %ld\n", l * i + j,
-             zRbq[l * i + j], l * i + j, yRbq[l * i + j], q[j]);
+      printf("yRbq[%d]: %ld mod %ld\n", l * i + j, yRbq[l * i + j], q[j]);
+    }
+  }
+  for (uint32_t i = 0; i < l; i++) {
+    for (uint32_t j = 0; j <= i; j++) {
+      printf("zRqb[%d]: %ld mod %ld\n", l * i + j, zRqb[l * i + j], q[j]);
     }
   }
   for (uint32_t i = 0; i < l; i++) {
     for (uint32_t j = 0; j < k; j++) {
       for (uint32_t m = 0; m <= i; m++) {
-        printf("zRqb[%d]: %ld, yRqb[%d]: %ld mod %ld\n", l * k * i + l * j + m,
-               zRqb[l * k * i + l * j + m], l * k * i + l * j + m,
+        printf("yRqb[%d]: %ld mod %ld\n", l * k * i + l * j + m,
                yRqb[l * k * i + l * j + m], q[l + j]);
       }
     }
@@ -556,7 +562,8 @@ void check_hybrid_multiplication(xof_state_t* xof_state,
   //   poly_intt(&d[n * i], &params->w_1[n * i], params->q[i], params->R_q[i],
   //             params->qinvmR[i], n);
   //   poly_mulx(&d[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i],
-  //   n); for (uint32_t j = 0; j < n; j++) {
+  //   n);
+  //   for (uint32_t j = 0; j < n; j++) {
   //     printf("d[%d]: %ld\n", n * i + j, d[n * i + j]);
   //   }
   // }

@@ -25,7 +25,7 @@ static void rns_fastb_conv(rns_t o, const rns_t x, const uint64_t* q,
       int64_t acc = 0;
       for (uint32_t ii = 0; ii < k; ii++) {
         int64_t tmp = x[n * ii + j];
-        tmp = mod_mul_ct(tmp, z[k * i + ii], (int64_t)b[i], binvmR[i]);
+        tmp = mod_mul_ct(tmp, z[ii], (int64_t)q[ii], qinvmR[ii]);
         tmp = mod_mul_ct(tmp, y[k * i + ii], (int64_t)b[i], binvmR[i]);
         acc = mod_ct(acc + tmp, (int64_t)b[i], R_b[i]);
         // if (j == 0)
@@ -50,15 +50,15 @@ static void rns_fastb_conv_error_reduced(rns_t o, const rns_t x, const uint64_t*
       double acc_d = 0.0;
       for (uint32_t ii = 0; ii < k; ii++) {
         int64_t tmp = x[n * ii + j];
-        tmp = mod_mul_ct_exact(tmp, z[k * i + ii], (int64_t)b[i], binvmR[i]);
+        tmp = mod_mul_ct_exact(tmp, z[ii], (int64_t)q[ii], qinvmR[ii]);
         double tmp_d = (double)tmp/q[ii];
         acc_d += tmp_d;
         tmp = mod_mul_ct(tmp, y[k * i + ii], (int64_t)b[i], binvmR[i]);
         acc = mod_ct(acc + tmp, (int64_t)b[i], R_b[i]);
-        // if (j == 0)
-        //   printf("x[%d]: %ld, y[%d]: %ld, z[%d]: %ld, tmp: %ld, acc: %ld, tmp_d: %.4lf, acc_d: %.4lf\n",
-        //          n * ii + j, x[n * ii + j], k * i + ii, y[k * i + ii],
-        //          k * i + ii, z[k * i + ii], tmp, acc, tmp_d, acc_d);
+        if (j == 0)
+          printf("x[%d]: %ld, y[%d]: %ld, z[%d]: %ld, tmp: %ld, acc: %ld, tmp_d: %.4lf, acc_d: %.4lf\n",
+                 n * ii + j, x[n * ii + j], k * i + ii, y[k * i + ii],
+                 ii, z[ii], tmp, acc, tmp_d, acc_d);
       }
       
       int64_t v = (int64_t)(round(acc_d));
@@ -130,7 +130,7 @@ void rns_mod_raise(rns_t a, uint32_t level, const rns_params_t* params) {
     poly_mulx(&a[n * i], params->R_nmq[i], params->q[i], params->qinvmR[i], n);
   }
   rns_fastb_conv_error_reduced(&a[params->n * params->l], a, params->q, &params->q[params->l],
-                 &params->zRqb[params->l * (level - 1) * params->k],
+                 &params->zRqb[params->l * (level - 1)],
                  &params->yRqb[params->l * (level - 1) * params->k],
                  params->qinvmR, &params->qinvmR[params->l],
                  &params->R_q[params->l], &params->R2mq[params->l], params->n, level, params->k);
@@ -185,9 +185,9 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   params->qinvmR = malloc(sizeof(int64_t) * lk);
   params->Rqinvmq = malloc(sizeof(int64_t) * lk * lk);  // only for rescaling
   params->scales = malloc(sizeof(int64_t) * l);  // Scales only for Q moduli
-  params->zRbq = malloc(sizeof(int64_t) * k * l);
+  params->zRbq = malloc(sizeof(int64_t) * k);
   params->yRbq = malloc(sizeof(int64_t) * k * l);
-  params->zRqb = malloc(sizeof(int64_t) * k * l * l);
+  params->zRqb = malloc(sizeof(int64_t) * l * l);
   params->yRqb = malloc(sizeof(int64_t) * k * l * l);
   rns_new(&params->w, params);
   rns_new(&params->w_1, params);
@@ -272,12 +272,9 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
     }
     acc = mod_pow_ct(acc, params->q[i] - 2, (int64_t)params->q[i],
                      params->Rmq[i], params->qinvmR[i]);
-    for (uint32_t k2 = 0; k2 < params->l; k2++) {
-      int64_t tmp = mod_mul_ct(acc, params->R2mq[k2], (int64_t)params->q[k2],
-                               params->qinvmR[k2]);
-      params->zRbq[k2 * params->k + i - params->l] =
-          q_to_q2(tmp, (int64_t)(params->q[k2]));
-    }
+    acc = mod_mul_ct(acc, params->R2mq[i], (int64_t)params->q[i],
+                     params->qinvmR[i]);
+    params->zRbq[i - params->l] = q_to_q2(acc, (int64_t)(params->q[i]));
   }
   // yRbq
   for (uint32_t i = 0; i < params->l; i++) {
@@ -296,41 +293,22 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   }
   // zRqb
   // Base cases
-  for (uint32_t i = 0; i < params->k; i++) {
-    params->zRqb[i * params->l] = params->Rmq[params->l + i];  // Not used
-  }
-  for (uint32_t i = 0; i < params->l; i++) {
-    int64_t acc = 1;
-    for (uint32_t k2 = 0; k2 < i; k2++) {
-      acc = mod_mul_ct(acc, params->Rqinvmq[k2 * lk + i], (int64_t)params->q[i],
-                       params->qinvmR[i]);
-      for (uint32_t kk = 0; kk < params->k; kk++) {
-        int64_t tmp = mod_mul_ct(acc, params->R2mq[params->l + kk],
-                                 (int64_t)params->q[params->l + kk],
-                                 params->qinvmR[params->l + kk]);
-        params->zRqb[i * params->l * params->k + kk * params->l + i] =
-            q_to_q2(tmp, (int64_t)(params->q[params->l + kk]));
-        printf("zRqb[%d]: %ld, acc: %ld, tmp: %ld mod %ld\n",
-               i * params->l * params->k + kk * params->l + i,
-               params->zRqb[i * params->l * params->k + kk * params->l + i],
-               acc, tmp, params->q[params->l + kk]);
-      }
+  params->zRqb[0] = params->Rmq[0];  // Not used
+  params->zRqb[params->l + 0] = params->Rqinvmq[lk];
+  params->zRqb[params->l + 1] = params->Rqinvmq[1];
+  for (uint32_t i = 2; i < params->l; i++) {
+    for (uint32_t j = 0; j < i; j++) {
+      int64_t tmp = mod_mul_ct(params->zRqb[(i - 1) * params->l + j],
+                               params->Rqinvmq[i * lk + j],
+                               (int64_t)params->q[j], params->qinvmR[j]);
+      params->zRqb[i * params->l + j] = q_to_q2(tmp, (int64_t)(params->q[i]));
     }
-    for (uint32_t j = i + 1; j < params->l; j++) {
+    int64_t acc = params->Rqinvmq[i];
+    for (uint32_t j = 1; j < i; j++) {
       acc = mod_mul_ct(acc, params->Rqinvmq[j * lk + i], (int64_t)params->q[i],
                        params->qinvmR[i]);
-      for (uint32_t k2 = 0; k2 < params->k; k2++) {
-        int64_t tmp = mod_mul_ct(acc, params->R2mq[params->l + k2],
-                                 (int64_t)params->q[params->l + k2],
-                                 params->qinvmR[params->l + k2]);
-        params->zRqb[j * params->l * params->k + k2 * params->l + i] =
-            q_to_q2(tmp, (int64_t)(params->q[params->l + k2]));
-        printf("zRqb[%d]: %ld, acc: %ld, tmp: %ld mod %ld\n",
-               j * params->l * params->k + k2 * params->l + i,
-               params->zRqb[j * params->l * params->k + k2 * params->l + i],
-               acc, tmp, params->q[params->l + k2]);
-      }
     }
+    params->zRqb[i * params->l + i] = q_to_q2(acc, (int64_t)(params->q[i]));
   }
   // yRqb
   // Base case

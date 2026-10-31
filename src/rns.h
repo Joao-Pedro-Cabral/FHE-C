@@ -21,9 +21,9 @@ typedef struct {
   int64_t* _nmq;     // 1/n, R=2^64 in q modulis
   int64_t* R_nmq;    // R/n, R=2^64 in q modulis
   int64_t* R2_nmq;   // R^2/n, R=2^64 in q modulis
-  int64_t* zRbq;     // zR's for FastBConv(, b, q): k*l elements
+  int64_t* zRbq;     // zR's for FastBConv(, b, q): k elements
   int64_t* yRbq;     // yR's for FastBConv(, b, q): k*l elements
-  int64_t* zRqb;     // zR's for FastBConv(, q, b): l*k*l elements
+  int64_t* zRqb;     // zR's for FastBConv(, q, b): l*l elements
   int64_t* yRqb;     // yR's for FastBConv(, q, b): l*k*l elements
   uint64_t* scales;  // scales for each moduli
   uint32_t k;        // size of the rns P (ModRaise)
