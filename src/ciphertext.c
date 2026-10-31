@@ -31,11 +31,12 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
                                           const switch_t r,
                                           const rns_params_t* params) {
   poly_t tmp;
-  rns_t tmp_r;
+  rns_t tmp_a, tmp_b;
   rns_t d2;
   uint32_t n = params->n;
   poly_new(&tmp, n);
-  rns_new(&tmp_r, params);
+  rns_new(&tmp_a, params);
+  rns_new(&tmp_b, params);
   rns_new(&d2, params);
   // Basic Multiplication
   for (uint32_t i = 0; i < ct1->level; i++) {
@@ -56,34 +57,32 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
               n);  // 1
   }
   // Relinearization
-  // We don't need hybrid method for A
-  for (uint32_t i = 0; i < ct1->level; i++) {
-    for (uint32_t j = 0; j < ct1->level; j++) {
-      poly_pointwise_mul(tmp, &d2[n * i], &r[i].a[n * j], params->q[j],
-                         params->qinvmR[j],
-                         n);  // 1
-      poly_add(&ct3->ab.a[n * j], tmp, params->q[j], params->R_q[j],
-               n);  // 1
-    }
-  }
   // Hybrid method for B
   rns_mod_raise(d2, ct1->level, params);
-  memset(tmp_r, 0, (params->l + params->k) * params->n * sizeof(int64_t));
+  memset(tmp_a, 0, (params->l + params->k) * params->n * sizeof(int64_t));
+  memset(tmp_b, 0, (params->l + params->k) * params->n * sizeof(int64_t));
   for (uint32_t i = 0; i < params->l + params->k; i++) {
     if (i >= ct1->level && i < params->l) continue;
     for (uint32_t j = 0; j < params->l + params->k; j++) {
       if (j >= ct1->level && j < params->l) continue;
+      poly_pointwise_mul(tmp, &d2[n * i], &r[i].a[n * j], params->q[j],
+                         params->qinvmR[j], n);  // 1
+      poly_add(&tmp_a[n * j], tmp, params->q[j], params->R_q[j],
+               n);  // 1
       poly_pointwise_mul(tmp, &d2[n * i], &r[i].b[n * j], params->q[j],
-                         params->qinvmR[j],
-                         n);  // R-1
-      poly_add(&tmp_r[n * j], tmp, params->q[j], params->R_q[j],
+                         params->qinvmR[j], n);  // R-1
+      poly_add(&tmp_b[n * j], tmp, params->q[j], params->R_q[j],
                n);  // R-1
     }
   }
-  rns_mod_switch(d2, tmp_r, ct1->level, params->l, params->k, params->zRbq,
+  rns_mod_switch(tmp_a, d2, ct1->level, params->l, params->k, params->zRbq,
+                 params->yRbq, params);
+  rns_mod_switch(tmp_b, d2, ct1->level, params->l, params->k, params->zRbq,
                  params->yRbq, params);
   for (uint32_t i = 0; i < ct1->level; i++) {
-    poly_add(&ct3->ab.b[n * i], &tmp_r[n * i], params->q[i], params->R_q[i],
+    poly_add(&ct3->ab.a[n * i], &tmp_a[n * i], params->q[i], params->R_q[i],
+             n);  // 1
+    poly_add(&ct3->ab.b[n * i], &tmp_b[n * i], params->q[i], params->R_q[i],
              n);  // R-1
     // Add R factor
     poly_mulx(&ct3->ab.b[n * i], params->R2mq[i], params->q[i],
@@ -92,9 +91,10 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
   }
   // Rescaling (ModSwitch)
   ct3->level = ct1->level;
-  ciphertext_mod_switch(ct3, tmp_r, params);
+  ciphertext_mod_switch(ct3, tmp_a, params);
   poly_free(&tmp);
-  rns_free(&tmp_r);
+  rns_free(&tmp_a);
+  rns_free(&tmp_b);
   rns_free(&d2);
 }
 
