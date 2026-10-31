@@ -47,7 +47,7 @@ static void rns_fastb_conv_error_reduced(
         int64_t tmp = x[n * ii + j];
         tmp = mod_mul_ct_exact(tmp, z[ii], (int64_t)q[ii], qinvmR[ii]);
         double tmp_d = (double)tmp / (double)q[ii];
-        acc_d += 2 * tmp_d;
+        acc_d += tmp_d;
         tmp = mod_mul_ct(tmp, y[k * i + ii], (int64_t)b[i], binvmR[i]);
         acc = mod_ct(acc + tmp, (int64_t)b[i], R_b[i]);
       }
@@ -271,7 +271,7 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
       int64_t tmp = mod_mul_ct(params->zRqb[(i - 1) * params->l + j],
                                params->Rqinvmq[i * lk + j],
                                (int64_t)params->q[j], params->qinvmR[j]);
-      params->zRqb[i * params->l + j] = q_to_q2(tmp, (int64_t)(params->q[i]));
+      params->zRqb[i * params->l + j] = q_to_q2(tmp, (int64_t)(params->q[j]));
     }
     int64_t acc = params->Rqinvmq[i];
     for (uint32_t j = 1; j < i; j++) {
