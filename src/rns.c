@@ -132,7 +132,7 @@ static void rns_gen_inverse_roots(rns_params_t* params) {
 }
 
 static inline uint32_t compute_ring_dimension(uint32_t qtotal_bits) {
-  return 128;
+  return 64;
 }
 
 void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
@@ -257,6 +257,8 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
                          params->R2mq[i], (int64_t)params->q[i],
                          params->qinvmR[i]);
       }
+      acc = mod_mul_ct(acc, params->R2mq[i], (int64_t)params->q[i],
+                       params->qinvmR[i]);
       params->yRbq[params->k * i + j - params->l] =
           q_to_q2(acc, (int64_t)(params->q[i]));
     }

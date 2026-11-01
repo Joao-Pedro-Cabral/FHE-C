@@ -81,7 +81,8 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
                n);  // R-1
     }
   }
-  for (uint32_t i = 0; i < ct1->level; i++) {
+  for (uint32_t i = 0; i < params->l + params->k; i++) {
+    if (i >= ct1->level && i < params->l) continue;
     // Add R factor
     poly_mulx(&tmp_r[n * i], params->R2mq[i], params->q[i], params->qinvmR[i],
               n);  // 1
