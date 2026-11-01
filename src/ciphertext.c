@@ -30,11 +30,12 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
                                           const ciphertext_t* ct2,
                                           const switch_t r,
                                           const rns_params_t* params) {
-  poly_t tmp;
+  poly_t tmp, tmp2;
   rns_t tmp_r;
   rns_t d2;
   uint32_t n = params->n;
   poly_new(&tmp, n);
+  poly_new(&tmp2, n);
   rns_new(&tmp_r, params);
   rns_new(&d2, params);
   // Basic Multiplication
@@ -58,24 +59,25 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
               n);  // 1
   }
   // Relinearization
-  // We don't need hybrid method for A
-  for (uint32_t i = 0; i < ct1->level; i++) {
-    for (uint32_t j = 0; j < ct1->level; j++) {
-      poly_pointwise_mul(tmp, &d2[n * i], &r[i].a[n * j], params->q[j],
-                         params->qinvmR[j],
-                         n);  // 1
-      poly_add(&ct3->ab.a[n * j], tmp, params->q[j], params->R_q[j],
-               n);  // 1
-    }
-  }
   // Hybrid method for B
   rns_mod_raise(d2, ct1->level, params);
   memset(tmp_r, 0, (params->l + params->k) * params->n * sizeof(int64_t));
+  // We don't need hybrid method for A
   for (uint32_t i = 0; i < params->l + params->k; i++) {
     if (i >= ct1->level && i < params->l) continue;
     for (uint32_t j = 0; j < params->l + params->k; j++) {
       if (j >= ct1->level && j < params->l) continue;
-      poly_pointwise_mul(tmp, &d2[n * i], &r[i].b[n * j], params->q[j],
+      memcpy(tmp2, &d2[n * i], n*sizeof(int64_t));
+      poly_ntt(tmp2, &params->w[n * j], params->q[j], params->R_q[j],
+              params->qinvmR[j], n);
+      if (i < ct1-> level && j < ct1->level) {
+      poly_pointwise_mul(tmp, tmp2, &r[i].a[n * j], params->q[j],
+                         params->qinvmR[j],
+                         n);  // 1
+      poly_add(&ct3->ab.a[n * j], tmp, params->q[j], params->R_q[j],
+               n);  // 1
+      }
+      poly_pointwise_mul(tmp, tmp2, &r[i].b[n * j], params->q[j],
                          params->qinvmR[j], n);  // R-1
       poly_add(&tmp_r[n * j], tmp, params->q[j], params->R_q[j],
                n);  // R-1
@@ -96,6 +98,7 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
   // Rescaling (ModSwitch)
   ct3->level = ct1->level;
   ciphertext_mod_switch(ct3, tmp_r, params);
+  poly_free(&tmp2);
   poly_free(&tmp);
   rns_free(&tmp_r);
   rns_free(&d2);

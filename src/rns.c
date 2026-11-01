@@ -108,11 +108,11 @@ void rns_mod_raise(rns_t a, uint32_t level, const rns_params_t* params) {
       &params->yRqb[params->l * (level - 1) * params->k], params->qinvmR,
       &params->qinvmR[params->l], &params->R_q[params->l],
       &params->R2mq[params->l], params->n, level, params->k);
-  for (uint32_t i = 0; i < params->l + params->k; i++) {
-    if (i >= level && i < params->l) continue;
-    poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->R_q[i],
-             params->qinvmR[i], n);
-  }
+  // for (uint32_t i = 0; i < params->l + params->k; i++) {
+  //   if (i >= level && i < params->l) continue;
+  //   poly_ntt(&a[n * i], &params->w[n * i], params->q[i], params->R_q[i],
+  //            params->qinvmR[i], n);
+  // }
 }
 
 static void rns_gen_roots(rns_params_t* params) {
