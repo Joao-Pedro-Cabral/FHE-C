@@ -153,13 +153,16 @@ void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
     uint64_t x = buf[j];
     if (x < bound) {
       int64_t y = mod_ct_exact((int64_t)x, (int64_t)q, R_q);
-      a[i] = y;
+      a[i] = 0;
+      if(i == 0) a[i] = 1UL << 30;
       i++;
     }
     j++;
   }
   free(buf);
 }
+
+#define ERROR(b, c) (0)
 
 // AVX2 doesn't support popcnt
 // TODO: With error the things doesn't work well...

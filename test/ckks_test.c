@@ -560,6 +560,10 @@ void check_hybrid_multiplication(xof_state_t* xof_state,
     }
   }
   rns_mod_raise(d, params->l, params);
+  for (uint32_t i = 0; i < params->l + params->k; i++) {
+    poly_ntt(&d[n * i], &params->w[n * i], params->q[i], params->R_q[i],
+             params->qinvmR[i], n);
+  }
   rns_mod_switch(d, d3, params->l, params->l, params->k, params->zRbq,
                  params->yRbq, params);
 
@@ -588,7 +592,7 @@ void check_hybrid_multiplication(xof_state_t* xof_state,
 
 int main() {
   // Parameters Construction
-  uint32_t l = 1;
+  uint32_t l = 2;
   uint32_t n2 = 16;
   uint32_t q0_bits = 60;
   uint32_t scale_bits = 40;
