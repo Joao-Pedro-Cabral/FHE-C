@@ -1,9 +1,9 @@
 
 #include "poly.h"
 
-#ifdef __aarch64__
+#ifdef __NEON_MODE__
 #include <arm_neon.h>
-#else
+#elif __AVX2_MODE__
 #include <immintrin.h>
 #endif
 #include <stdlib.h>
@@ -49,7 +49,7 @@ void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n2,
   }
 }
 
-#ifndef __aarch64__
+#ifdef __AVX2_MODE__
 static const uint32_t perm_table[16][8] = {
     // mask     destination 32-bit lanes
     /* 0x0 */ {0, 1, 0, 1, 0, 1, 0, 1},
@@ -77,7 +77,7 @@ void poly_ternary_sampler(poly_t s, xof_state_t* xof_state, uint32_t n) {
   uint8_t* buf = malloc(buflen);  // Initial guess
   xof_squeeze(buf, buflen, xof_state);
   uint32_t i = 0, j = 0;
-#ifndef __aarch64__
+#ifdef __AVX2_MODE__
   __m256i v0123 = _mm256_set_epi64x(3, 2, 1, 0);
   __m256i v0246 = _mm256_set_epi64x(6, 4, 2, 0);
   __m256i v1 = _mm256_set1_epi64x(1);
@@ -91,7 +91,7 @@ void poly_ternary_sampler(poly_t s, xof_state_t* xof_state, uint32_t n) {
       xof_squeeze(buf, buflen, xof_state);
       j = 0;
     }
-#ifdef __aarch64__
+#ifndef __AVX2_MODE__
     uint8_t x = buf[j];
     for (int k = 0; k < 8 / 2 && i < n; k++) {
       uint8_t y = (x >> (2 * k)) & 0x3;
@@ -171,7 +171,7 @@ void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state, const poly_t m,
   xof_squeeze(buf, 6 * n, xof_state);
   uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
   uint8_t *c0_8 = buf + 3 * n, *c1_8 = buf + 4 * n, *c2_8 = buf + 5 * n;
-#ifdef __aarch64__
+#ifdef __NEON_MODE__
   for (uint32_t i = 0; i < n; i += 16) {
     // Load data
     uint8x16_t vb0_8 = vld1q_u8(&b0_8[i]);
@@ -266,7 +266,7 @@ void poly_cbd24_sampler(poly_t e, xof_state_t* xof_state, uint32_t n) {
   xof_squeeze(buf, 6 * n, xof_state);
   uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
   uint8_t *c0_8 = buf + 3 * n, *c1_8 = buf + 4 * n, *c2_8 = buf + 5 * n;
-#ifdef __aarch64__
+#ifdef __NEON_MODE__
   for (uint32_t i = 0; i < n; i += 16) {
     // Load data
     uint8x16_t vb0_8 = vld1q_u8(&b0_8[i]);

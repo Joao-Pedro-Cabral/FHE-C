@@ -40,6 +40,27 @@ $(error Unsupported ARCH='$(ARCH)'. Use ARCH=x86 or ARCH=arm)
 
 endif
 
+# ----------------------------------------------------------------------
+# Optimization mode
+# ----------------------------------------------------------------------
+
+OPT ?= 0
+
+ifeq ($(OPT),1)
+
+    ifeq ($(ARCH),x86)
+        OPT_CFLAGS := -D__AVX2_MODE__
+
+    else ifeq ($(ARCH),arm)
+        OPT_CFLAGS := -D__NEON_MODE__
+
+    endif
+
+else
+
+    OPT_CFLAGS :=
+
+endif
 
 # ----------------------------------------------------------------------
 # Common compiler flags
@@ -48,11 +69,11 @@ endif
 COMMON_CFLAGS := \
           -Wall -Wextra \
           -Wshadow -Wconversion \
-          -Wundef -Wdouble-promotion \
+          -Wdouble-promotion \
           -Wformat=2 \
           -Isrc
 
-CFLAGS := $(COMMON_CFLAGS) $(ARCH_CFLAGS)
+CFLAGS := $(COMMON_CFLAGS) $(ARCH_CFLAGS) $(OPT_CFLAGS)
 
 LDLIBS := -lm
 

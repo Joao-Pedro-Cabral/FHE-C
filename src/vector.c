@@ -1,9 +1,9 @@
 
 #include "vector.h"
 
-#ifdef __aarch64__
+#ifdef __NEON_MODE__
 #include <arm_neon.h>
-#else
+#elif __AVX2_MODE__
 #include <immintrin.h>
 #endif
 #include <math.h>
@@ -56,7 +56,7 @@ void vec_gen_roots(vec_t* w, uint32_t m) {
     (vj_img) = complex_vadd((vj_img), (vt_img));                             \
   } while (0)
 
-#ifdef __aarch64__
+#ifdef __NEON_MODE__
 #define CT_BUTTERFLY_X(vj_rel, vj_img, vk_rel, vk_img, w_rel, w_img, vt_rel, \
                        vt_img)                                               \
   do {                                                                       \
@@ -71,7 +71,7 @@ void vec_gen_roots(vec_t* w, uint32_t m) {
 
 // m = n/2 (half cyclotomic size)
 void fft(vec_t* v, const vec_t* w, uint32_t m) {
-#ifdef __aarch64__
+#ifdef __NEON_MODE__
   // Merge 4 layers using all the 32 ARM NEON (ARMv8) registers
   uint32_t k1 = 1;
   uint32_t k2 = 2;
@@ -507,7 +507,7 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
       vst1q_f64(&v->img[j + m / 2 + 6], vk3_img);
     }
   }
-#else
+#elif __AVX2_MODE__
   // Merge 4 layers using all the 16 AVX2 registers
   uint32_t k1 = 1;
   uint32_t k2 = 2;
@@ -714,6 +714,25 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
       _mm256_storeu_pd(&v->img[j + 4 + m / 2], vk1_img);
     }
   }
+#else
+  for (uint32_t len = 1; len < m; len <<= 1) {
+    for (uint32_t i = 0; i < m; i += 2 * len) {
+      for (uint32_t j = i; j < i + len; j++) {
+        double w_rel = w->rel[len + j - i];
+        double w_img = w->img[len + j - i];
+        double j_rel = v->rel[j];
+        double j_img = v->img[j];
+        double k_rel = v->rel[j + len];
+        double k_img = v->img[j + len];
+        double t_rel = rel_mul(k_rel, k_img, w_rel, w_img);
+        double t_img = img_mul(k_rel, k_img, w_rel, w_img);
+        v->rel[j + len] = j_rel - t_rel;
+        v->img[j + len] = j_img - t_img;
+        v->rel[j] = j_rel + t_rel;
+        v->img[j] = j_img + t_img;
+      }
+    }
+  }
 #endif
 }
 
@@ -728,7 +747,7 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
     (vk_img) = img_vmul((vt_rel), (vt_img), (vw_rel), (vw_img));             \
   } while (0)
 
-#ifdef __aarch64__
+#ifdef __NEON_MODE__
 #define GS_BUTTERFLY_X(vj_rel, vj_img, vk_rel, vk_img, w_rel, w_img, vt_rel, \
                        vt_img)                                               \
   do {                                                                       \
@@ -743,7 +762,7 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
 
 // m = n/2 (half cyclotomic size)
 void ifft(vec_t* v, const vec_t* w, uint32_t m) {
-#ifdef __aarch64__
+#ifdef __NEON_MODE__
 
   uint32_t log2_m = floor_log2(m / 16);
   uint32_t rem = log2_m % 3;
@@ -1173,7 +1192,7 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
     vst1q_f64(&v->img[j + 14], vk3_img);
   }
 
-#else
+#elif __AVX2_MODE__
   uint32_t log2_m = floor_log2(m);
   uint32_t m2 = ((log2_m & 0x1) == 0) ? m : (m / 2);
   __m256d sign = _mm256_set1_pd(-0.0f);
@@ -1387,6 +1406,25 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
     _mm256_storeu_pd(&v->img[j + 8], vj1_img);
     _mm256_storeu_pd(&v->rel[j + 12], vk1_rel);
     _mm256_storeu_pd(&v->img[j + 12], vk1_img);
+  }
+#else
+  for (uint32_t len = m / 2; len > 0; len >>= 1) {
+    for (uint32_t i = 0; i < m; i += 2 * len) {
+      for (uint32_t j = i; j < i + len; j++) {
+        double w_rel = w->rel[len + j - i];
+        double w_img = -w->img[len + j - i];  // Conjugate
+        double j_rel = v->rel[j];
+        double j_img = v->img[j];
+        double k_rel = v->rel[j + len];
+        double k_img = v->img[j + len];
+        double t_rel = j_rel - k_rel;
+        double t_img = j_img - k_img;
+        v->rel[j] = j_rel + k_rel;
+        v->img[j] = j_img + k_img;
+        v->rel[j + len] = rel_mul(t_rel, t_img, w_rel, w_img);
+        v->img[j + len] = img_mul(t_rel, t_img, w_rel, w_img);
+      }
+    }
   }
 #endif
 }
