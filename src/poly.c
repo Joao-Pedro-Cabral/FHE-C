@@ -154,8 +154,6 @@ void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
     if (x < bound) {
       int64_t y = mod_ct_exact((int64_t)x, (int64_t)q, R_q);
       a[i] = y;
-      // a[i] = 0;
-      // if(i == 0) a[i] = 1UL << 30;
       i++;
     }
     j++;
@@ -163,7 +161,7 @@ void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
   free(buf);
 }
 
-#define ERROR(b, c) (0)
+#define ERROR(b, c) ((b) - (c))
 
 // AVX2 doesn't support popcnt
 // TODO: With error the things doesn't work well...
@@ -257,7 +255,7 @@ void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state, const poly_t m,
             __builtin_popcount(b2_8[i]);
     int c = __builtin_popcount(c0_8[i]) + __builtin_popcount(c1_8[i]) +
             __builtin_popcount(c2_8[i]);
-    e[i] = m[i];
+    e[i] = m[i] + ERROR(b, c);
   }
 #endif
   free(buf);
@@ -335,7 +333,7 @@ void poly_cbd24_sampler(poly_t e, xof_state_t* xof_state, uint32_t n) {
             __builtin_popcount(b2_8[i]);
     int c = __builtin_popcount(c0_8[i]) + __builtin_popcount(c1_8[i]) +
             __builtin_popcount(c2_8[i]);
-    e[i] = 0;
+    e[i] = ERROR(b, c);
   }
 #endif
   free(buf);
@@ -384,6 +382,20 @@ void poly_pointwise_mul(poly_t c, const poly_t a, const poly_t b, uint64_t q,
                         int64_t qinvmR, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
     c[i] = mod_mul_ct(a[i], b[i], (int64_t)q, qinvmR);
+  }
+}
+
+void poly_pointwise_macc_exact(poly_t d, const poly_t a, const poly_t b, const poly_t c, uint64_t q,
+                               int64_t qinvmR, int64_t R_q, uint32_t n) {
+  for (uint32_t i = 0; i < n; i++) {
+    d[i] = mod_ct_exact(mod_mul_ct(a[i], b[i], (int64_t)q, qinvmR) + c[i], (int64_t)q, R_q);
+  }
+}
+
+void poly_pointwise_mrsub_exact(poly_t d, const poly_t a, const poly_t b, const poly_t c, uint64_t q,
+                                int64_t qinvmR, int64_t R_q, uint32_t n) {
+  for (uint32_t i = 0; i < n; i++) {
+    d[i] = mod_ct_exact(-mod_mul_ct(a[i], b[i], (int64_t)q, qinvmR) + c[i], (int64_t)q, R_q);
   }
 }
 

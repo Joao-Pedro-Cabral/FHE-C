@@ -154,6 +154,30 @@ void poly_pointwise_mul(poly_t c, const poly_t a, const poly_t b, uint64_t q,
 
 /*
   @param a: input/output polynomial
+  @param b: input polynomial
+  @param c: input polynomial
+  @param q: input moduli
+  @param qinvmR: input q^(-1) mod 2^64
+  @param n: size of the polynomials
+*/
+void poly_pointwise_macc_exact(poly_t d, const poly_t a, const poly_t b, const poly_t c, uint64_t q,
+                               int64_t qinvmR, int64_t R_q, uint32_t n);
+
+
+/*
+  @param a: input/output polynomial
+  @param b: input polynomial
+  @param c: input polynomial
+  @param q: input moduli
+  @param qinvmR: input q^(-1) mod 2^64
+  @param n: size of the polynomials
+*/
+void poly_pointwise_mrsub_exact(poly_t d, const poly_t a, const poly_t b, const poly_t c, uint64_t q,
+                                int64_t qinvmR, int64_t R_q, uint32_t n);
+
+
+/*
+  @param a: input/output polynomial
   @param x: input multiplicative constant
   @param q: input moduli
   @param qinvmR: input q^(-1) mod 2^64

@@ -133,10 +133,7 @@ static void rlwe_encrypt_step(poly_t a, poly_t b, poly_t m2,
   poly_mod(m2, m, q, R_q, n);
   poly_ntt(m2, w, q, R_q, qinvmR, n);
   poly_uniform_sampler(a, xof_state, q, R_q, n);  // A
-  // poly_ntt(a, w, q, R_q, qinvmR, n);
-  // poly_mulx(a, R2mq, q, qinvmR, n);
-  poly_pointwise_mul(b, a, s, q, qinvmR, n);
-  poly_rsub(b, m2, q, R_q, n);
+  poly_pointwise_mrsub_exact(b, a, s, m2, q, qinvmR, R_q, n);
 }
 
 void rlwe_plaintext_encrypt(rlwe_t* ab, xof_state_t* xof_state, const poly_t m,
@@ -163,8 +160,7 @@ static void rlwe_decrypt_step(poly_t m, const poly_t a, const poly_t b,
                               int64_t R_q, int64_t qinvmR, int64_t R_nmq,
                               uint32_t n) {
   // B + AS = DeltaM + E
-  poly_pointwise_mul(m, a, s, q, qinvmR, n);
-  poly_add(m, b, q, R_q, n);
+  poly_pointwise_macc_exact(m, a, s, b, q, qinvmR, R_q, n);
   poly_intt(m, w, q, R_q, qinvmR, n);
   poly_mulx_exact(m, R_nmq, q, qinvmR, n);
 }
