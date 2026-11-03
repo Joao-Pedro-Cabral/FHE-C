@@ -23,7 +23,7 @@
 #define N_TESTS 1000
 #endif
 
-// Don't care for performance
+// "Don't care" for performance
 static const uint64_t q0_bits = 60;
 static const uint64_t scale_bits = 30;
 
@@ -118,13 +118,14 @@ int main() {
   xof_absorb(&xof_state, seed);
 
   vec_new(&v, N2);
+  vec_new(&w, N2);
   poly_new(&p, N);
   poly_new(&r, N);
   poly_new(&r_1, N);
 
   rns_params_new(&rns_params, q0_bits, scale_bits, L, N, 1, NULL, 0);
 
-  vec_gen_roots(&w, N);
+  vec_gen_roots(&w, N2);
   poly_gen_roots(r, N, (int64_t)rns_params.q[0], rns_params.Rmq[0], rns_params.qinvmR[0]);
   poly_gen_inverse_roots(r_1, r[N/2], N, (int64_t)rns_params.q[0], rns_params.qinvmR[0]);
 
@@ -137,7 +138,9 @@ int main() {
 
   // Free
   vec_free(&v);
+  vec_free(&w);
   poly_free(&p);
   poly_free(&r);
   poly_free(&r_1);
+  rns_params_free(&rns_params);
 }

@@ -63,6 +63,21 @@ else
 endif
 
 # ----------------------------------------------------------------------
+# Configuration parameters
+# ----------------------------------------------------------------------
+
+N2      ?= 16
+L       ?= 4
+N       ?= 512
+N_TESTS ?= 1000
+
+PARAM_CFLAGS := \
+          -DN2=$(N2) \
+          -DL=$(L) \
+          -DN=$(N) \
+          -DN_TESTS=$(N_TESTS)
+
+# ----------------------------------------------------------------------
 # Common compiler flags
 # ----------------------------------------------------------------------
 
@@ -73,7 +88,7 @@ COMMON_CFLAGS := \
           -Wformat=2 \
           -Isrc
 
-CFLAGS := $(COMMON_CFLAGS) $(ARCH_CFLAGS) $(OPT_CFLAGS)
+CFLAGS := $(COMMON_CFLAGS) $(ARCH_CFLAGS) $(OPT_CFLAGS) $(PARAM_CFLAGS)
 
 LDLIBS := -lm
 
