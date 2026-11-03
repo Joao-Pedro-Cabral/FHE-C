@@ -2,6 +2,7 @@
 #include "ciphertext.h"
 
 #include <string.h>
+#include <assert.h>
 
 #include "mod.h"
 
@@ -25,7 +26,171 @@ void ciphertext_ciphertext_addition(ciphertext_t* ct3, const ciphertext_t* ct1,
   }
 }
 
-void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
+void ciphertext_ciphertext_multiplication(
+    ciphertext_t* ct3,
+    const ciphertext_t* ct1,
+    const ciphertext_t* ct2,
+    const switch_t r,
+    const rns_params_t* params)
+{
+    const uint32_t n = params->n;
+    const uint32_t level = ct1->level;
+    const uint32_t total = params->l + params->k;
+
+    assert(level == ct2->level);
+    assert(level > 1 && level <= params->l);
+    assert(ct3 != ct1 && ct3 != ct2);
+
+    poly_t tmp, tmp2;
+    rns_t d2, acc_a, acc_b, scratch;
+
+    poly_new(&tmp, n);
+    poly_new(&tmp2, n);
+
+    rns_new(&d2, params);
+    rns_new(&acc_a, params);
+    rns_new(&acc_b, params);
+    rns_new(&scratch, params);
+
+    // ----------------------------------------
+    // 1. Basic ciphertext multiplication
+    // ----------------------------------------
+    // Inputs: b ordinary NTT, a Montgomery NTT
+    // Outputs: D0, D1, D2 ordinary NTT
+
+    for (uint32_t i = 0; i < level; i++) {
+        uint64_t q = params->q[i];
+        int64_t qinv = params->qinvmR[i];
+
+        // D0 = b1 * b2
+        poly_pointwise_mul(&ct3->ab.b[n * i], &ct1->ab.b[n * i], &ct2->ab.b[n * i], q, qinv, n);
+        poly_mulx(&ct3->ab.b[n * i], params->R2mq[i], q, qinv, n);
+
+        // D1 = b1 * a2 + a1 * b2
+        poly_pointwise_mul(&ct3->ab.a[n * i], &ct1->ab.b[n * i], &ct2->ab.a[n * i], q, qinv, n);
+        poly_pointwise_mul(tmp, &ct1->ab.a[n * i], &ct2->ab.b[n * i], q, qinv, n);
+
+        poly_add(&ct3->ab.a[n * i], tmp, q, params->R_q[i], n);
+
+        // D2 = a1 * a2
+        poly_pointwise_mul(&d2[n * i], &ct1->ab.a[n * i], &ct2->ab.a[n * i], q, qinv, n);
+        poly_mulx(&d2[n * i], 1, q, qinv, n);
+    }
+
+    // ----------------------------------------
+    // 2. Prepare RNS decomposition digits
+    // ----------------------------------------
+    // Convert D2 to coefficient representation
+    // and extend the basis from Q to QP.
+
+    rns_mod_raise(d2, level, params);
+
+    // ----------------------------------------
+    // 3. Relinearization over QP
+    // ----------------------------------------
+    // Compute:
+    //   (acc_a, acc_b) = sum_i D2_i * r[i]
+    //
+    // Only active Q primes are decomposition
+    // indices; P primes are destination moduli.
+
+    memset(acc_a, 0, total * n * sizeof(int64_t));
+    memset(acc_b, 0, total * n * sizeof(int64_t));
+
+    for (uint32_t i = 0; i < level; i++) {
+        for (uint32_t j = 0; j < total; j++) {
+
+            // Skip inactive ciphertext primes.
+            if (j >= level && j < params->l)
+                continue;
+
+            uint64_t q = params->q[j];
+            int64_t qinv = params->qinvmR[j];
+
+            // Lift digit D2_i from q_i to q_j.
+            memcpy(tmp2, &d2[n * i],
+                   n * sizeof(int64_t));
+
+            for (uint32_t t = 0; t < n; t++) {
+                int64_t x = tmp2[t] % (int64_t)q;
+                if (x < 0)
+                    x += (int64_t)q;
+                tmp2[t] = x;
+            }
+
+            // NTT in the destination modulus.
+            poly_ntt(tmp2, &params->w[n * j], q, params->R_q[j], qinv, n);
+
+            // A: ordinary * Montgomery -> ordinary
+            poly_pointwise_mul(tmp, tmp2, &r[i].a[n * j], q, qinv, n);
+
+            poly_add(&acc_a[n * j], tmp, q, params->R_q[j], n);
+
+            // B: ordinary * ordinary -> R^-1
+            poly_pointwise_mul(tmp, tmp2, &r[i].b[n * j], q, qinv, n);
+            poly_add(&acc_b[n * j], tmp, q, params->R_q[j], n);
+        }
+    }
+
+    // ----------------------------------------
+    // 4. Normalize Montgomery representation
+    // ----------------------------------------
+    // acc_a is ordinary NTT.
+    // acc_b has factor R^-1.
+
+    for (uint32_t j = 0; j < total; j++) {
+        if (j >= level && j < params->l)
+            continue;
+
+        poly_mulx(&acc_b[n * j], params->R2mq[j], params->q[j], params->qinvmR[j], n);
+    }
+
+    // ----------------------------------------
+    // 5. ModDown from QP to Q
+    // ----------------------------------------
+    // Both components are reduced by P.
+
+    rns_mod_switch(acc_a, scratch, level, params->l, params->k, params->zRbq, params->yRbq, params);
+
+    rns_mod_switch(acc_b, scratch, level, params->l, params->k, params->zRbq, params->yRbq, params);
+
+    // ----------------------------------------
+    // 6. Complete relinearization
+    // ----------------------------------------
+    // C0 = D0 + acc_b
+    // C1 = D1 + acc_a
+
+    for (uint32_t j = 0; j < level; j++) {
+        uint64_t q = params->q[j];
+
+        poly_add(&ct3->ab.b[n * j], &acc_b[n * j], q, params->R_q[j], n);
+
+        poly_add(&ct3->ab.a[n * j], &acc_a[n * j], q, params->R_q[j], n);
+    }
+
+    // ----------------------------------------
+    // 7. CKKS rescaling
+    // ----------------------------------------
+    // Drop the last active ciphertext prime.
+    // Restore Montgomery factor R to C1.
+
+    ct3->level = level;
+    ciphertext_mod_switch(ct3, scratch, params);
+
+    // ----------------------------------------
+    // 8. Cleanup
+    // ----------------------------------------
+
+    poly_free(&tmp);
+    poly_free(&tmp2);
+
+    rns_free(&d2);
+    rns_free(&acc_a);
+    rns_free(&acc_b);
+    rns_free(&scratch);
+}
+
+void old_ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
                                           const ciphertext_t* ct1,
                                           const ciphertext_t* ct2,
                                           const switch_t r,

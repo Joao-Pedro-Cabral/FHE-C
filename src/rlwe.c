@@ -133,8 +133,8 @@ static void rlwe_encrypt_step(poly_t a, poly_t b, poly_t m2,
   poly_mod(m2, m, q, R_q, n);
   poly_ntt(m2, w, q, R_q, qinvmR, n);
   poly_uniform_sampler(a, xof_state, q, R_q, n);  // A
-  poly_ntt(a, w, q, R_q, qinvmR, n);
-  poly_mulx(a, R2mq, q, qinvmR, n);
+  // poly_ntt(a, w, q, R_q, qinvmR, n);
+  // poly_mulx(a, R2mq, q, qinvmR, n);
   poly_pointwise_mul(b, a, s, q, qinvmR, n);
   poly_rsub(b, m2, q, R_q, n);
 }
