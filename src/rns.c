@@ -154,7 +154,7 @@ static inline uint32_t compute_ring_dimension(uint32_t qtotal_bits) {
 }
 
 void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
-                    uint32_t l) {
+                    uint32_t l, uint32_t n, int set_n, uint64_t* q_chain, int set_q) {
   // Allocate Memory
   uint32_t p2_bits = scale_bits - 1 - (P_MOD_BITS - q0_bits);
   if (p2_bits < 3) {
@@ -163,7 +163,7 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   uint32_t qtotal_bits = q0_bits + l * scale_bits + P_MOD_BITS + p2_bits;
   l++;  // q0 prime + l for multiplicative depth
   uint32_t k = P_MOD_SIZE;
-  uint32_t n = compute_ring_dimension(qtotal_bits);
+  if (!set_n) n = compute_ring_dimension(qtotal_bits);
   params->n = n;
   params->l = l;
   params->k = P_MOD_SIZE;
@@ -185,7 +185,8 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   rns_new(&params->w, params);
   rns_new(&params->w_1, params);
   // 2n: negacyclic
-  find_primes(params->q, q0_bits, scale_bits, P_MOD_BITS, p2_bits, 2 * n, l,
+  if (set_q) memcpy(params->q, q_chain, lk*sizeof(uint64_t));
+  else find_primes(params->q, q0_bits, scale_bits, P_MOD_BITS, p2_bits, 2 * n, l,
               P_MOD_SIZE);
   // Init data (less roots)
   for (uint32_t i = 0; i < lk; i++) {

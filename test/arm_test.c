@@ -173,7 +173,7 @@ static void aes128_encrypt(uint8_t out[16], const uint8_t in[16],
  * Increment a 128-bit big-endian counter.
  */
 static void increment_counter(uint8_t counter[16]) {
-  for (int i = 0; i < 16; --i) {
+  for (int i = 0; i < 16; ++i) {
     if (++counter[i] != 0) break;
   }
 }
