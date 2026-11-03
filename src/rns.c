@@ -132,13 +132,35 @@ static void rns_gen_inverse_roots(rns_params_t* params) {
 }
 
 static inline uint32_t compute_ring_dimension(uint32_t qtotal_bits) {
-  return 64;
+  if (qtotal_bits < 27) {
+    return 1024;
+  } else if (qtotal_bits < 54) {
+    return 2048;
+  } else if (qtotal_bits < 109) {
+    return 4096;
+  } else if (qtotal_bits < 218) {
+    return 8192;
+  } else if (qtotal_bits < 438) {
+    return 16384;
+  } else if (qtotal_bits < 881) {
+    return 32768;
+  } else if (qtotal_bits < 1747) {
+    return 65536;
+  } else if (qtotal_bits < 3523) {
+    return 131072;
+  }
+  printf("Too large q: %d\n!", qtotal_bits);
+  return 1024;
 }
 
 void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
                     uint32_t l) {
   // Allocate Memory
-  uint32_t qtotal_bits = q0_bits + l * scale_bits;
+  uint32_t p2_bits = scale_bits - 1 - (P_MOD_BITS - q0_bits);
+  if (p2_bits < 3) {
+    printf("Be careful! Probably this is a invalid configuration!\n");
+  }
+  uint32_t qtotal_bits = q0_bits + l * scale_bits + P_MOD_BITS + p2_bits;
   l++;  // q0 prime + l for multiplicative depth
   uint32_t k = P_MOD_SIZE;
   uint32_t n = compute_ring_dimension(qtotal_bits);
@@ -163,10 +185,6 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   rns_new(&params->w, params);
   rns_new(&params->w_1, params);
   // 2n: negacyclic
-  uint32_t p2_bits = scale_bits - 1 - (P_MOD_BITS - q0_bits);
-  if (p2_bits < 3) {
-    printf("Be careful! Probably this is a invalid configuration!\n");
-  }
   find_primes(params->q, q0_bits, scale_bits, P_MOD_BITS, p2_bits, 2 * n, l,
               P_MOD_SIZE);
   // Init data (less roots)
