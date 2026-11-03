@@ -213,12 +213,12 @@ static void aesni_encrypt(uint8_t out[AES128CTR_BLOCKBYTES],
     sub_bytes(s);
     shift_rows(s);
     mix_columns(s);
-    add_round_key(s, &rkeys[round]);
+    add_round_key(s, &rkeys[AES128CTR_KEYBYTES*round]);
   }
 
   sub_bytes(s);
   shift_rows(s);
-  add_round_key(s, &rkeys[10]);
+  add_round_key(s, &rkeys[AES128CTR_KEYBYTES*10]);
 
   memcpy(out, s, 16);
 }
