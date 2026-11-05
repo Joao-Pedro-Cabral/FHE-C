@@ -6,6 +6,7 @@
 #elif __AVX2_MODE__
 #include <immintrin.h>
 #endif
+#include <omp.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -165,13 +166,13 @@ void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
 
 // AVX2 doesn't support popcnt
 // TODO: With error the things doesn't work well...
-void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state, const poly_t m,
-                            uint32_t n) {
-  uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
-  xof_squeeze(buf, 6 * n, xof_state);
+void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state, uint8_t* buf,
+                            const poly_t m, uint32_t n) {
+  xof_squeeze_omp(buf, 6 * n, xof_state);
   uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
   uint8_t *c0_8 = buf + 3 * n, *c1_8 = buf + 4 * n, *c2_8 = buf + 5 * n;
 #ifdef __NEON_MODE__
+  #pragma omp for
   for (uint32_t i = 0; i < n; i += 16) {
     // Load data
     uint8x16_t vb0_8 = vld1q_u8(&b0_8[i]);
@@ -258,7 +259,6 @@ void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state, const poly_t m,
     e[i] = m[i] + ERROR(b, c);
   }
 #endif
-  free(buf);
 }
 
 void poly_cbd24_sampler(poly_t e, xof_state_t* xof_state, uint32_t n) {
@@ -387,6 +387,7 @@ void poly_pointwise_mul(poly_t c, const poly_t a, const poly_t b, uint64_t q,
 
 void poly_pointwise_macc_exact(poly_t d, const poly_t a, const poly_t b, const poly_t c, uint64_t q,
                                int64_t qinvmR, int64_t R_q, uint32_t n) {
+  #pragma omp for
   for (uint32_t i = 0; i < n; i++) {
     d[i] = mod_ct_exact(mod_mul_ct(a[i], b[i], (int64_t)q, qinvmR) + c[i], (int64_t)q, R_q);
   }
@@ -414,6 +415,7 @@ void poly_mulx2(poly_t a, const poly_t b, int64_t x, uint64_t q, int64_t qinvmR,
 
 void poly_mulx_exact(poly_t a, int64_t x, uint64_t q, int64_t qinvmR,
                      uint32_t n) {
+  #pragma omp for
   for (uint32_t i = 0; i < n; i++) {
     a[i] = mod_mul_ct_exact(a[i], x, (int64_t)q, qinvmR);
   }
@@ -694,12 +696,26 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
                int64_t qinvmR, uint32_t n) {
   int64_t t, zeta;
 #if defined(__NEON_MODE__) || defined(__AVX2_MODE__)
+  // Based on the number of threads and the format of n,
+  // we decide the almost-optimal block-division
+  uint32_t n_threads = (uint32_t)omp_get_num_threads();
+  uint32_t tid = (uint32_t)omp_get_thread_num();
+  uint32_t chunk_size = n/n_threads;
+  uint32_t log2_n = floor_log2(n / 16);
+  uint32_t n3_rem = log2_n % 3;
+  uint32_t n3 = 1 << (log2_n + 4 - n3_rem);
+  bool sync_before_rem = chunk_size >= n3 && chunk_size < n;
+  bool sync_last_3x = chunk_size < n3 && chunk_size < n;
+  if (sync_before_rem) chunk_size = n3;
+  else if (sync_last_3x) chunk_size = n3 >> 3;
+
   // Merge first 4 layers using 16+ registers
   uint32_t k1 = n / 2;
   uint32_t k2 = n / 4;
   uint32_t k3 = n / 8;
   uint32_t k4 = n / 16;
-  for (uint32_t j = 0; j < n; j += 16) {
+  for (uint32_t jj = tid*chunk_size; jj < n; jj += n_threads*chunk_size) {
+  for (uint32_t j = jj; j < jj + chunk_size; j += 16) {
     // Load
     int64_t aj0 = a[j + 0];
     int64_t aj1 = a[j + 1];
@@ -815,16 +831,17 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
     a[j + 14] = aj14;
     a[j + 15] = aj15;
   }
+  }
 
-  uint32_t log2_n = floor_log2(n / 16);
-  uint32_t n3_rem = log2_n % 3;
-  uint32_t n3 = 1 << (log2_n + 4 - n3_rem);
   // Merge 3 layers using 16+ registers
   for (uint32_t len = 16; len < n3; len <<= 3) {
     k1 = n / (2 * len);
     k2 = k1 >> 1;
     k3 = k1 >> 2;
-    for (uint32_t start = 0; start < n; start += 8 * len) {
+    uint32_t jj_inc = n_threads*chunk_size;
+    uint32_t start_inc = 8*len;
+    for (uint32_t jj = tid*chunk_size; jj < n; jj += jj_inc) {
+    for (uint32_t start = jj; start < jj + chunk_size; start += start_inc) {
       // Roots
       int64_t w10 = roots[k1];
       int64_t w11 = roots[k1 + 1];
@@ -836,7 +853,7 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
       k2 += 2;
       int64_t w3 = roots[k3];
       k3 += 1;
-      for (uint32_t j = start; j < start + len; j++) {
+      for (uint32_t j = start; j < start + (start_inc/8); j++) {
         // Load
         int64_t aj0 = a[j + 0 * len];
         int64_t aj1 = a[j + 1 * len];
@@ -872,11 +889,23 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
         a[j + 7 * len] = aj7;
       }
     }
+    }
+    if (sync_last_3x) {
+      jj_inc = n;
+      chunk_size = chunk_size/n_threads;
+      start_inc = chunk_size;
+      #pragma omp barrier
+    }
+  }
+
+  if (sync_before_rem) {
+    #pragma omp barrier
   }
 
   if (n3_rem == 1) {  // Just last layer
     // Roots
     int64_t w = roots[1];
+    #pragma omp for
     for (uint32_t j = 0; j < n / 2; j++) {
       // Load
       int64_t aj0 = a[j + 0 * (n / 2)];
@@ -892,6 +921,7 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
     int64_t w10 = roots[2];
     int64_t w11 = roots[3];
     int64_t w2 = roots[1];
+    #pragma omp for
     for (uint32_t j = 0; j < n / 4; j++) {
       // Load
       int64_t aj0 = a[j + 0 * (n / 4)];

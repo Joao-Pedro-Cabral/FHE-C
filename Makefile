@@ -19,7 +19,7 @@ ifeq ($(ARCH),x86)
 CC := gcc
 
 ARCH_CFLAGS := \
-          -O3 \
+          -O3 -fopenmp \
           -mavx2 -mfma -march=native
 
 BUILD_DIR := build
@@ -29,7 +29,7 @@ else ifeq ($(ARCH),arm)
 CC := $(ARM_CC)
 
 ARCH_CFLAGS := \
-          -O3 \
+          -O3 -fopenmp \
           -march=armv8.2-a+simd+crypto
 
 BUILD_DIR := build-arm
@@ -157,6 +157,13 @@ $(BUILD_DIR)/%.o: $(TEST_DIR)/%.c FORCE
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# ----------------------------------------------------------------------
+# OpenMP runtime configuration
+# ----------------------------------------------------------------------
+
+OMP_NUM_THREADS ?= 4
+
+export OMP_NUM_THREADS
 
 # ----------------------------------------------------------------------
 # Run

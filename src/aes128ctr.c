@@ -10,22 +10,19 @@
 
 #ifdef __NEON_MODE__
 static void aesni_encrypt(uint8_t out[AES128CTR_BLOCKBYTES],
-                           uint8_t n[AES128CTR_KEYBYTES],
+                           uint64_t n,
                            const uint8_t rkeys[AES128CTR_KEYBYTES * 11]) {
   uint8x16_t f, f0, f1, f2, f3;
 
-  /* Load current counter value */
-  f = vld1q_u8(n);
-
   /* Increase counter in 4 consecutive blocks */
-  f0 = (uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){0, 0});
-  f1 = (uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){1, 0});
-  f2 = (uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){2, 0});
-  f3 = (uint8x16_t)vaddq_u64((uint64x2_t)f, (uint64x2_t){3, 0});
+  f0 = {n + 0, 0};
+  f1 = {n + 1, 0};
+  f2 = {n + 2, 0};
+  f3 = {n + 3, 0};
 
   /* Write counter for next iteration, increased by 4 */
-  vst1_u64((uint64_t *)n,
-           vadd_u64(vget_low_u64((uint64x2_t)f), (uint64x1_t){4}));
+  // vst1_u64((uint64_t *)n,
+  //          vadd_u64(vget_low_u64((uint64x2_t)f), (uint64x1_t){4}));
 
   /* Actual AES encryption, 4x interleaved */
   for (int i = 0; i < 9; i++) {
@@ -55,21 +52,18 @@ static void aesni_encrypt(uint8_t out[AES128CTR_BLOCKBYTES],
   vst1q_u8((out + 3 * AES128CTR_KEYBYTES), f3);
 }
 #elif __AVX2_MODE__
-static void aesni_encrypt(uint8_t out[AES128CTR_BLOCKBYTES], __m128i *n,
+static void aesni_encrypt(uint8_t out[AES128CTR_BLOCKBYTES], uint64_t n,
                            const __m128i rkeys[11]) {
   __m128i f, f0, f1, f2, f3;
 
-  /* Load current counter value */
-  f = _mm_load_si128(n);
-
   /* Increase counter in 4 consecutive blocks */
-  f0 = _mm_add_epi64(f, _mm_set_epi64x(0, 0));
-  f1 = _mm_add_epi64(f, _mm_set_epi64x(0, 1));
-  f2 = _mm_add_epi64(f, _mm_set_epi64x(0, 2));
-  f3 = _mm_add_epi64(f, _mm_set_epi64x(0, 3));
+  f0 = _mm_set_epi64x(0, (int64_t)n);
+  f1 = _mm_set_epi64x(0, (int64_t)n + 1);
+  f2 = _mm_set_epi64x(0, (int64_t)n + 2);
+  f3 = _mm_set_epi64x(0, (int64_t)n + 3);
 
   /* Write counter for next iteration, increased by 4 */
-  _mm_store_si128(n, _mm_add_epi64(f, _mm_set_epi64x(0, 4)));
+  // _mm_store_si128(n, _mm_add_epi64(f, _mm_set_epi64x(0, 4)));
 
   /* Actual AES encryption, 4x interleaved */
   f = _mm_load_si128(&rkeys[0]);
@@ -191,21 +185,19 @@ static void add_round_key(uint8_t s[16], const uint8_t rk[16]) {
   for (int i = 0; i < 16; ++i) s[i] ^= rk[i];
 }
 
-static void add_and_increment_nounce(uint8_t s[16], uint8_t n[16]) {
+static void add_nounce(uint8_t s[16], uint64_t n) {
   for (int i = 0; i < 16; ++i) {
-    s[i] = n[i];
-  }
-  for (int i = 0; i < 16; ++i) {
-    if (++n[i] != 0) break;
+    s[i] = n;
+    n >>= 8;
   }
 }
 
 static void aesni_encrypt(uint8_t out[AES128CTR_BLOCKBYTES],
-                          uint8_t n[AES128CTR_KEYBYTES],
+                          uint64_t n,
                           const uint8_t rkeys[AES128CTR_KEYBYTES * 11]) {
   uint8_t s[16];
 
-  add_and_increment_nounce(s, n);
+  add_nounce(s, n);
 
   add_round_key(s, &rkeys[0]);
 
@@ -226,6 +218,7 @@ static void aesni_encrypt(uint8_t out[AES128CTR_BLOCKBYTES],
 
 void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
                     uint64_t nonce) {
+  state->n = nonce;
 #if defined(__NEON_MODE__) || defined(__AVX2_MODE__)
   int idx = 0;
 #endif
@@ -233,9 +226,7 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
   uint8x16_t key0, zeros, s8, s8_2, imm;
 
   key0 = vld1q_u8(key);
-  uint64x2_t vn = {nonce, 0};
   uint8x16_t idxs = {9, 6, 3, 12, 9, 6, 3, 12, 9, 6, 3, 12, 9, 6, 3, 12};
-  vst1q_u64((uint64_t *)state->n, vn);
 
   s8 = key0;
   zeros = vdupq_n_u8(0);
@@ -255,7 +246,6 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
   __m128i key0, temp0, temp1, temp4;
 
   key0 = _mm_loadu_si128((__m128i *)(key));
-  state->n = _mm_loadl_epi64((__m128i *)&nonce);
 
   temp0 = key0;
   temp4 = _mm_setzero_si128();
@@ -301,9 +291,6 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
 #elif __AVX2_MODE__
   state->rkeys[idx++] = temp0;
 #else
-  uint64_t vn[2] = {nonce, 0};
-  memcpy(state->n, vn, sizeof(vn));
-
   /* Round 0 */
   for (int i = 0; i < 16; i++) state->rkeys[i] = key[i];
 
@@ -330,10 +317,11 @@ void aes128ctr_squeeze(uint8_t *out, size_t outlen, aes128ctr_ctx *state) {
 #ifdef __NEON_MODE__
     aesni_encrypt(out, state->n, state->rkeys);
 #elif __AVX2_MODE__
-    aesni_encrypt(out, &state->n, state->rkeys);
+    aesni_encrypt(out, state->n, state->rkeys);
 #else
     aesni_encrypt(out, state->n, state->rkeys);
 #endif
+    state->n += 4;
     outlen -= AES128CTR_BLOCKBYTES;
     out += AES128CTR_BLOCKBYTES;
   }
@@ -342,10 +330,44 @@ void aes128ctr_squeeze(uint8_t *out, size_t outlen, aes128ctr_ctx *state) {
 #ifdef __NEON_MODE__
     aesni_encrypt(buf, state->n, state->rkeys);
 #elif __AVX2_MODE__
-    aesni_encrypt(buf, &state->n, state->rkeys);
+    aesni_encrypt(buf, state->n, state->rkeys);
 #else
     aesni_encrypt(buf, state->n, state->rkeys);
 #endif
+    state->n += 4;
     for (size_t i = 0; i < outlen; i++) out[i] = buf[i];
+  }
+}
+
+void aes128ctr_squeeze_omp(uint8_t *out, size_t outlen, aes128ctr_ctx *state) {
+  uint8_t buf[AES128CTR_BLOCKBYTES];
+  uint64_t blocks = outlen/AES128CTR_BLOCKBYTES;
+  uint64_t remaining = outlen - blocks*AES128CTR_BLOCKBYTES;
+  uint64_t n = state->n;
+
+  #pragma omp for nowait
+  for (uint64_t i = 0; i < blocks; i++) {
+#ifdef __NEON_MODE__
+    aesni_encrypt(&out[AES128CTR_BLOCKBYTES*i], n + 4*i, state->rkeys);
+#elif __AVX2_MODE__
+    aesni_encrypt(&out[AES128CTR_BLOCKBYTES*i], n + 4*i, state->rkeys);
+#else
+    aesni_encrypt(&out[AES128CTR_BLOCKBYTES*i], n + 4*i, state->rkeys);
+#endif
+  }
+
+  #pragma omp single
+  {
+    state->n = state->n + 4*(blocks+remaining);
+    if (remaining > 0) {
+  #ifdef __NEON_MODE__
+      aesni_encrypt(buf, state->n, state->rkeys);
+  #elif __AVX2_MODE__
+      aesni_encrypt(buf, state->n, state->rkeys);
+  #else
+      aesni_encrypt(buf, state->n, state->rkeys);
+  #endif
+      for (size_t i = 0; i < remaining; i++) out[blocks*AES128CTR_BLOCKBYTES + i] = buf[i];
+    }
   }
 }

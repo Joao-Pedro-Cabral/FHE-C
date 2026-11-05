@@ -22,16 +22,20 @@
 typedef struct {
 #ifndef __AVX2_MODE__
   uint8_t rkeys[AES128CTR_KEYBYTES * 11];
-  uint8_t n[AES128CTR_KEYBYTES];
 #else
   __m128i rkeys[11];
-  __m128i n;
 #endif
+  uint64_t n;
 } aes128ctr_ctx;
 
+// We support until 2^64 blocks
 void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
                     uint64_t nonce);
 
+// We support until 2^64 blocks
 void aes128ctr_squeeze(uint8_t *out, size_t outlen, aes128ctr_ctx *state);
+
+// We support until 2^64 blocks
+void aes128ctr_squeeze_omp(uint8_t *out, size_t outlen, aes128ctr_ctx *state);
 
 #endif  // __AES128CTR_H__

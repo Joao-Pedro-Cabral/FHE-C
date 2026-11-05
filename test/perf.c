@@ -139,7 +139,7 @@ static void perf_encrypt(ciphertext_t* ct, poly_t m,
 
 static void perf_decrypt(vec_t* v, poly_t m,
           const ciphertext_t* ct,
-          const const ckks_params_t* params) {
+          const ckks_params_t* params) {
   uint64_t start = time_ns();
 
   for (uint32_t i = 0; i < N_TESTS; i++) {

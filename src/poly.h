@@ -69,8 +69,8 @@ void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
   // The minimal cbd parameter is 21
   // However, for efficiency reasons I do a 24 cbd
 */
-void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state, const poly_t m,
-                            uint32_t n);
+void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state, uint8_t* buf,
+                            const poly_t m, uint32_t n);
 
 /*
   @param e: output error polynomial

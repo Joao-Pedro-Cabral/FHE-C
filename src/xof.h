@@ -24,4 +24,10 @@ void xof_absorb(xof_state_t *state, const uint8_t input[SEED_BYTES]);
  */
 void xof_squeeze(uint8_t *output, size_t outlen, xof_state_t *state);
 
+/* Squeeze output out of the sponge using OpenMP.
+ *
+ * Supports being called multiple times
+ */
+void xof_squeeze_omp(uint8_t *output, size_t outlen, xof_state_t *state);
+
 #endif  // __XOF_H__

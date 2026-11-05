@@ -143,15 +143,21 @@ void rlwe_plaintext_encrypt(rlwe_t* ab, xof_state_t* xof_state, const poly_t m,
   uint32_t n = params->n;
   poly_new(&e, n);
   poly_new(&me, n);
-  poly_cbd24_sampler_add(e, xof_state, m, n);
-  // B = -(-A)S + DeltaM + E
-  for (uint32_t i = 0; i < params->l; i++) {
-    rlwe_encrypt_step(&ab->a[n * i], &ab->b[n * i], me, xof_state, e,
-                      &keys->s[n * i], &params->w[n * i], params->q[i],
-                      params->R_q[i], params->qinvmR[i], n);
+  uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
+  #pragma omp parallel
+  {
+    poly_cbd24_sampler_add(e, xof_state, buf, m, n);
+    // B = -(-A)S + DeltaM + E
+    #pragma omp for
+    for (uint32_t i = 0; i < params->l; i++) {
+      rlwe_encrypt_step(&ab->a[n * i], &ab->b[n * i], me, xof_state, e,
+                        &keys->s[n * i], &params->w[n * i], params->q[i],
+                        params->R_q[i], params->qinvmR[i], n);
+    }
   }
   poly_free(&e);
   poly_free(&me);
+  free(buf);
 }
 
 // RLWE decryption step
@@ -160,9 +166,12 @@ static void rlwe_decrypt_step(poly_t m, const poly_t a, const poly_t b,
                               int64_t R_q, int64_t qinvmR, int64_t R_nmq,
                               uint32_t n) {
   // B + AS = DeltaM + E
+  #pragma omp parallel
+  {
   poly_pointwise_macc_exact(m, a, s, b, q, qinvmR, R_q, n);
   poly_intt(m, w, q, R_q, qinvmR, n);
   poly_mulx_exact(m, R_nmq, q, qinvmR, n);
+  }
 }
 
 void rlwe_plaintext_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
@@ -266,8 +275,9 @@ void rlwe_plaintext_encrypt_server(rlwe_t* ab, xof_state_t* xof_state,
   poly_new(&u_ntt, n);
   poly_new(&e1_ntt, n);
   poly_new(&e2_ntt, n);
+  uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
   poly_ternary_sampler(u, xof_state, n);
-  poly_cbd24_sampler_add(e1, xof_state, m, n);
+  poly_cbd24_sampler_add(e1, xof_state, buf, m, n);
   poly_cbd24_sampler(e2, xof_state, n);
   for (uint32_t i = 0; i < params->l; i++) {
     memcpy(u_ntt, u, sizeof(int64_t) * n);
@@ -292,4 +302,5 @@ void rlwe_plaintext_encrypt_server(rlwe_t* ab, xof_state_t* xof_state,
   poly_free(&u_ntt);
   poly_free(&e1_ntt);
   poly_free(&e2_ntt);
+  free(buf);
 }
