@@ -33,9 +33,13 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
                     uint64_t nonce);
 
 // We support until 2^64 blocks
-void aes128ctr_squeeze(uint8_t *out, size_t outlen, aes128ctr_ctx *state);
+void aes128ctr_squeeze(uint8_t *out, size_t outlen, aes128ctr_ctx *state,
+                       uint64_t domain_separator);
 
 // We support until 2^64 blocks
-void aes128ctr_squeeze_omp(uint8_t *out, size_t outlen, aes128ctr_ctx *state);
+void aes128ctr_squeeze_omp(uint8_t *out, size_t outlen, aes128ctr_ctx *state,
+                           uint64_t domain_separator);
+
+void aes128ctr_state_update(aes128ctr_ctx *state, uint64_t blocks);
 
 #endif  // __AES128CTR_H__

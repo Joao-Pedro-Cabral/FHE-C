@@ -92,7 +92,8 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
 void rlwe_gen_secret_key(keys_t* keys, xof_state_t* xof_state,
                          const rns_params_t* params) {
   uint32_t n = params->n;
-  poly_ternary_sampler(keys->s_hat, xof_state, n);
+  xof_state_update(xof_state,
+                   poly_ternary_sampler(keys->s_hat, xof_state, 0, n));
   for (uint32_t i = 0; i < params->l + params->k; i++) {
     memcpy(&keys->s[n * i], keys->s_hat, sizeof(int64_t) * n);
     poly_ntt(&keys->s[n * i], &params->w[n * i], params->q[i], params->R_q[i],
@@ -125,15 +126,18 @@ void rlwe_gen_relinearization_key(keys_t* keys, xof_state_t* xof_state,
 }
 
 // RLWE encryption step (one of the l polynomials)
-static void rlwe_encrypt_step(poly_t a, poly_t b, poly_t m2,
-                              xof_state_t* xof_state, const poly_t m,
-                              const poly_t s, const poly_t w, uint64_t q,
-                              int64_t R_q, int64_t qinvmR, uint32_t n) {
+static uint64_t rlwe_encrypt_step(poly_t a, poly_t b, poly_t m2,
+                                  xof_state_t* xof_state,
+                                  uint64_t domain_separator, const poly_t m,
+                                  const poly_t s, const poly_t w, uint64_t q,
+                                  int64_t R_q, int64_t qinvmR, uint32_t n) {
   // B = -AS + DeltaM + E
   poly_mod(m2, m, q, R_q, n);
   poly_ntt(m2, w, q, R_q, qinvmR, n);
-  poly_uniform_sampler(a, xof_state, q, R_q, n);  // A
+  uint64_t blocks =
+      poly_uniform_sampler(a, xof_state, domain_separator, q, R_q, n);  // A
   poly_pointwise_mrsub_exact(b, a, s, m2, q, qinvmR, R_q, n);
+  return blocks;
 }
 
 void rlwe_plaintext_encrypt(rlwe_t* ab, xof_state_t* xof_state, const poly_t m,
@@ -141,20 +145,30 @@ void rlwe_plaintext_encrypt(rlwe_t* ab, xof_state_t* xof_state, const poly_t m,
   // DeltaM + E
   poly_t e, me;
   uint32_t n = params->n;
+  uint64_t max_blocks = 0;
   poly_new(&e, n);
   poly_new(&me, n);
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
 #pragma omp parallel
   {
-    poly_cbd24_sampler_add(e, xof_state, buf, m, n);
+#pragma omp single
+    {
+      poly_cbd24_sampler_add(e, xof_state, 0, buf, m, n);
+      for (uint32_t i = 0; i < n; i++) {
+        printf("e[%d]: %ld\n", i, e[i]);
+      }
+    }
 // B = -(-A)S + DeltaM + E
-#pragma omp for
+#pragma omp for reduction(max : max_blocks)
     for (uint32_t i = 0; i < params->l; i++) {
-      rlwe_encrypt_step(&ab->a[n * i], &ab->b[n * i], me, xof_state, e,
-                        &keys->s[n * i], &params->w[n * i], params->q[i],
-                        params->R_q[i], params->qinvmR[i], n);
+      uint64_t blocks =
+          rlwe_encrypt_step(&ab->a[n * i], &ab->b[n * i], me, xof_state, i, e,
+                            &keys->s[n * i], &params->w[n * i], params->q[i],
+                            params->R_q[i], params->qinvmR[i], n);
+      max_blocks = (blocks > max_blocks) ? blocks : max_blocks;
     }
   }
+  xof_state_update(xof_state, max_blocks);
   poly_free(&e);
   poly_free(&me);
   free(buf);
@@ -165,21 +179,21 @@ static void rlwe_decrypt_step(poly_t m, const poly_t a, const poly_t b,
                               const poly_t s, const poly_t w, uint64_t q,
                               int64_t R_q, int64_t qinvmR, int64_t R_nmq,
                               uint32_t n) {
-// B + AS = DeltaM + E
-#pragma omp parallel
-  {
-    poly_pointwise_macc_exact(m, a, s, b, q, qinvmR, R_q, n);
-    poly_intt(m, w, q, R_q, qinvmR, n);
-    poly_mulx_exact(m, R_nmq, q, qinvmR, n);
-  }
+  // B + AS = DeltaM + E
+  poly_pointwise_macc_exact(m, a, s, b, q, qinvmR, R_q, n);
+  poly_intt(m, w, q, R_q, qinvmR, n);
+  poly_mulx_exact(m, R_nmq, q, qinvmR, n);
 }
 
 void rlwe_plaintext_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
                             const rns_params_t* params) {
-  // For decrypting we only need l = 0 (deltaM + E < q_0/2)
-  rlwe_decrypt_step(m, &ab->a[0], &ab->b[0], &keys->s[0], &params->w_1[0],
-                    params->q[0], params->R_q[0], params->qinvmR[0],
-                    params->R_nmq[0], params->n);
+#pragma omp parallel
+  {
+    // For decrypting we only need l = 0 (deltaM + E < q_0/2)
+    rlwe_decrypt_step(m, &ab->a[0], &ab->b[0], &keys->s[0], &params->w_1[0],
+                      params->q[0], params->R_q[0], params->qinvmR[0],
+                      params->R_nmq[0], params->n);
+  }
 }
 
 // Since this function is normally called several times by other primitives,
@@ -192,12 +206,12 @@ void rlwe_key_switch_encrypt(switch_t key_switch, xof_state_t* xof_state,
   // B = -(-A)S + DeltaM + E
   for (uint32_t k = 0; k < l; k++) {
     // E
-    poly_cbd24_sampler(e, xof_state, n);
+    xof_state_update(xof_state, poly_cbd24_sampler(e, xof_state, 0, n));
     // Encrypt 0
     for (uint32_t i = 0; i < l; i++) {
       if (i == k) continue;
       rlwe_encrypt_step(&key_switch[k].a[n * i], &key_switch[k].b[n * i], tmp,
-                        xof_state, e, &keys->s[n * i], &params->w[n * i],
+                        xof_state, 0, e, &keys->s[n * i], &params->w[n * i],
                         params->q[i], params->R_q[i], params->qinvmR[i], n);
     }
     // k level (Encrypt s^2)
@@ -219,7 +233,7 @@ void rlwe_key_switch_encrypt(switch_t key_switch, xof_state_t* xof_state,
       poly_add_no_mod(e, m, n);
     }
     rlwe_encrypt_step(&key_switch[k].a[n * k], &key_switch[k].b[n * k], tmp,
-                      xof_state, e, &keys->s[n * k], &params->w[n * k],
+                      xof_state, 0, e, &keys->s[n * k], &params->w[n * k],
                       params->q[k], params->R_q[k], params->qinvmR[k], n);
   }
 }
@@ -276,9 +290,10 @@ void rlwe_plaintext_encrypt_server(rlwe_t* ab, xof_state_t* xof_state,
   poly_new(&e1_ntt, n);
   poly_new(&e2_ntt, n);
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
-  poly_ternary_sampler(u, xof_state, n);
-  poly_cbd24_sampler_add(e1, xof_state, buf, m, n);
-  poly_cbd24_sampler(e2, xof_state, n);
+  xof_state_update(xof_state, poly_ternary_sampler(u, xof_state, 0, n));
+  xof_state_update(xof_state,
+                   poly_cbd24_sampler_add(e1, xof_state, 0, buf, m, n));
+  xof_state_update(xof_state, poly_cbd24_sampler(e2, xof_state, 0, n));
   for (uint32_t i = 0; i < params->l; i++) {
     memcpy(u_ntt, u, sizeof(int64_t) * n);
     poly_ntt(u_ntt, &params->w[n * i], params->q[i], params->R_q[i],

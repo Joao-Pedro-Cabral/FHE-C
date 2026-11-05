@@ -39,7 +39,7 @@ static void perf_cbd(poly_t p, xof_state_t* xof) {
   uint64_t start = time_ns();
 
   for (uint32_t i = 0; i < N_TESTS; i++) {
-    poly_cbd24_sampler(p, xof, N);
+    poly_cbd24_sampler(p, xof, 0, N);
   }
 
   uint64_t end = time_ns();

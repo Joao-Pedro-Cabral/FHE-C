@@ -543,7 +543,8 @@ void check_hybrid_multiplication(xof_state_t* xof_state,
   rns_new(&d3, params);
 
   for (uint32_t i = 0; i < params->l; i++) {
-    poly_uniform_sampler(&d[n * i], xof_state, params->q[i], params->R_q[i], n);
+    poly_uniform_sampler(&d[n * i], xof_state, 0, params->q[i], params->R_q[i],
+                         n);
     for (uint32_t j = 0; j < n; j++) {
       d[n * i + j] = 1;
     }
@@ -592,7 +593,7 @@ void check_hybrid_multiplication(xof_state_t* xof_state,
 
 int main() {
   // Parameters Construction
-  uint32_t l = 2;
+  uint32_t l = 1;
   uint32_t n2 = 16;
   uint32_t q0_bits = 60;
   uint32_t scale_bits = 40;
@@ -689,12 +690,14 @@ int main() {
 #ifdef __DEBUG_MODE__
   check_ciphertext(&ct, &params.rns);
 #endif
-  // printf("---------- ENCRYPTED B ----------\n");
-  // for (uint32_t i = 0; i < l; i++) {
-  //   for (uint32_t j = 0; j < params.rns.n; j++) {
-  //     printf("b[%d][%d]: %ld\n", i, j, ct.ab.b[params.rns.n * i + j]);
-  //   }
-  // }
+
+  return 0;
+  printf("---------- ENCRYPTED B ----------\n");
+  for (uint32_t i = 0; i < l; i++) {
+    for (uint32_t j = 0; j < params.rns.n; j++) {
+      printf("b[%d][%d]: %ld\n", i, j, ct.ab.b[params.rns.n * i + j]);
+    }
+  }
 
 #ifdef __RUN_MODE__
   end = time_ns();

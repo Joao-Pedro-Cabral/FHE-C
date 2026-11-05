@@ -46,41 +46,49 @@ void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n2,
 /*
   @param s: output secret polynomial
   @param xof_state: XOF state
+  @param domain_separator: XOF domain separator
   @param n: size of the polynomial
 */
-void poly_ternary_sampler(poly_t s, xof_state_t* xof_state, uint32_t n);
+uint64_t poly_ternary_sampler(poly_t s, xof_state_t* xof_state,
+                              uint64_t domain_separator, uint32_t n);
 
 /*
   @param a: output public polynomial
   @param xof_state: XOF state
+  @param domain_separator: XOF domain separator
   @param q: input modulus
   @param R_q: R/q, round even
   @param n: size of the polynomials
 */
-void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
-                          int64_t R_q, uint32_t n);
+uint64_t poly_uniform_sampler(poly_t a, xof_state_t* xof_state,
+                              uint64_t domain_separator, uint64_t q,
+                              int64_t R_q, uint32_t n);
 
 /*
   @param e: output error polynomial
   @param m: input message polynomial
   @param xof_state: XOF state
+  @param domain_separator: XOF domain separator
   @param n: size of the polynomial
   // To mimic a gaussian with std deviation 3.2 with a cbd
   // The minimal cbd parameter is 21
   // However, for efficiency reasons I do a 24 cbd
 */
-void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state, uint8_t* buf,
-                            const poly_t m, uint32_t n);
+uint64_t poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state,
+                                uint64_t domain_separator, uint8_t* buf,
+                                const poly_t m, uint32_t n);
 
 /*
   @param e: output error polynomial
   @param xof_state: XOF state
+  @param domain_separator: XOF domain separator
   @param n: size of the polynomial
   // To mimic a gaussian with std deviation 3.2 with a cbd
   // The minimal cbd parameter is 21
   // However, for efficiency reasons I do a 24 cbd
 */
-void poly_cbd24_sampler(poly_t e, xof_state_t* xof_state, uint32_t n);
+uint64_t poly_cbd24_sampler(poly_t e, xof_state_t* xof_state,
+                            uint64_t domain_separator, uint32_t n);
 
 /*
   @param a: input/output polynomial

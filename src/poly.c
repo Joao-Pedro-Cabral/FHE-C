@@ -71,12 +71,13 @@ static const uint32_t perm_table[16][8] = {
     /* 0xF */ {0, 1, 2, 3, 4, 5, 6, 7}};
 #endif
 
-void poly_ternary_sampler(poly_t s, xof_state_t* xof_state, uint32_t n) {
+uint64_t poly_ternary_sampler(poly_t s, xof_state_t* xof_state,
+                              uint64_t domain_separator, uint32_t n) {
   // Sample
   size_t blocks = (((4 * (n / 4) + 2) / 3) + XOF_RATE - 1) / XOF_RATE;
   size_t buflen = blocks * XOF_RATE;
   uint8_t* buf = malloc(buflen);  // Initial guess
-  xof_squeeze(buf, buflen, xof_state);
+  xof_squeeze(buf, buflen, xof_state, domain_separator);
   uint32_t i = 0, j = 0;
 #ifdef __AVX2_MODE__
   __m256i v0123 = _mm256_set_epi64x(3, 2, 1, 0);
@@ -89,7 +90,8 @@ void poly_ternary_sampler(poly_t s, xof_state_t* xof_state, uint32_t n) {
     // We're probably almost at the end so just fetch one more block
     if (j == buflen) {
       buflen = XOF_RATE;
-      xof_squeeze(buf, buflen, xof_state);
+      blocks++;
+      xof_squeeze(buf, buflen, xof_state, domain_separator);
       j = 0;
     }
 #ifndef __AVX2_MODE__
@@ -127,11 +129,13 @@ void poly_ternary_sampler(poly_t s, xof_state_t* xof_state, uint32_t n) {
     j++;
   }
   free(buf);
+  return blocks;
 }
 
 // AVX2 doesn't support int64_t multiplication
-void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
-                          int64_t R_q, uint32_t n) {
+uint64_t poly_uniform_sampler(poly_t a, xof_state_t* xof_state,
+                              uint64_t domain_separator, uint64_t q,
+                              int64_t R_q, uint32_t n) {
   // Sample
   uint64_t bound = UINT64_C(-1) / q;
   bound *= q;
@@ -142,13 +146,14 @@ void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
   size_t bufbytes = blocks * XOF_RATE;
   // The rate is multiple of 8 so it's fine
   uint64_t* buf = (uint64_t*)malloc(bufbytes);  // Initial guess
-  xof_squeeze((uint8_t*)buf, bufbytes, xof_state);
+  xof_squeeze((uint8_t*)buf, bufbytes, xof_state, domain_separator);
   uint32_t i = 0, j = 0;
   while (i < n) {
     // We're probably almost at the end so just fetch one more block
     if (j == bufbytes / sizeof(int64_t)) {
       bufbytes = XOF_RATE;
-      xof_squeeze((uint8_t*)buf, bufbytes, xof_state);
+      blocks++;
+      xof_squeeze((uint8_t*)buf, bufbytes, xof_state, domain_separator);
       j = 0;
     }
     uint64_t x = buf[j];
@@ -160,15 +165,17 @@ void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
     j++;
   }
   free(buf);
+  return blocks;
 }
 
 #define ERROR(b, c) ((b) - (c))
 
 // AVX2 doesn't support popcnt
 // TODO: With error the things doesn't work well...
-void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state, uint8_t* buf,
-                            const poly_t m, uint32_t n) {
-  xof_squeeze_omp(buf, 6 * n, xof_state);
+uint64_t poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state,
+                                uint64_t domain_separator, uint8_t* buf,
+                                const poly_t m, uint32_t n) {
+  xof_squeeze(buf, 6 * n, xof_state, domain_separator);
   uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
   uint8_t *c0_8 = buf + 3 * n, *c1_8 = buf + 4 * n, *c2_8 = buf + 5 * n;
 #ifdef __NEON_MODE__
@@ -259,11 +266,13 @@ void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state, uint8_t* buf,
     e[i] = m[i] + ERROR(b, c);
   }
 #endif
+  return (6 * n + XOF_RATE - 1) / XOF_RATE;
 }
 
-void poly_cbd24_sampler(poly_t e, xof_state_t* xof_state, uint32_t n) {
+uint64_t poly_cbd24_sampler(poly_t e, xof_state_t* xof_state,
+                            uint64_t domain_separator, uint32_t n) {
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
-  xof_squeeze(buf, 6 * n, xof_state);
+  xof_squeeze(buf, 6 * n, xof_state, domain_separator);
   uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
   uint8_t *c0_8 = buf + 3 * n, *c1_8 = buf + 4 * n, *c2_8 = buf + 5 * n;
 #ifdef __NEON_MODE__
@@ -337,6 +346,7 @@ void poly_cbd24_sampler(poly_t e, xof_state_t* xof_state, uint32_t n) {
   }
 #endif
   free(buf);
+  return (6 * n + XOF_RATE - 1) / XOF_RATE;
 }
 
 void poly_add_no_mod(poly_t a, const poly_t b, uint32_t n) {
@@ -840,12 +850,12 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
   }
 
   // Merge 3 layers using 16+ registers
+  uint32_t jj_inc = n_threads * chunk_size;
+  uint32_t start_inc = 8 * len;
   for (uint32_t len = 16; len < n3; len <<= 3) {
     k1 = n / (2 * len);
     k2 = k1 >> 1;
     k3 = k1 >> 2;
-    uint32_t jj_inc = n_threads * chunk_size;
-    uint32_t start_inc = 8 * len;
     for (uint32_t jj = tid * chunk_size; jj < n; jj += jj_inc) {
       for (uint32_t start = jj; start < jj + chunk_size; start += start_inc) {
         // Roots
@@ -896,7 +906,8 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
         }
       }
     }
-    if (sync_last_3x) {
+    if (sync_last_3x && len == (n3 >> 3)) {
+      printf("Last %d: %len\n", tid, len);
       jj_inc = n;
       chunk_size = chunk_size / n_threads;
       start_inc = chunk_size;
@@ -910,18 +921,22 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
 
   if (n3_rem == 1) {  // Just last layer
     // Roots
+    if (chunk_size >= n / 2) chunk_size = (n / 2) / n_threads;
     int64_t w = roots[1];
-#pragma omp for
-    for (uint32_t j = 0; j < n / 2; j++) {
-      // Load
-      int64_t aj0 = a[j + 0 * (n / 2)];
-      int64_t aj1 = a[j + 1 * (n / 2)];
-      // First Layer
-      GS_BUTTERFLY(aj0, aj1, w, t);
-      // Store
-      a[j + 0 * (n / 2)] = aj0;
-      a[j + 1 * (n / 2)] = aj1;
+    for (uint32_t jj = tid * chunk_size; jj < n / 2;
+         jj += n_threads * chunk_size) {
+      for (uint32_t j = jj; j < jj + chunk_size; j++) {
+        // Load
+        int64_t aj0 = a[j + 0 * (n / 2)];
+        int64_t aj1 = a[j + 1 * (n / 2)];
+        // First Layer
+        GS_BUTTERFLY(aj0, aj1, w, t);
+        // Store
+        a[j + 0 * (n / 2)] = aj0;
+        a[j + 1 * (n / 2)] = aj1;
+      }
     }
+#pragma omp barrier
   } else if (n3_rem == 2) {  // Two last layers
     // Roots
     int64_t w10 = roots[2];

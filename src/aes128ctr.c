@@ -10,14 +10,15 @@
 
 #ifdef __NEON_MODE__
 static void aesni_encrypt(uint8_t out[AES128CTR_BLOCKBYTES], uint64_t n,
-                          const uint8_t rkeys[AES128CTR_KEYBYTES * 11]) {
+                          const uint8_t rkeys[AES128CTR_KEYBYTES * 11],
+                          uint64_t domain_separator) {
   uint8x16_t f, f0, f1, f2, f3;
 
   /* Increase counter in 4 consecutive blocks */
-  f0 = {n + 0, 0};
-  f1 = {n + 1, 0};
-  f2 = {n + 2, 0};
-  f3 = {n + 3, 0};
+  f0 = {n + 0, domain_separator};
+  f1 = {n + 1, domain_separator};
+  f2 = {n + 2, domain_separator};
+  f3 = {n + 3, domain_separator};
 
   /* Write counter for next iteration, increased by 4 */
   // vst1_u64((uint64_t *)n,
@@ -52,14 +53,14 @@ static void aesni_encrypt(uint8_t out[AES128CTR_BLOCKBYTES], uint64_t n,
 }
 #elif __AVX2_MODE__
 static void aesni_encrypt(uint8_t out[AES128CTR_BLOCKBYTES], uint64_t n,
-                          const __m128i rkeys[11]) {
+                          const __m128i rkeys[11], uint64_t domain_separator) {
   __m128i f, f0, f1, f2, f3;
 
   /* Increase counter in 4 consecutive blocks */
-  f0 = _mm_set_epi64x(0, (int64_t)n);
-  f1 = _mm_set_epi64x(0, (int64_t)n + 1);
-  f2 = _mm_set_epi64x(0, (int64_t)n + 2);
-  f3 = _mm_set_epi64x(0, (int64_t)n + 3);
+  f0 = _mm_set_epi64x(domain_separator, (int64_t)n);
+  f1 = _mm_set_epi64x(domain_separator, (int64_t)n + 1);
+  f2 = _mm_set_epi64x(domain_separator, (int64_t)n + 2);
+  f3 = _mm_set_epi64x(domain_separator, (int64_t)n + 3);
 
   /* Write counter for next iteration, increased by 4 */
   // _mm_store_si128(n, _mm_add_epi64(f, _mm_set_epi64x(0, 4)));
@@ -184,18 +185,21 @@ static void add_round_key(uint8_t s[16], const uint8_t rk[16]) {
   for (int i = 0; i < 16; ++i) s[i] ^= rk[i];
 }
 
-static void add_nounce(uint8_t s[16], uint64_t n) {
+static void add_nounce(uint8_t s[16], uint64_t n, uint64_t domain_separator) {
+  uint64_t tmp = n;
   for (int i = 0; i < 16; ++i) {
-    s[i] = n;
-    n >>= 8;
+    s[i] = (uint8_t)tmp;
+    tmp >>= 8;
+    if (i == 8) tmp = domain_separator;
   }
 }
 
 static void aesni_encrypt(uint8_t out[AES128CTR_BLOCKBYTES], uint64_t n,
-                          const uint8_t rkeys[AES128CTR_KEYBYTES * 11]) {
+                          const uint8_t rkeys[AES128CTR_KEYBYTES * 11],
+                          uint64_t domain_separator) {
   uint8_t s[16];
 
-  add_nounce(s, n);
+  add_nounce(s, n, domain_separator);
 
   add_round_key(s, &rkeys[0]);
 
@@ -308,36 +312,39 @@ void aes128ctr_init(aes128ctr_ctx *state, const uint8_t key[AES128CTR_KEYBYTES],
 #endif
 }
 
-void aes128ctr_squeeze(uint8_t *out, size_t outlen, aes128ctr_ctx *state) {
+void aes128ctr_squeeze(uint8_t *out, size_t outlen, aes128ctr_ctx *state,
+                       size_t domain_separator) {
   uint8_t buf[AES128CTR_BLOCKBYTES];
+  uint64_t n = state->n;
 
   while (outlen >= AES128CTR_BLOCKBYTES) {
 #ifdef __NEON_MODE__
-    aesni_encrypt(out, state->n, state->rkeys);
+    aesni_encrypt(out, n, state->rkeys, domain_separator);
 #elif __AVX2_MODE__
-    aesni_encrypt(out, state->n, state->rkeys);
+    aesni_encrypt(out, n, state->rkeys, domain_separator);
 #else
-    aesni_encrypt(out, state->n, state->rkeys);
+    aesni_encrypt(out, n, state->rkeys, domain_separator);
 #endif
-    state->n += 4;
+    n += 4;
     outlen -= AES128CTR_BLOCKBYTES;
     out += AES128CTR_BLOCKBYTES;
   }
 
   if (outlen) {
 #ifdef __NEON_MODE__
-    aesni_encrypt(buf, state->n, state->rkeys);
+    aesni_encrypt(buf, n, state->rkeys, domain_separator);
 #elif __AVX2_MODE__
-    aesni_encrypt(buf, state->n, state->rkeys);
+    aesni_encrypt(buf, n, state->rkeys, domain_separator);
 #else
-    aesni_encrypt(buf, state->n, state->rkeys);
+    aesni_encrypt(buf, n, state->rkeys, domain_separator);
 #endif
-    state->n += 4;
+    n += 4;
     for (size_t i = 0; i < outlen; i++) out[i] = buf[i];
   }
 }
 
-void aes128ctr_squeeze_omp(uint8_t *out, size_t outlen, aes128ctr_ctx *state) {
+void aes128ctr_squeeze_omp(uint8_t *out, size_t outlen, aes128ctr_ctx *state,
+                           size_t domain_separator) {
   uint8_t buf[AES128CTR_BLOCKBYTES];
   uint64_t blocks = outlen / AES128CTR_BLOCKBYTES;
   uint64_t remaining = outlen - blocks * AES128CTR_BLOCKBYTES;
@@ -346,27 +353,35 @@ void aes128ctr_squeeze_omp(uint8_t *out, size_t outlen, aes128ctr_ctx *state) {
 #pragma omp for nowait
   for (uint64_t i = 0; i < blocks; i++) {
 #ifdef __NEON_MODE__
-    aesni_encrypt(&out[AES128CTR_BLOCKBYTES * i], n + 4 * i, state->rkeys);
+    aesni_encrypt(&out[AES128CTR_BLOCKBYTES * i], n + 4 * i, state->rkeys,
+                  domain_separator);
 #elif __AVX2_MODE__
-    aesni_encrypt(&out[AES128CTR_BLOCKBYTES * i], n + 4 * i, state->rkeys);
+    aesni_encrypt(&out[AES128CTR_BLOCKBYTES * i], n + 4 * i, state->rkeys,
+                  domain_separator);
 #else
-    aesni_encrypt(&out[AES128CTR_BLOCKBYTES * i], n + 4 * i, state->rkeys);
+    aesni_encrypt(&out[AES128CTR_BLOCKBYTES * i], n + 4 * i, state->rkeys,
+                  domain_separator);
 #endif
   }
 
 #pragma omp single
   {
-    state->n = state->n + 4 * (blocks + remaining);
+    // state->n = state->n + 4 * (blocks + remaining);
+    n = n + 4 * (blocks + remaining);
     if (remaining > 0) {
 #ifdef __NEON_MODE__
-      aesni_encrypt(buf, state->n, state->rkeys);
+      aesni_encrypt(buf, n, state->rkeys, domain_separator);
 #elif __AVX2_MODE__
-      aesni_encrypt(buf, state->n, state->rkeys);
+      aesni_encrypt(buf, n, state->rkeys, domain_separator);
 #else
-      aesni_encrypt(buf, state->n, state->rkeys);
+      aesni_encrypt(buf, n, state->rkeys, domain_separator);
 #endif
       for (size_t i = 0; i < remaining; i++)
         out[blocks * AES128CTR_BLOCKBYTES + i] = buf[i];
     }
   }
+}
+
+void aes128ctr_state_update(aes128ctr_ctx *state, uint64_t blocks) {
+  state->n += blocks;
 }
