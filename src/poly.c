@@ -449,6 +449,7 @@ void poly_ntt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
               int64_t qinvmR, uint32_t n) {
   int64_t zeta, t;
 
+#if defined(__NEON_MODE__) || defined(__AVX2_MODE__)
   uint32_t log2_n = floor_log2(n / 16);
   uint32_t n3_rem = log2_n % 3;
   if (n3_rem == 1) {  // Just First layer
@@ -666,6 +667,20 @@ void poly_ntt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
     a[j + 14] = aj14;
     a[j + 15] = aj15;
   }
+#else
+  for (uint32_t len = n / 2; len > 0; len >>= 1) {
+    uint32_t k = n / (2 * len);
+    for (uint32_t start = 0; start < n; start += 2 * len) {
+      zeta = roots[k];
+      k++;
+      for (uint32_t j = start; j < start + len; ++j) {
+        t = mod_mul_ct(zeta, a[j + len], (int64_t)q, qinvmR);
+        a[j + len] = mod_ct(a[j] - t, (int64_t)q, R_q);
+        a[j] = mod_ct(a[j] + t, (int64_t)q, R_q);
+      }
+    }
+  }
+#endif
 }
 
 #define GS_BUTTERFLY(aj, ak, zeta, t)                 \
@@ -678,6 +693,7 @@ void poly_ntt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
 void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
                int64_t qinvmR, uint32_t n) {
   int64_t t, zeta;
+#if defined(__NEON_MODE__) || defined(__AVX2_MODE__)
   // Merge first 4 layers using 16+ registers
   uint32_t k1 = n / 2;
   uint32_t k2 = n / 4;
@@ -896,6 +912,21 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
     }
   }
 
+#else
+  for (uint32_t len = 1; len < n; len <<= 1) {
+    uint32_t k = n / (2 * len);
+    for (uint32_t start = 0; start < n; start += 2 * len) {
+      zeta = roots[k];
+      k++;
+      for (uint32_t j = start; j < start + len; ++j) {
+        t = a[j];
+        a[j] = mod_ct(t + a[j + len], (int64_t)q, R_q);
+        a[j + len] = t - a[j + len];  // lazy reduction with the multiplication
+        a[j + len] = mod_mul_ct(zeta, a[j + len], (int64_t)q, qinvmR);
+      }
+    }
+  }
+#endif
   // R^2/n multiplication performed in poly_add/poly_rsub
 }
 

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <time.h>
 
+#include "ckks.h"
 #include "poly.h"
 #include "rlwe.h"
 #include "xof.h"
@@ -106,12 +107,61 @@ static void perf_intt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
   printf("INTT) Total: %.3f ms, AVG: %.3f ms\n", total, total/N_TESTS);
 }
 
+static void perf_keygen(ckks_params_t* params) {
+  uint64_t start = time_ns();
+
+  for (uint32_t i = 0; i < (N_TESTS + 9) / 10; i++) {
+    ckks_keygen(params, q0_bits, scale_bits, N2, L, N, 1, NULL, 0);
+  }
+
+  uint64_t end = time_ns();
+
+  double total = (double)(end - start) / 1000.0;
+
+  printf("KeyGen) Total: %.3f ms, AVG: %.3f ms\n", total, total/N_TESTS);
+}
+
+static void perf_encrypt(ciphertext_t* ct, poly_t m,
+          const vec_t* v, ckks_params_t* params) {
+  uint64_t start = time_ns();
+
+  for (uint32_t i = 0; i < N_TESTS; i++) {
+    ckks_encode(m, v, params);
+    ckks_encrypt(ct, m, params);
+  }
+
+  uint64_t end = time_ns();
+
+  double total = (double)(end - start) / 1000.0;
+
+  printf("Encrypt) Total: %.3f ms, AVG: %.3f ms\n", total, total/N_TESTS);
+}
+
+static void perf_decrypt(vec_t* v, poly_t m,
+          const ciphertext_t* ct,
+          const const ckks_params_t* params) {
+  uint64_t start = time_ns();
+
+  for (uint32_t i = 0; i < N_TESTS; i++) {
+    ckks_decrypt(m, ct, params);
+    ckks_decode(v, m, ct->level, params);
+  }
+
+  uint64_t end = time_ns();
+
+  double total = (double)(end - start) / 1000.0;
+
+  printf("Decrypt) Total: %.3f ms, AVG: %.3f ms\n", total, total/N_TESTS);
+}
+
 int main() {
   vec_t v, w;
   poly_t p, r, r_1;
   xof_state_t xof_state;
   uint8_t seed[SEED_BYTES];
   rns_params_t rns_params;
+  ckks_params_t ckks_params;
+  ciphertext_t ct;
 
   // Init
   randombytes(seed, SEED_BYTES);
@@ -129,12 +179,18 @@ int main() {
   poly_gen_roots(r, N, (int64_t)rns_params.q[0], rns_params.Rmq[0], rns_params.qinvmR[0]);
   poly_gen_inverse_roots(r_1, r[N/2], N, (int64_t)rns_params.q[0], rns_params.qinvmR[0]);
 
-  // Perf
+  // Perf Main Operations
   perf_cbd(p, &xof_state);
   perf_fft(&v, &w);
   perf_ifft(&v, &w);
   perf_ntt(p, r, rns_params.q[0], rns_params.R_q[0], rns_params.qinvmR[0]);
   perf_intt(p, r_1, rns_params.q[0], rns_params.R_q[0], rns_params.qinvmR[0]);
+
+  // Perf CKKS Operations
+  perf_keygen(&ckks_params);
+  ciphertext_new(&ct, &ckks_params.rns);
+  perf_encrypt(&ct, p, &v, &ckks_params);
+  perf_decrypt(&v, p, &ct, &ckks_params);
 
   // Free
   vec_free(&v);
@@ -143,4 +199,6 @@ int main() {
   poly_free(&r);
   poly_free(&r_1);
   rns_params_free(&rns_params);
+  ckks_free(&ckks_params);
+  ciphertext_free(&ct);
 }

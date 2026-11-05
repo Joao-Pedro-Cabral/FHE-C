@@ -72,6 +72,27 @@ void vec_gen_roots(vec_t* w, uint32_t m) {
 // m = n/2 (half cyclotomic size)
 void fft(vec_t* v, const vec_t* w, uint32_t m) {
 #ifdef __NEON_MODE__
+  if (m < 16) {
+    for (uint32_t len = 1; len < m; len <<= 1) {
+      for (uint32_t i = 0; i < m; i += 2 * len) {
+        for (uint32_t j = i; j < i + len; j++) {
+          double w_rel = w->rel[len + j - i];
+          double w_img = w->img[len + j - i];
+          double j_rel = v->rel[j];
+          double j_img = v->img[j];
+          double k_rel = v->rel[j + len];
+          double k_img = v->img[j + len];
+          double t_rel = rel_mul(k_rel, k_img, w_rel, w_img);
+          double t_img = img_mul(k_rel, k_img, w_rel, w_img);
+          v->rel[j + len] = j_rel - t_rel;
+          v->img[j + len] = j_img - t_img;
+          v->rel[j] = j_rel + t_rel;
+          v->img[j] = j_img + t_img;
+        }
+      }
+    }
+  }
+
   // Merge 4 layers using all the 32 ARM NEON (ARMv8) registers
   uint32_t k1 = 1;
   uint32_t k2 = 2;
@@ -508,6 +529,27 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
     }
   }
 #elif __AVX2_MODE__
+  if (m < 16) {
+    for (uint32_t len = 1; len < m; len <<= 1) {
+      for (uint32_t i = 0; i < m; i += 2 * len) {
+        for (uint32_t j = i; j < i + len; j++) {
+          double w_rel = w->rel[len + j - i];
+          double w_img = w->img[len + j - i];
+          double j_rel = v->rel[j];
+          double j_img = v->img[j];
+          double k_rel = v->rel[j + len];
+          double k_img = v->img[j + len];
+          double t_rel = rel_mul(k_rel, k_img, w_rel, w_img);
+          double t_img = img_mul(k_rel, k_img, w_rel, w_img);
+          v->rel[j + len] = j_rel - t_rel;
+          v->img[j + len] = j_img - t_img;
+          v->rel[j] = j_rel + t_rel;
+          v->img[j] = j_img + t_img;
+        }
+      }
+    }
+    return;
+  }
   // Merge 4 layers using all the 16 AVX2 registers
   uint32_t k1 = 1;
   uint32_t k2 = 2;
@@ -763,6 +805,28 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
 // m = n/2 (half cyclotomic size)
 void ifft(vec_t* v, const vec_t* w, uint32_t m) {
 #ifdef __NEON_MODE__
+
+  if (m < 16) {
+    for (uint32_t len = m / 2; len > 0; len >>= 1) {
+      for (uint32_t i = 0; i < m; i += 2 * len) {
+        for (uint32_t j = i; j < i + len; j++) {
+          double w_rel = w->rel[len + j - i];
+          double w_img = -w->img[len + j - i];  // Conjugate
+          double j_rel = v->rel[j];
+          double j_img = v->img[j];
+          double k_rel = v->rel[j + len];
+          double k_img = v->img[j + len];
+          double t_rel = j_rel - k_rel;
+          double t_img = j_img - k_img;
+          v->rel[j] = j_rel + k_rel;
+          v->img[j] = j_img + k_img;
+          v->rel[j + len] = rel_mul(t_rel, t_img, w_rel, w_img);
+          v->img[j + len] = img_mul(t_rel, t_img, w_rel, w_img);
+        }
+      }
+    }
+    return;
+  }
 
   uint32_t log2_m = floor_log2(m / 16);
   uint32_t rem = log2_m % 3;
