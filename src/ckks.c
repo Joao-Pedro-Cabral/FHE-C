@@ -9,10 +9,11 @@
 #include "utils.h"
 
 void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
-                 uint32_t n2, uint32_t l, uint32_t n, int set_n, uint64_t* q_chain,
-                 int set_q) {
+                 uint32_t n2, uint32_t l, uint32_t n, int set_n,
+                 uint64_t* q_chain, int set_q) {
   // RNS construction
-  rns_params_new(&params->rns, q0_bits, scale_bits, l, n, set_n, q_chain, set_q);
+  rns_params_new(&params->rns, q0_bits, scale_bits, l, n, set_n, q_chain,
+                 set_q);
   // complex roots
   params->n2 = n2;
   vec_new(&params->w, n2);
@@ -70,8 +71,9 @@ void ckks_inner_product_keygen(ckks_params_t* params) {
     uint32_t exp = params->rns.n >> (i + 2);
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.ip[i], &params->xof_state, s2, me, me, e,
-                            &params->keys, &params->rns, false, params->rns.l);
+    rlwe_key_switch_encrypt(params->keys.ip[i], &params->xof_state, s2, me, me,
+                            e, &params->keys, &params->rns, false,
+                            params->rns.l);
   }
   poly_free(&s2);
   poly_free(&e);
@@ -96,15 +98,17 @@ void ckks_linear_transform_keygen(ckks_params_t* params) {
     uint32_t exp = i;
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.lt[i], &params->xof_state, s2, me, me, e,
-                            &params->keys, &params->rns, false, params->rns.l);
+    rlwe_key_switch_encrypt(params->keys.lt[i], &params->xof_state, s2, me, me,
+                            e, &params->keys, &params->rns, false,
+                            params->rns.l);
   }
   for (uint32_t i = 0; i < n2; i++) {
     uint32_t exp = n1 * i;
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.lt[n1 + i], &params->xof_state, s2, me, me,
-                            e, &params->keys, &params->rns, false, params->rns.l);
+    rlwe_key_switch_encrypt(params->keys.lt[n1 + i], &params->xof_state, s2, me,
+                            me, e, &params->keys, &params->rns, false,
+                            params->rns.l);
   }
   poly_free(&s2);
   poly_free(&e);

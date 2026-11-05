@@ -24,8 +24,8 @@ typedef struct {
   @param l: size of the rns_t
 */
 void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
-                 uint32_t n2, uint32_t l, uint32_t n, int set_n, uint64_t* q_chain,
-                 int set_q);
+                 uint32_t n2, uint32_t l, uint32_t n, int set_n,
+                 uint64_t* q_chain, int set_q);
 
 /*
   @param params: CKKS params

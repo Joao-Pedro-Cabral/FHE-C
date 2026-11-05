@@ -158,7 +158,7 @@ static uint32_t find_primes_factors_rec(uint64_t* s, uint32_t k, uint64_t m) {
 
   do {
     factor = brent_pollard_factor(m, cnt);
-    cnt ++;
+    cnt++;
   } while (factor <= 1 || factor >= m);
 
   k = find_primes_factors_rec(s, k, factor);

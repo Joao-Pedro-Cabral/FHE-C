@@ -144,11 +144,11 @@ void rlwe_plaintext_encrypt(rlwe_t* ab, xof_state_t* xof_state, const poly_t m,
   poly_new(&e, n);
   poly_new(&me, n);
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
-  #pragma omp parallel
+#pragma omp parallel
   {
     poly_cbd24_sampler_add(e, xof_state, buf, m, n);
-    // B = -(-A)S + DeltaM + E
-    #pragma omp for
+// B = -(-A)S + DeltaM + E
+#pragma omp for
     for (uint32_t i = 0; i < params->l; i++) {
       rlwe_encrypt_step(&ab->a[n * i], &ab->b[n * i], me, xof_state, e,
                         &keys->s[n * i], &params->w[n * i], params->q[i],
@@ -165,12 +165,12 @@ static void rlwe_decrypt_step(poly_t m, const poly_t a, const poly_t b,
                               const poly_t s, const poly_t w, uint64_t q,
                               int64_t R_q, int64_t qinvmR, int64_t R_nmq,
                               uint32_t n) {
-  // B + AS = DeltaM + E
-  #pragma omp parallel
+// B + AS = DeltaM + E
+#pragma omp parallel
   {
-  poly_pointwise_macc_exact(m, a, s, b, q, qinvmR, R_q, n);
-  poly_intt(m, w, q, R_q, qinvmR, n);
-  poly_mulx_exact(m, R_nmq, q, qinvmR, n);
+    poly_pointwise_macc_exact(m, a, s, b, q, qinvmR, R_q, n);
+    poly_intt(m, w, q, R_q, qinvmR, n);
+    poly_mulx_exact(m, R_nmq, q, qinvmR, n);
   }
 }
 

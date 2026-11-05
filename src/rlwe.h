@@ -2,8 +2,9 @@
 #ifndef __RLWE_H__
 #define __RLWE_H__
 
-#include "rns.h"
 #include <stdbool.h>
+
+#include "rns.h"
 
 #define N1N2_RATIO 2
 
