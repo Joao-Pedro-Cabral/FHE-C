@@ -11,9 +11,9 @@
 #include "utils.h"
 
 #ifdef __RUN_MODE__
-#define N_TESTS 100
+#define N_TESTS 1
 #elif __VTUNE_MODE__
-#define N_TESTS 100
+#define N_TESTS 1
 #else
 #define N_TESTS 1
 #endif
@@ -630,9 +630,8 @@ int main() {
   check_roots(params.rns.w_1, params.rns.q, params.rns.l + params.rns.k,
               params.rns.n);
   check_keys(&params);
-#endif
-
   check_hybrid_multiplication(&params.xof_state, &params.rns);
+#endif
 
 #ifdef __RUN_MODE__
   end = time_ns();
@@ -691,13 +690,12 @@ int main() {
   check_ciphertext(&ct, &params.rns);
 #endif
 
-  return 0;
-  printf("---------- ENCRYPTED B ----------\n");
-  for (uint32_t i = 0; i < l; i++) {
-    for (uint32_t j = 0; j < params.rns.n; j++) {
-      printf("b[%d][%d]: %ld\n", i, j, ct.ab.b[params.rns.n * i + j]);
-    }
-  }
+  // printf("---------- ENCRYPTED B ----------\n");
+  // for (uint32_t i = 0; i < l; i++) {
+  //   for (uint32_t j = 0; j < params.rns.n; j++) {
+  //     printf("b[%d][%d]: %ld\n", i, j, ct.ab.b[params.rns.n * i + j]);
+  //   }
+  // }
 
 #ifdef __RUN_MODE__
   end = time_ns();
@@ -719,10 +717,12 @@ int main() {
   check_decoded_polynomial(m, m2, params.rns.scales[ct.level - 1],
                            params.rns.n);
 #endif
-  // printf("---------- DECRYPTED POLYNOMIAL ----------\n");
-  // for (uint32_t i = 0; i < n; i++) {
-  //   printf("m2[%d]: %ld\n", i, m2[i]);
-  // }
+  printf("---------- DECRYPTED POLYNOMIAL ----------\n");
+  for (uint32_t i = 0; i < params.rns.n; i++) {
+    printf("m2[%d]: %ld\n", i, m2[i]);
+  }
+
+  return 0;
 
 #ifdef __RUN_MODE__
   end = time_ns();

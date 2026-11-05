@@ -143,21 +143,18 @@ static uint64_t rlwe_encrypt_step(poly_t a, poly_t b, poly_t m2,
 void rlwe_plaintext_encrypt(rlwe_t* ab, xof_state_t* xof_state, const poly_t m,
                             const keys_t* keys, const rns_params_t* params) {
   // DeltaM + E
-  poly_t e, me;
+  poly_t e;
   uint32_t n = params->n;
   uint64_t max_blocks = 0;
   poly_new(&e, n);
-  poly_new(&me, n);
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
 #pragma omp parallel
   {
+    poly_t me;
+    poly_new(&me, n);
+    uint64_t val = poly_cbd24_sampler_add(e, xof_state, 0, buf, m, n);
 #pragma omp single
-    {
-      poly_cbd24_sampler_add(e, xof_state, 0, buf, m, n);
-      for (uint32_t i = 0; i < n; i++) {
-        printf("e[%d]: %ld\n", i, e[i]);
-      }
-    }
+    xof_state_update(xof_state, val);
 // B = -(-A)S + DeltaM + E
 #pragma omp for reduction(max : max_blocks)
     for (uint32_t i = 0; i < params->l; i++) {
@@ -167,10 +164,10 @@ void rlwe_plaintext_encrypt(rlwe_t* ab, xof_state_t* xof_state, const poly_t m,
                             params->R_q[i], params->qinvmR[i], n);
       max_blocks = (blocks > max_blocks) ? blocks : max_blocks;
     }
+    poly_free(&me);
   }
   xof_state_update(xof_state, max_blocks);
   poly_free(&e);
-  poly_free(&me);
   free(buf);
 }
 
