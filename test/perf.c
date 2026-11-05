@@ -5,8 +5,8 @@
 #include "ckks.h"
 #include "poly.h"
 #include "rlwe.h"
-#include "xof.h"
 #include "vector.h"
+#include "xof.h"
 
 #ifndef N2
 #define N2 16
@@ -46,7 +46,7 @@ static void perf_cbd(poly_t p, xof_state_t* xof) {
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("CBD) Total: %.3f ms, AVG: %.3f ms\n", total, total/N_TESTS);
+  printf("CBD) Total: %.3f ms, AVG: %.3f ms\n", total, total / N_TESTS);
 }
 
 static void perf_fft(vec_t* v, const vec_t* w) {
@@ -60,7 +60,7 @@ static void perf_fft(vec_t* v, const vec_t* w) {
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("FFT) Total: %.3f ms, AVG: %.3f ms\n", total, total/N_TESTS);
+  printf("FFT) Total: %.3f ms, AVG: %.3f ms\n", total, total / N_TESTS);
 }
 
 static void perf_ifft(vec_t* v, const vec_t* w) {
@@ -74,7 +74,7 @@ static void perf_ifft(vec_t* v, const vec_t* w) {
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("IFFT) Total: %.3f ms, AVG: %.3f ms\n", total, total/N_TESTS);
+  printf("IFFT) Total: %.3f ms, AVG: %.3f ms\n", total, total / N_TESTS);
 }
 
 static void perf_ntt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
@@ -89,11 +89,11 @@ static void perf_ntt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("NTT) Total: %.3f ms, AVG: %.3f ms\n", total, total/N_TESTS);
+  printf("NTT) Total: %.3f ms, AVG: %.3f ms\n", total, total / N_TESTS);
 }
 
 static void perf_intt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
-                     int64_t qinvmR) {
+                      int64_t qinvmR) {
   uint64_t start = time_ns();
 
   for (uint32_t i = 0; i < N_TESTS; i++) {
@@ -104,7 +104,7 @@ static void perf_intt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("INTT) Total: %.3f ms, AVG: %.3f ms\n", total, total/N_TESTS);
+  printf("INTT) Total: %.3f ms, AVG: %.3f ms\n", total, total / N_TESTS);
 }
 
 static void perf_keygen(ckks_params_t* params) {
@@ -118,11 +118,11 @@ static void perf_keygen(ckks_params_t* params) {
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("KeyGen) Total: %.3f ms, AVG: %.3f ms\n", total, total/N_TESTS);
+  printf("KeyGen) Total: %.3f ms, AVG: %.3f ms\n", total, total / N_TESTS);
 }
 
-static void perf_encrypt(ciphertext_t* ct, poly_t m,
-          const vec_t* v, ckks_params_t* params) {
+static void perf_encrypt(ciphertext_t* ct, poly_t m, const vec_t* v,
+                         ckks_params_t* params) {
   uint64_t start = time_ns();
 
   for (uint32_t i = 0; i < N_TESTS; i++) {
@@ -134,12 +134,11 @@ static void perf_encrypt(ciphertext_t* ct, poly_t m,
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("Encrypt) Total: %.3f ms, AVG: %.3f ms\n", total, total/N_TESTS);
+  printf("Encrypt) Total: %.3f ms, AVG: %.3f ms\n", total, total / N_TESTS);
 }
 
-static void perf_decrypt(vec_t* v, poly_t m,
-          const ciphertext_t* ct,
-          const ckks_params_t* params) {
+static void perf_decrypt(vec_t* v, poly_t m, const ciphertext_t* ct,
+                         const ckks_params_t* params) {
   uint64_t start = time_ns();
 
   for (uint32_t i = 0; i < N_TESTS; i++) {
@@ -151,7 +150,7 @@ static void perf_decrypt(vec_t* v, poly_t m,
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("Decrypt) Total: %.3f ms, AVG: %.3f ms\n", total, total/N_TESTS);
+  printf("Decrypt) Total: %.3f ms, AVG: %.3f ms\n", total, total / N_TESTS);
 }
 
 int main() {
@@ -176,8 +175,10 @@ int main() {
   rns_params_new(&rns_params, q0_bits, scale_bits, L, N, 1, NULL, 0);
 
   vec_gen_roots(&w, N2);
-  poly_gen_roots(r, N, (int64_t)rns_params.q[0], rns_params.Rmq[0], rns_params.qinvmR[0]);
-  poly_gen_inverse_roots(r_1, r[N/2], N, (int64_t)rns_params.q[0], rns_params.qinvmR[0]);
+  poly_gen_roots(r, N, (int64_t)rns_params.q[0], rns_params.Rmq[0],
+                 rns_params.qinvmR[0]);
+  poly_gen_inverse_roots(r_1, r[N / 2], N, (int64_t)rns_params.q[0],
+                         rns_params.qinvmR[0]);
 
   // Perf Main Operations
   perf_cbd(p, &xof_state);
