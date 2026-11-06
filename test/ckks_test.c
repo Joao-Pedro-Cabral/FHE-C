@@ -717,12 +717,10 @@ int main() {
   check_decoded_polynomial(m, m2, params.rns.scales[ct.level - 1],
                            params.rns.n);
 #endif
-  printf("---------- DECRYPTED POLYNOMIAL ----------\n");
-  for (uint32_t i = 0; i < params.rns.n; i++) {
-    printf("m2[%d]: %ld\n", i, m2[i]);
-  }
-
-  return 0;
+  // printf("---------- DECRYPTED POLYNOMIAL ----------\n");
+  // for (uint32_t i = 0; i < params.rns.n; i++) {
+  //   printf("m2[%d]: %ld\n", i, m2[i]);
+  // }
 
 #ifdef __RUN_MODE__
   end = time_ns();

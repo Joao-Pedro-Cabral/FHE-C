@@ -728,7 +728,6 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
 
   // Merge first 4 layers using 16+ registers
   for (uint32_t jj = tid * chunk_size; jj < n; jj += n_threads * chunk_size) {
-    // printf("Work range %d: start: %d, end: %d\n", tid, jj, jj + chunk_size);
     for (uint32_t j = jj; j < jj + chunk_size; j += 16) {
       uint32_t k1 = (n + j) / 2;
       uint32_t k2 = (n + j) / 4;
@@ -856,21 +855,13 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
   for (uint32_t len = 16; len < n3; len <<= 3) {
     uint32_t start_inc = 8 * len;
     if (sync_last_3x && len == (n3 >> 3)) {
-      // printf("Last %d: %d\n", tid, len);
       jj_inc = n3;
       chunk_size = chunk_size / n_threads;  // chunk_size = n3 >> 3
       start_inc = 8 * chunk_size;
 #pragma omp barrier
     }
     for (uint32_t jj = tid * chunk_size; jj < n; jj += jj_inc) {
-      // printf(
-      //     "jj: %d, chunk_size: %d, start_inc: %d, jj_inc: %d, tid: "
-      //     "%d, sync before: %d, sync last: %d, len: %d, n3: %d\n",
-      //     jj, chunk_size, start_inc, jj_inc, tid, sync_before_rem,
-      //     sync_last_3x, len, n3);
       for (uint32_t start = jj; start < jj + chunk_size; start += start_inc) {
-        // printf("Work range %d: start: %d, end: %d\n", tid, start,
-        //        start + (start_inc / 8) + 7 * len);
         uint32_t k1 = (n + start) / (2 * len);
         uint32_t k2 = k1 >> 1;
         uint32_t k3 = k1 >> 2;
@@ -934,10 +925,6 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
     int64_t w = roots[1];
     for (uint32_t jj = tid * chunk_size; jj < n / 2;
          jj += n_threads * chunk_size) {
-      // printf(
-      //     "jj: %d, chunk_size: %d, tid: %d"
-      //     "sync before: %d, sync last: %d, n3: %d\n",
-      //     jj, chunk_size, tid, sync_before_rem, sync_last_3x, n3);
       for (uint32_t j = jj; j < jj + chunk_size; j++) {
         // Load
         int64_t aj0 = a[j + 0 * (n / 2)];
