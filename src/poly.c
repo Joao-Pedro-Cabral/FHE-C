@@ -910,12 +910,9 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
         }
       }
     }
-    if (n3_rem == 0 && len == (n3 >> 3)) {
-#pragma omp barrier
-    }
   }
 
-  if (sync_before_rem) {
+  if (n3_rem == 0 || sync_before_rem) {
 #pragma omp barrier
   }
 
