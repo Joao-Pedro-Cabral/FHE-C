@@ -258,6 +258,7 @@ uint64_t poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state,
     vst1q_s64(&e[i + 14], vr_64);
   }
 #else
+#pragma omp for
   for (uint32_t i = 0; i < n; i++) {
     int b = __builtin_popcount(b0_8[i]) + __builtin_popcount(b1_8[i]) +
             __builtin_popcount(b2_8[i]);
@@ -726,12 +727,13 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
     chunk_size = n3 >> 3;
 
   // Merge first 4 layers using 16+ registers
-  uint32_t k1 = n / 2;
-  uint32_t k2 = n / 4;
-  uint32_t k3 = n / 8;
-  uint32_t k4 = n / 16;
   for (uint32_t jj = tid * chunk_size; jj < n; jj += n_threads * chunk_size) {
+    // printf("Work range %d: start: %d, end: %d\n", tid, jj, jj + chunk_size);
     for (uint32_t j = jj; j < jj + chunk_size; j += 16) {
+      uint32_t k1 = (n + j) / 2;
+      uint32_t k2 = (n + j) / 4;
+      uint32_t k3 = (n + j) / 8;
+      uint32_t k4 = (n + j) / 16;
       // Load
       int64_t aj0 = a[j + 0];
       int64_t aj1 = a[j + 1];
@@ -851,24 +853,35 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
 
   // Merge 3 layers using 16+ registers
   uint32_t jj_inc = n_threads * chunk_size;
-  uint32_t start_inc = 8 * len;
   for (uint32_t len = 16; len < n3; len <<= 3) {
-    k1 = n / (2 * len);
-    k2 = k1 >> 1;
-    k3 = k1 >> 2;
+    uint32_t start_inc = 8 * len;
+    if (sync_last_3x && len == (n3 >> 3)) {
+      // printf("Last %d: %d\n", tid, len);
+      jj_inc = n3;
+      chunk_size = chunk_size / n_threads;  // chunk_size = n3 >> 3
+      start_inc = 8 * chunk_size;
+#pragma omp barrier
+    }
     for (uint32_t jj = tid * chunk_size; jj < n; jj += jj_inc) {
+      // printf(
+      //     "jj: %d, chunk_size: %d, start_inc: %d, jj_inc: %d, tid: "
+      //     "%d, sync before: %d, sync last: %d, len: %d, n3: %d\n",
+      //     jj, chunk_size, start_inc, jj_inc, tid, sync_before_rem,
+      //     sync_last_3x, len, n3);
       for (uint32_t start = jj; start < jj + chunk_size; start += start_inc) {
+        // printf("Work range %d: start: %d, end: %d\n", tid, start,
+        //        start + (start_inc / 8) + 7 * len);
+        uint32_t k1 = (n + start) / (2 * len);
+        uint32_t k2 = k1 >> 1;
+        uint32_t k3 = k1 >> 2;
         // Roots
         int64_t w10 = roots[k1];
         int64_t w11 = roots[k1 + 1];
         int64_t w12 = roots[k1 + 2];
         int64_t w13 = roots[k1 + 3];
-        k1 += 4;
         int64_t w20 = roots[k2];
         int64_t w21 = roots[k2 + 1];
-        k2 += 2;
         int64_t w3 = roots[k3];
-        k3 += 1;
         for (uint32_t j = start; j < start + (start_inc / 8); j++) {
           // Load
           int64_t aj0 = a[j + 0 * len];
@@ -906,11 +919,7 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
         }
       }
     }
-    if (sync_last_3x && len == (n3 >> 3)) {
-      printf("Last %d: %len\n", tid, len);
-      jj_inc = n;
-      chunk_size = chunk_size / n_threads;
-      start_inc = chunk_size;
+    if (n3_rem == 0 && len == (n3 >> 3)) {
 #pragma omp barrier
     }
   }
@@ -925,6 +934,10 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
     int64_t w = roots[1];
     for (uint32_t jj = tid * chunk_size; jj < n / 2;
          jj += n_threads * chunk_size) {
+      // printf(
+      //     "jj: %d, chunk_size: %d, tid: %d"
+      //     "sync before: %d, sync last: %d, n3: %d\n",
+      //     jj, chunk_size, tid, sync_before_rem, sync_last_3x, n3);
       for (uint32_t j = jj; j < jj + chunk_size; j++) {
         // Load
         int64_t aj0 = a[j + 0 * (n / 2)];

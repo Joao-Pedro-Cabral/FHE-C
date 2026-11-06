@@ -57,10 +57,10 @@ static void aesni_encrypt(uint8_t out[AES128CTR_BLOCKBYTES], uint64_t n,
   __m128i f, f0, f1, f2, f3;
 
   /* Increase counter in 4 consecutive blocks */
-  f0 = _mm_set_epi64x(domain_separator, (int64_t)n);
-  f1 = _mm_set_epi64x(domain_separator, (int64_t)n + 1);
-  f2 = _mm_set_epi64x(domain_separator, (int64_t)n + 2);
-  f3 = _mm_set_epi64x(domain_separator, (int64_t)n + 3);
+  f0 = _mm_set_epi64x((int64_t)domain_separator, (int64_t)n);
+  f1 = _mm_set_epi64x((int64_t)domain_separator, (int64_t)n + 1);
+  f2 = _mm_set_epi64x((int64_t)domain_separator, (int64_t)n + 2);
+  f3 = _mm_set_epi64x((int64_t)domain_separator, (int64_t)n + 3);
 
   /* Write counter for next iteration, increased by 4 */
   // _mm_store_si128(n, _mm_add_epi64(f, _mm_set_epi64x(0, 4)));
