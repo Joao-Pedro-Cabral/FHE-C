@@ -247,6 +247,7 @@ void rlwe_key_switch(rlwe_t* ab, const rns_t a, const switch_t r, poly_t tmp,
   memset(ab->a, 0, lk * params->n * sizeof(int64_t));
   memset(ab->b, 0, lk * params->n * sizeof(int64_t));
   for (uint32_t i = 0; i < lk; i++) {
+    if (i >= level && i < params->l) continue;
     for (uint32_t j = 0; j < lk; j++) {
       if (j >= level && j < params->l) continue;
       memcpy(tmp2, &a[n * i], n * sizeof(int64_t));
