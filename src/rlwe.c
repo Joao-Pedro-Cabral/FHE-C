@@ -42,9 +42,9 @@ void rlwe_keys_new(keys_t* keys, const rns_params_t* params) {
   rlwe_new(&keys->pk, params);
   key_switch_new(&keys->cg, params);
   uint32_t log2_n = floor_log2(n) - 1;
-  keys->rt = malloc(log2_n * sizeof(switch_t));
+  keys->ip = malloc(log2_n * sizeof(switch_t));
   for (uint32_t i = 0; i < log2_n; i++) {
-    key_switch_new(&keys->rt[i], params);
+    key_switch_new(&keys->ip[i], params);
   }
   uint32_t log2_m = floor_log2(n) - 1;
   uint32_t log2_n2 = floor_log2(n / (2 * N1N2_RATIO)) / 2;
@@ -66,9 +66,9 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
   rlwe_free(&keys->pk);
   uint32_t log2_n = floor_log2(n) - 1;
   for (uint32_t i = 0; i < log2_n; i++) {
-    key_switch_free(&keys->rt[i], params);
+    key_switch_free(&keys->ip[i], params);
   }
-  free(keys->rt);
+  free(keys->ip);
   uint32_t log2_m = floor_log2(n) - 1;
   uint32_t log2_n2 = floor_log2(n / (2 * N1N2_RATIO)) / 2;
   uint32_t log2_n1 = log2_m - log2_n2;
@@ -107,9 +107,7 @@ void rlwe_gen_relinearization_key(keys_t* keys, xof_state_t* xof_state,
             params->qinvmR[0], n);
   // Removes the INTT R^2/n factor
   poly_mulx(s2, params->R2_nmq[0], params->q[0], params->qinvmR[0], n);
-  // memset(s2, 1, n * sizeof(int64_t));
-  rlwe_key_switch_encrypt(keys->r, xof_state, s2, tmp, tmp2, e, keys, params,
-                          true, params->l + params->k);
+  rlwe_key_switch_encrypt(keys->r, xof_state, s2, tmp, tmp2, e, keys, params);
   poly_free(&s2);
   poly_free(&e);
   poly_free(&tmp);
@@ -188,38 +186,34 @@ void rlwe_plaintext_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
 // we ask them to allocate e and me
 void rlwe_key_switch_encrypt(switch_t key_switch, xof_state_t* xof_state,
                              const poly_t m, poly_t tmp, poly_t tmp2, poly_t e,
-                             const keys_t* keys, const rns_params_t* params,
-                             bool mulP, uint32_t l) {
+                             const keys_t* keys, const rns_params_t* params) {
   uint32_t n = params->n;
+  uint32_t lk = params->k + params->l;
   // B = -(-A)S + DeltaM + E
-  for (uint32_t k = 0; k < l; k++) {
+  for (uint32_t k = 0; k < lk; k++) {
     // E
     xof_state_update(xof_state, poly_cbd24_sampler(e, xof_state, 0, n));
     // Encrypt 0
-    for (uint32_t i = 0; i < l; i++) {
+    for (uint32_t i = 0; i < lk; i++) {
       if (i == k) continue;
       rlwe_encrypt_step(&key_switch[k].a[n * i], &key_switch[k].b[n * i], tmp,
                         xof_state, 0, e, &keys->s[n * i], &params->w[n * i],
                         params->q[i], params->R_q[i], params->qinvmR[i], n);
     }
     // k level (Encrypt s^2)
-    if (mulP) {
-      // Encrypt Ps^2
-      if (k < params->l) {
-        memcpy(tmp2, m, n * sizeof(int64_t));
-        for (uint32_t i = params->l; i < params->l + params->k; i++) {
-          poly_mulx(tmp2, (int64_t)params->q[i], params->q[k],
-                    params->qinvmR[k], n);
-          poly_mulx(tmp2, params->R2mq[k], params->q[k], params->qinvmR[k], n);
-        }
-        // Encrypt 0
-      } else {
-        memset(tmp2, 0, n * sizeof(int64_t));
+    // Encrypt Ps^2
+    if (k < params->l) {
+      memcpy(tmp2, m, n * sizeof(int64_t));
+      for (uint32_t i = params->l; i < params->l + params->k; i++) {
+        poly_mulx(tmp2, (int64_t)params->q[i], params->q[k], params->qinvmR[k],
+                  n);
+        poly_mulx(tmp2, params->R2mq[k], params->q[k], params->qinvmR[k], n);
       }
-      poly_add_no_mod(e, tmp2, n);
+      // Encrypt 0
     } else {
-      poly_add_no_mod(e, m, n);
+      memset(tmp2, 0, n * sizeof(int64_t));
     }
+    poly_add_no_mod(e, tmp2, n);
     rlwe_encrypt_step(&key_switch[k].a[n * k], &key_switch[k].b[n * k], tmp,
                       xof_state, 0, e, &keys->s[n * k], &params->w[n * k],
                       params->q[k], params->R_q[k], params->qinvmR[k], n);
@@ -244,24 +238,50 @@ void rlwe_key_switch_decrypt(poly_t m, const switch_t key_switch,
 }
 
 void rlwe_key_switch(rlwe_t* ab, const rns_t a, const switch_t r, poly_t tmp,
-                     uint32_t level, const rns_params_t* params) {
+                     poly_t tmp2, rns_t tmp_r, uint32_t level,
+                     const rns_params_t* params) {
   uint32_t n = params->n;
-  for (uint32_t i = 0; i < level; i++) {
-    memset(&ab->a[n * i], 0, n * sizeof(int64_t));
-  }
-  for (uint32_t i = 0; i < level; i++) {
-    for (uint32_t j = 0; j < level; j++) {
-      poly_pointwise_mul(tmp, &a[n * i], &r[i].b[n * j], params->q[j],
-                         params->qinvmR[j],
-                         n);  // 1
-      poly_add(&ab->b[n * j], tmp, params->q[j], params->R_q[j],
-               n);  // 1
-      poly_pointwise_mul(tmp, &a[n * i], &r[i].a[n * j], params->q[j],
-                         params->qinvmR[j],
-                         n);  // R
-      poly_add(&ab->a[n * j], tmp, params->q[j], params->R_q[j],
-               n);  // R
+  uint32_t lk = params->l + params->k;
+  rns_mod_raise(a, level, params);
+  memset(tmp_r, 0, lk * params->n * sizeof(int64_t));
+  memset(ab->a, 0, lk * params->n * sizeof(int64_t));
+  memset(ab->b, 0, lk * params->n * sizeof(int64_t));
+  for (uint32_t i = 0; i < lk; i++) {
+    for (uint32_t j = 0; j < lk; j++) {
+      if (j >= level && j < params->l) continue;
+      memcpy(tmp2, &a[n * i], n * sizeof(int64_t));
+      poly_ntt(tmp2, &params->w[n * j], params->q[j], params->R_q[j],
+               params->qinvmR[j], n);
+      // A: ordinary * Montgomery -> ordinary
+      poly_pointwise_mul(tmp, tmp2, &r[i].a[n * j], params->q[j],
+                         params->qinvmR[j], n);
+
+      poly_add(&ab->a[n * j], tmp, params->q[j], params->R_q[j], n);
+
+      // B: ordinary * ordinary -> R^-1
+      poly_pointwise_mul(tmp, tmp2, &r[i].b[n * j], params->q[j],
+                         params->qinvmR[j], n);
+      poly_add(&ab->b[n * j], tmp, params->q[j], params->R_q[j], n);
     }
+  }
+
+  for (uint32_t j = 0; j < lk; j++) {
+    if (j >= level && j < params->l) continue;
+
+    poly_mulx(&ab->b[n * j], params->R2mq[j], params->q[j], params->qinvmR[j],
+              n);
+  }
+
+  rns_mod_switch(ab->a, tmp_r, level, params->l, params->k, params->zRbq,
+                 params->yRbq, params);
+
+  rns_mod_switch(ab->b, tmp_r, level, params->l, params->k, params->zRbq,
+                 params->yRbq, params);
+
+  // Add R factor
+  for (uint32_t i = 0; i < level; i++) {
+    poly_mulx(&ab->a[n * i], params->R2mq[i], params->q[i], params->qinvmR[i],
+              n);
   }
 }
 

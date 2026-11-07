@@ -40,7 +40,7 @@ void ckks_conjugation_keygen(ckks_params_t* params) {
   uint32_t exp = 2 * params->rns.n - 1;
   poly_permute(s2, params->keys.s_hat, exp, params->rns.n);
   rlwe_key_switch_encrypt(params->keys.cg, &params->xof_state, s2, me, me, e,
-                          &params->keys, &params->rns, false, params->rns.l);
+                          &params->keys, &params->rns);
   poly_free(&s2);
   poly_free(&e);
   poly_free(&me);
@@ -71,9 +71,8 @@ void ckks_inner_product_keygen(ckks_params_t* params) {
     uint32_t exp = params->rns.n >> (i + 2);
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.rt[i], &params->xof_state, s2, me, me,
-                            e, &params->keys, &params->rns, false,
-                            params->rns.l);
+    rlwe_key_switch_encrypt(params->keys.ip[i], &params->xof_state, s2, me, me,
+                            e, &params->keys, &params->rns);
   }
   poly_free(&s2);
   poly_free(&e);
@@ -99,16 +98,14 @@ void ckks_linear_transform_keygen(ckks_params_t* params) {
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
     rlwe_key_switch_encrypt(params->keys.lt[i], &params->xof_state, s2, me, me,
-                            e, &params->keys, &params->rns, false,
-                            params->rns.l);
+                            e, &params->keys, &params->rns);
   }
   for (uint32_t i = 0; i < n2; i++) {
     uint32_t exp = n1 * i;
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
     rlwe_key_switch_encrypt(params->keys.lt[n1 + i], &params->xof_state, s2, me,
-                            me, e, &params->keys, &params->rns, false,
-                            params->rns.l);
+                            me, e, &params->keys, &params->rns);
   }
   poly_free(&s2);
   poly_free(&e);
@@ -189,40 +186,48 @@ void ckks_server_encrypt(ciphertext_t* ct, const poly_t m,
 
 void ckks_ciphertext_conjugation(ciphertext_t* ct2, const ciphertext_t* ct1,
                                  const ckks_params_t* params) {
-  rns_t tmp_r;
-  poly_t tmp_p;
+  rns_t tmp_r, tmp_r2;
+  poly_t tmp_p, tmp_p2;
   uint32_t n = params->rns.n;
   rns_new(&tmp_r, &params->rns);
+  rns_new(&tmp_r2, &params->rns);
   poly_new(&tmp_p, n);
-  ciphertext_rotation(ct2, ct1, 2 * params->rns.n - 1, tmp_r, tmp_p,
-                      params->keys.cg, &params->rns);
+  poly_new(&tmp_p2, n);
+  ciphertext_rotation(ct2, ct1, 2 * params->rns.n - 1, tmp_r, tmp_r2, tmp_p,
+                      tmp_p2, params->keys.cg, &params->rns);
   rns_free(&tmp_r);
+  rns_free(&tmp_r2);
   poly_free(&tmp_p);
+  poly_free(&tmp_p2);
 }
 
 void ckks_ciphertext_inner_product(ciphertext_t* ct3, const ciphertext_t* ct1,
                                    const ciphertext_t* ct2,
                                    const ckks_params_t* params) {
   ciphertext_t tmp_c;
-  rns_t tmp_r;
-  poly_t tmp_p;
+  rns_t tmp_r, tmp_r2;
+  poly_t tmp_p, tmp_p2;
   uint32_t n = params->rns.n;
   ciphertext_new(&tmp_c, &params->rns);
   rns_new(&tmp_r, &params->rns);
+  rns_new(&tmp_r2, &params->rns);
   poly_new(&tmp_p, n);
+  poly_new(&tmp_p2, n);
   ciphertext_ciphertext_multiplication(ct3, ct1, ct2, params->keys.r,
                                        &params->rns);
   uint32_t log2_n2 = floor_log2(n) - 1;
   for (uint32_t i = 0; i < log2_n2; i++) {
     uint32_t exp = n >> (i + 2);
     exp = mod_pow2(5, exp, 2 * n);
-    ciphertext_rotation(&tmp_c, ct3, exp, tmp_r, tmp_p, params->keys.rt[i],
-                        &params->rns);
+    ciphertext_rotation(&tmp_c, ct3, exp, tmp_r, tmp_r2, tmp_p, tmp_p2,
+                        params->keys.ip[i], &params->rns);
     ciphertext_ciphertext_addition(ct3, ct3, &tmp_c, &params->rns);
   }
   ciphertext_free(&tmp_c);
   rns_free(&tmp_r);
+  rns_free(&tmp_r2);
   poly_free(&tmp_p);
+  poly_free(&tmp_p2);
 }
 
 void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
@@ -230,8 +235,8 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
                                       const poly_t* mat,
                                       const ckks_params_t* params) {
   ciphertext_t acc, tmp_c;
-  rns_t tmp_r;
-  poly_t tmp_p;
+  rns_t tmp_r, tmp_r2;
+  poly_t tmp_p, tmp_p2;
   uint32_t n = params->rns.n;
   uint32_t log2_m = floor_log2(n) - 1;
   uint32_t log2_n2 = floor_log2(n / (2 * N1N2_RATIO)) / 2;
@@ -241,14 +246,16 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
   ciphertext_new(&acc, &params->rns);
   ciphertext_new(&tmp_c, &params->rns);
   rns_new(&tmp_r, &params->rns);
+  rns_new(&tmp_r2, &params->rns);
   poly_new(&tmp_p, n);
+  poly_new(&tmp_p2, n);
   // Compute rot(ct1, i); i = 0, 1, ..., n1-1 (jump 0)
   ciphertext_t* rot_ct1 = malloc(n1 * sizeof(ciphertext_t));
   for (uint32_t i = 1; i < n1; i++) {
     ciphertext_new(&rot_ct1[i], &params->rns);
     uint32_t exp = mod_pow2(5, i, 2 * n);
-    ciphertext_rotation(&rot_ct1[i], ct1, exp, tmp_r, tmp_p, params->keys.lt[i],
-                        &params->rns);
+    ciphertext_rotation(&rot_ct1[i], ct1, exp, tmp_r, tmp_r2, tmp_p, tmp_p2,
+                        params->keys.lt[i], &params->rns);
   }
   // Zero final ciphertext
   ct2->level = ct1->level - 1;
@@ -268,7 +275,7 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
     ciphertext_mod_switch(&acc, tmp_r, &params->rns);
     // Rotate and Accumulate
     uint32_t exp = mod_pow2(5, n1 * i, 2 * n);
-    ciphertext_rotation(&tmp_c, &acc, exp, tmp_r, tmp_p,
+    ciphertext_rotation(&tmp_c, &acc, exp, tmp_r, tmp_r2, tmp_p, tmp_p2,
                         params->keys.lt[n1 + i], &params->rns);
     ciphertext_ciphertext_addition(ct2, ct2, &tmp_c, &params->rns);
   }
@@ -280,7 +287,9 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
   ciphertext_free(&tmp_c);
   ciphertext_free(&acc);
   rns_free(&tmp_r);
+  rns_free(&tmp_r2);
   poly_free(&tmp_p);
+  poly_free(&tmp_p2);
 }
 
 // Encode a linear transformation with the correct rotations

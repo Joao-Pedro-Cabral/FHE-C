@@ -98,7 +98,7 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
   memset(acc_a, 0, total * n * sizeof(int64_t));
   memset(acc_b, 0, total * n * sizeof(int64_t));
 
-  for (uint32_t i = 0; i < level; i++) {
+  for (uint32_t i = 0; i < total; i++) {
     for (uint32_t j = 0; j < total; j++) {
       // Skip inactive ciphertext primes.
       if (j >= level && j < params->l) continue;
@@ -109,11 +109,11 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
       // Lift digit D2_i from q_i to q_j.
       memcpy(tmp2, &d2[n * i], n * sizeof(int64_t));
 
-      for (uint32_t t = 0; t < n; t++) {
-        int64_t x = tmp2[t] % (int64_t)q;
-        if (x < 0) x += (int64_t)q;
-        tmp2[t] = x;
-      }
+      // for (uint32_t t = 0; t < n; t++) {
+      //   int64_t x = tmp2[t] % (int64_t)q;
+      //   if (x < 0) x += (int64_t)q;
+      //   tmp2[t] = x;
+      // }
 
       // NTT in the destination modulus.
       poly_ntt(tmp2, &params->w[n * j], q, params->R_q[j], qinv, n);
@@ -332,8 +332,8 @@ void ciphertext_plaintext_multiplication(ciphertext_t* ct2,
 
 // Rotate by 5^h
 void ciphertext_rotation(ciphertext_t* ct2, const ciphertext_t* ct1, uint32_t h,
-                         rns_t tmp_r, poly_t tmp_p, const switch_t r,
-                         const rns_params_t* params) {
+                         rns_t tmp_r, rns_t tmp_r2, poly_t tmp_p, poly_t tmp_p2,
+                         const switch_t r, const rns_params_t* params) {
   uint32_t n = params->n;
   for (uint32_t i = 0; i < ct1->level; i++) {
     // X -> X^(5^h)
@@ -354,5 +354,6 @@ void ciphertext_rotation(ciphertext_t* ct2, const ciphertext_t* ct1, uint32_t h,
   }
   // Key Switch
   ct2->level = ct1->level;
-  rlwe_key_switch(&ct2->ab, tmp_r, r, tmp_p, ct1->level, params);
+  rlwe_key_switch(&ct2->ab, tmp_r, r, tmp_p, tmp_p2, tmp_r2, ct1->level,
+                  params);
 }

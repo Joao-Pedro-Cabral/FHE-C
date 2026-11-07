@@ -89,11 +89,13 @@ void ciphertext_mod_switch(ciphertext_t* ct, rns_t tmp,
   @param h: rotation (5^h)
   @param r: rotation key
   @param tmp_p: temporary
+  @param tmp_p2: temporary
   @param tmp_r: temporary
+  @param tmp_r2: temporary
   @param params: RNS params
 */
 void ciphertext_rotation(ciphertext_t* ct2, const ciphertext_t* ct1, uint32_t h,
-                         rns_t tmp_r, poly_t tmp_p, const switch_t r,
-                         const rns_params_t* params);
+                         rns_t tmp_r, rns_t tmp_r2, poly_t tmp_p, poly_t tmp_p2,
+                         const switch_t r, const rns_params_t* params);
 
 #endif  // __CIPHERTEXT_H__
