@@ -21,12 +21,16 @@ void poly_free(poly_t* m) { free(*m); }
 void vector_to_poly(poly_t m, const vec_t* v, uint64_t scale, uint32_t n2,
                     uint32_t n) {
   // 1/n from IFFT
-  memset(m, 0, sizeof(int64_t) * n);
   double inv_n2 = (double)scale / (n2);
-  uint32_t log2_n2 = floor_log2(n2);
-  uint32_t ratio = n / (2 * n2);
-  for (uint32_t i = 0; i < n2; i++) {
-    uint32_t j = bit_reverse32(i, log2_n2) * ratio;
+  uint32_t log2_n_2 = floor_log2(n/2);
+#pragma omp for
+  for (uint32_t i = 0; i < n/2; i++) {
+    uint32_t j = bit_reverse32(i, log2_n_2);
+    if (i >= n2) {
+      m[j] = 0;
+      m[j + n/2] = 0;
+      continue;
+    }
     int64_t mask = ((int64_t)v->rel[i]) >> 63;
     mask = mask & 0x1;
     double round = 0.5 - (double)mask;
@@ -43,6 +47,7 @@ void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n2,
   double scale2 = 1.0 / (double)scale;
   uint32_t log2_n2 = floor_log2(n2);
   uint32_t ratio = n / (2 * n2);
+#pragma omp for
   for (uint32_t i = 0; i < n2; i++) {
     uint32_t j = bit_reverse32(i, log2_n2);
     v->rel[j] = (double)m[i * ratio] * scale2;
