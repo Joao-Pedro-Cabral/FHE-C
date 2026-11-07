@@ -99,6 +99,7 @@ void ciphertext_ciphertext_multiplication(ciphertext_t* ct3,
   memset(acc_b, 0, total * n * sizeof(int64_t));
 
   for (uint32_t i = 0; i < total; i++) {
+    if (i >= level && i < params->l) continue;
     for (uint32_t j = 0; j < total; j++) {
       // Skip inactive ciphertext primes.
       if (j >= level && j < params->l) continue;

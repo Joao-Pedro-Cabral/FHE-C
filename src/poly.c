@@ -22,13 +22,13 @@ void vector_to_poly(poly_t m, const vec_t* v, uint64_t scale, uint32_t n2,
                     uint32_t n) {
   // 1/n from IFFT
   double inv_n2 = (double)scale / (n2);
-  uint32_t log2_n_2 = floor_log2(n/2);
+  uint32_t log2_n_2 = floor_log2(n / 2);
 #pragma omp for
-  for (uint32_t i = 0; i < n/2; i++) {
+  for (uint32_t i = 0; i < n / 2; i++) {
     uint32_t j = bit_reverse32(i, log2_n_2);
     if (i >= n2) {
       m[j] = 0;
-      m[j + n/2] = 0;
+      m[j + n / 2] = 0;
       continue;
     }
     int64_t mask = ((int64_t)v->rel[i]) >> 63;

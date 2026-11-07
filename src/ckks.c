@@ -39,7 +39,7 @@ void ckks_conjugation_keygen(ckks_params_t* params) {
   poly_new(&me, params->rns.n);
   uint32_t exp = 2 * params->rns.n - 1;
   poly_permute(s2, params->keys.s_hat, exp, params->rns.n);
-  rlwe_key_switch_encrypt(params->keys.cg, &params->xof_state, s2, me, me, e,
+  rlwe_key_switch_encrypt(params->keys.cg, &params->xof_state, s2, me, e,
                           &params->keys, &params->rns);
   poly_free(&s2);
   poly_free(&e);
@@ -71,8 +71,8 @@ void ckks_inner_product_keygen(ckks_params_t* params) {
     uint32_t exp = params->rns.n >> (i + 2);
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.ip[i], &params->xof_state, s2, me, me,
-                            e, &params->keys, &params->rns);
+    rlwe_key_switch_encrypt(params->keys.ip[i], &params->xof_state, s2, me, e,
+                            &params->keys, &params->rns);
   }
   poly_free(&s2);
   poly_free(&e);
@@ -97,15 +97,15 @@ void ckks_linear_transform_keygen(ckks_params_t* params) {
     uint32_t exp = i;
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.lt[i], &params->xof_state, s2, me, me,
-                            e, &params->keys, &params->rns);
+    rlwe_key_switch_encrypt(params->keys.lt[i], &params->xof_state, s2, me, e,
+                            &params->keys, &params->rns);
   }
   for (uint32_t i = 0; i < n2; i++) {
     uint32_t exp = n1 * i;
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
     rlwe_key_switch_encrypt(params->keys.lt[n1 + i], &params->xof_state, s2, me,
-                            me, e, &params->keys, &params->rns);
+                            e, &params->keys, &params->rns);
   }
   poly_free(&s2);
   poly_free(&e);
