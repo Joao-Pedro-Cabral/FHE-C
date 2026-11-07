@@ -22,7 +22,7 @@ typedef struct {
   switch_t r;    // relinearization key (l+k RLWE's)
   rlwe_t pk;     // public key
   switch_t cg;   // conjugation key
-  switch_t* ip;  // log2_n - 1 inner product rotation keys by 5^h, h = 2^i
+  switch_t* rt;  // log2_n - 1 inner product rotation keys by 5^h, h = 2^i
   switch_t* lt;  // n1+n2 linear transform rotation keys by 5^h
 } keys_t;
 

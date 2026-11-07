@@ -18,27 +18,33 @@ void rlwe_free(rlwe_t* ab) {
   rns_free(&ab->a);
 }
 
+void key_switch_new(switch_t* r, const rns_params_t* params) {
+  uint32_t lk = params->l + params->k;
+  *r = malloc(lk * sizeof(rlwe_t));
+  for (uint32_t i = 0; i < lk; i++) {
+    rlwe_new(&(*r)[i], params);
+  }
+}
+
+void key_switch_free(switch_t* r, const rns_params_t* params) {
+  uint32_t lk = params->l + params->k;
+  for (uint32_t i = 0; i < lk; i++) {
+    rlwe_free(&(*r)[i]);
+  }
+  free(*r);
+}
+
 void rlwe_keys_new(keys_t* keys, const rns_params_t* params) {
   uint32_t n = params->n;
-  uint32_t lk = params->l + params->k;
   poly_new(&keys->s_hat, n);
   rns_new(&keys->s, params);
-  keys->r = malloc(lk * sizeof(rlwe_t));
-  for (uint32_t i = 0; i < lk; i++) {
-    rlwe_new(&keys->r[i], params);
-  }
+  key_switch_new(&keys->r, params);
   rlwe_new(&keys->pk, params);
-  keys->cg = malloc(params->l * sizeof(rlwe_t));
-  for (uint32_t i = 0; i < params->l; i++) {
-    rlwe_new(&keys->cg[i], params);
-  }
+  key_switch_new(&keys->cg, params);
   uint32_t log2_n = floor_log2(n) - 1;
-  keys->ip = malloc(log2_n * sizeof(switch_t));
+  keys->rt = malloc(log2_n * sizeof(switch_t));
   for (uint32_t i = 0; i < log2_n; i++) {
-    keys->ip[i] = malloc(params->l * sizeof(rlwe_t));
-    for (uint32_t j = 0; j < params->l; j++) {
-      rlwe_new(&keys->ip[i][j], params);
-    }
+    key_switch_new(&keys->rt[i], params);
   }
   uint32_t log2_m = floor_log2(n) - 1;
   uint32_t log2_n2 = floor_log2(n / (2 * N1N2_RATIO)) / 2;
@@ -47,10 +53,7 @@ void rlwe_keys_new(keys_t* keys, const rns_params_t* params) {
   uint32_t n2 = (1 << log2_n2);
   keys->lt = malloc((n1 + n2) * sizeof(switch_t));
   for (uint32_t i = 0; i < n1 + n2; i++) {
-    keys->lt[i] = malloc(params->l * sizeof(rlwe_t));
-    for (uint32_t j = 0; j < params->l; j++) {
-      rlwe_new(&keys->lt[i][j], params);
-    }
+    key_switch_new(&keys->lt[i], params);
   }
 }
 
@@ -58,33 +61,21 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
   uint32_t n = params->n;
   poly_free(&keys->s_hat);
   rns_free(&keys->s);
-  for (uint32_t i = 0; i < params->l + params->k; i++) {
-    rlwe_free(&keys->r[i]);
-  }
-  free(keys->r);
-  for (uint32_t i = 0; i < params->l; i++) {
-    rlwe_free(&keys->cg[i]);
-  }
-  free(keys->cg);
+  key_switch_free(&keys->r, params);
+  key_switch_free(&keys->cg, params);
   rlwe_free(&keys->pk);
   uint32_t log2_n = floor_log2(n) - 1;
   for (uint32_t i = 0; i < log2_n; i++) {
-    for (uint32_t j = 0; j < params->l; j++) {
-      rlwe_free(&keys->ip[i][j]);
-    }
-    free(keys->ip[i]);
+    key_switch_free(&keys->rt[i], params);
   }
-  free(keys->ip);
+  free(keys->rt);
   uint32_t log2_m = floor_log2(n) - 1;
   uint32_t log2_n2 = floor_log2(n / (2 * N1N2_RATIO)) / 2;
   uint32_t log2_n1 = log2_m - log2_n2;
   uint32_t n1 = (1 << log2_n1);
   uint32_t n2 = (1 << log2_n2);
   for (uint32_t i = 0; i < n1 + n2; i++) {
-    for (uint32_t j = 0; j < params->l; j++) {
-      rlwe_free(&keys->lt[i][j]);
-    }
-    free(keys->lt[i]);
+    key_switch_free(&keys->lt[i], params);
   }
   free(keys->lt);
 }

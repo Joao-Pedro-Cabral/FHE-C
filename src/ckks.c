@@ -71,7 +71,7 @@ void ckks_inner_product_keygen(ckks_params_t* params) {
     uint32_t exp = params->rns.n >> (i + 2);
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.ip[i], &params->xof_state, s2, me, me,
+    rlwe_key_switch_encrypt(params->keys.rt[i], &params->xof_state, s2, me, me,
                             e, &params->keys, &params->rns, false,
                             params->rns.l);
   }
@@ -216,7 +216,7 @@ void ckks_ciphertext_inner_product(ciphertext_t* ct3, const ciphertext_t* ct1,
   for (uint32_t i = 0; i < log2_n2; i++) {
     uint32_t exp = n >> (i + 2);
     exp = mod_pow2(5, exp, 2 * n);
-    ciphertext_rotation(&tmp_c, ct3, exp, tmp_r, tmp_p, params->keys.ip[i],
+    ciphertext_rotation(&tmp_c, ct3, exp, tmp_r, tmp_p, params->keys.rt[i],
                         &params->rns);
     ciphertext_ciphertext_addition(ct3, ct3, &tmp_c, &params->rns);
   }
