@@ -235,6 +235,7 @@ void rlwe_key_switch_decrypt(poly_t m, const switch_t key_switch,
   poly_free(&m2);
 }
 
+// A without montgomery factor
 void rlwe_key_switch(rlwe_t* ab, const rns_t a, const switch_t r, poly_t tmp,
                      poly_t tmp2, rns_t tmp_r, uint32_t level,
                      const rns_params_t* params) {

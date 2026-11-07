@@ -342,6 +342,7 @@ void ciphertext_rotation(ciphertext_t* ct2, const ciphertext_t* ct1, uint32_t h,
                params->qinvmR[i], n);
     poly_intt(tmp_p, &params->w_1[n * i], params->q[i], params->R_q[i],
               params->qinvmR[i], n);
+    poly_mulx(tmp_p, 1, params->q[i], params->qinvmR[i], n);  // Remove R
     poly_permute(&tmp_r[n * i], tmp_p, h, n);
     poly_ntt(&tmp_r[n * i], &params->w[n * i], params->q[i], params->R_q[i],
              params->qinvmR[i], n);

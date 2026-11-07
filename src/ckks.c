@@ -39,8 +39,30 @@ void ckks_conjugation_keygen(ckks_params_t* params) {
   poly_new(&me, params->rns.n);
   uint32_t exp = 2 * params->rns.n - 1;
   poly_permute(s2, params->keys.s_hat, exp, params->rns.n);
+  // for (uint32_t i = 0; i < params->rns.n; i++) {
+  //   printf("s2[%d]: %ld\n", i, s2[i]);
+  // }
   rlwe_key_switch_encrypt(params->keys.cg, &params->xof_state, s2, me, e,
                           &params->keys, &params->rns);
+  // uint32_t n = params->rns.n;
+  // for (uint32_t i = 0; i < params->rns.k + params->rns.l; i++) {
+  //   for (uint32_t t = 0; t < params->rns.k + params->rns.l; t++) {
+  //     memcpy(me, &params->keys.cg[i].a[n * t], n * sizeof(int64_t));
+  //     poly_intt(me, &params->rns.w_1[n * t], params->rns.q[t],
+  //               params->rns.R_q[t], params->rns.qinvmR[t], n);
+  //     poly_mulx(me, params->rns.R_nmq[t], params->rns.q[t],
+  //               params->rns.qinvmR[t], n);
+  //     memcpy(e, &params->keys.cg[i].b[n * t], n * sizeof(int64_t));
+  //     poly_intt(e, &params->rns.w_1[n * t], params->rns.q[t],
+  //               params->rns.R_q[t], params->rns.qinvmR[t], n);
+  //     poly_mulx(e, params->rns.R_nmq[t], params->rns.q[t],
+  //               params->rns.qinvmR[t], n);
+  //     for (uint32_t j = 0; j < params->rns.n; j++) {
+  //       printf("a[%d]: %ld, b[%d]: %ld\n", n * t + j, me[j], n * t + j,
+  //       e[j]);
+  //     }
+  //   }
+  // }
   poly_free(&s2);
   poly_free(&e);
   poly_free(&me);
