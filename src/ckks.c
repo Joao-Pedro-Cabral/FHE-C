@@ -17,18 +17,25 @@ void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   // complex roots
   params->n2 = n2;
   vec_new(&params->w, n2);
-  vec_gen_roots(&params->w, n2);
   // XOF state
   uint8_t seed[SEED_BYTES];
   randombytes(seed, SEED_BYTES);
   xof_absorb(&params->xof_state, seed);
   // keys
   rlwe_keys_new(&params->keys, &params->rns);
-  rlwe_gen_secret_key(&params->keys, &params->xof_state, &params->rns);
+#pragma omp parallel
+  {
+    vec_gen_roots(&params->w, n2);
+    rlwe_gen_secret_key(&params->keys, &params->xof_state, &params->rns);
+  }
 }
 
 void ckks_relinearization_keygen(ckks_params_t* params) {
-  rlwe_gen_relinearization_key(&params->keys, &params->xof_state, &params->rns);
+#pragma omp parallel
+  {
+    rlwe_gen_relinearization_key(&params->keys, &params->xof_state,
+                                 &params->rns);
+  }
 }
 
 // KeySwitch(S^{-1})
@@ -38,31 +45,12 @@ void ckks_conjugation_keygen(ckks_params_t* params) {
   poly_new(&e, params->rns.n);
   poly_new(&me, params->rns.n);
   uint32_t exp = 2 * params->rns.n - 1;
-  poly_permute(s2, params->keys.s_hat, exp, params->rns.n);
-  // for (uint32_t i = 0; i < params->rns.n; i++) {
-  //   printf("s2[%d]: %ld\n", i, s2[i]);
-  // }
-  rlwe_key_switch_encrypt(params->keys.cg, &params->xof_state, s2, me, e,
-                          &params->keys, &params->rns);
-  // uint32_t n = params->rns.n;
-  // for (uint32_t i = 0; i < params->rns.k + params->rns.l; i++) {
-  //   for (uint32_t t = 0; t < params->rns.k + params->rns.l; t++) {
-  //     memcpy(me, &params->keys.cg[i].a[n * t], n * sizeof(int64_t));
-  //     poly_intt(me, &params->rns.w_1[n * t], params->rns.q[t],
-  //               params->rns.R_q[t], params->rns.qinvmR[t], n);
-  //     poly_mulx(me, params->rns.R_nmq[t], params->rns.q[t],
-  //               params->rns.qinvmR[t], n);
-  //     memcpy(e, &params->keys.cg[i].b[n * t], n * sizeof(int64_t));
-  //     poly_intt(e, &params->rns.w_1[n * t], params->rns.q[t],
-  //               params->rns.R_q[t], params->rns.qinvmR[t], n);
-  //     poly_mulx(e, params->rns.R_nmq[t], params->rns.q[t],
-  //               params->rns.qinvmR[t], n);
-  //     for (uint32_t j = 0; j < params->rns.n; j++) {
-  //       printf("a[%d]: %ld, b[%d]: %ld\n", n * t + j, me[j], n * t + j,
-  //       e[j]);
-  //     }
-  //   }
-  // }
+#pragma omp parallel
+  {
+    poly_permute_omp(s2, params->keys.s_hat, exp, params->rns.n);
+    rlwe_key_switch_encrypt_omp(params->keys.cg, &params->xof_state, s2, me, e,
+                                &params->keys, &params->rns);
+  }
   poly_free(&s2);
   poly_free(&e);
   poly_free(&me);
@@ -89,13 +77,19 @@ void ckks_inner_product_keygen(ckks_params_t* params) {
   poly_new(&e, params->rns.n);
   poly_new(&me, params->rns.n);
   uint32_t log2_n2 = floor_log2(params->rns.n) - 1;
+  uint64_t max_n = 0;
+#pragma omp parallel for reduction(max : max_n)
   for (uint32_t i = 0; i < log2_n2; i++) {
+    xof_state_t xof_state2;
+    memcpy(&xof_state2, &params->xof_state, sizeof(xof_state2));
     uint32_t exp = params->rns.n >> (i + 2);
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.ip[i], &params->xof_state, s2, me, e,
+    rlwe_key_switch_encrypt(params->keys.ip[i], &xof_state2, s2, me, e,
                             &params->keys, &params->rns);
+    max_n = (xof_state2.n > max_n) ? xof_state2.n : max_n;
   }
+  xof_state_update(&params->xof_state, max_n);
   poly_free(&s2);
   poly_free(&e);
   poly_free(&me);
@@ -115,20 +109,19 @@ void ckks_linear_transform_keygen(ckks_params_t* params) {
   uint32_t log2_n1 = log2_m - log2_n2;
   uint32_t n1 = (1 << log2_n1);
   uint32_t n2 = (1 << log2_n2);
-  for (uint32_t i = 0; i < n1; i++) {
-    uint32_t exp = i;
+  uint64_t max_n = 0;
+#pragma omp parallel for reduction(max : max_n)
+  for (uint32_t i = 0; i < n1 + n2; i++) {
+    xof_state_t xof_state2;
+    memcpy(&xof_state2, &params->xof_state, sizeof(xof_state2));
+    uint32_t exp = (i >= n1) ? n1 * (i - n1) : i;
     uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
     poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.lt[i], &params->xof_state, s2, me, e,
+    rlwe_key_switch_encrypt(params->keys.lt[i], &xof_state2, s2, me, e,
                             &params->keys, &params->rns);
+    max_n = (xof_state2.n > max_n) ? xof_state2.n : max_n;
   }
-  for (uint32_t i = 0; i < n2; i++) {
-    uint32_t exp = n1 * i;
-    uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
-    poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.lt[n1 + i], &params->xof_state, s2, me,
-                            e, &params->keys, &params->rns);
-  }
+  xof_state_update(&params->xof_state, max_n);
   poly_free(&s2);
   poly_free(&e);
   poly_free(&me);

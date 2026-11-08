@@ -99,6 +99,21 @@ void rlwe_key_switch_encrypt(switch_t key_switch, xof_state_t* xof_state,
 
 /*
   @param params: RNS params
+  @param xof_state: XOF state
+  @param tmp: temporary polynomials
+  @param keys: RLWE context
+  @param key_switch: output key switch
+  @param e: error polynomial (allocated by caller)
+  @param m: output polynomial
+  @param params: RNS params
+*/
+void rlwe_key_switch_encrypt_omp(switch_t key_switch, xof_state_t* xof_state,
+                                 const poly_t m, poly_t tmp, poly_t e,
+                                 const keys_t* keys,
+                                 const rns_params_t* params);
+
+/*
+  @param params: RNS params
   @param keys: RLWE context
   @param key_switch: input key switch
   @param m: output polynomial

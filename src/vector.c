@@ -31,6 +31,7 @@ void vec_gen_roots(vec_t* w, uint32_t m) {
   // Position 0 is not used
   w->rel[0] = 0.0;
   w->img[0] = 0.0;
+#pragma omp for
   for (uint32_t i = 1; i < m; i++) {
     uint32_t log2_i = floor_log2(i);
     uint32_t pow2_i = i - (1 << log2_i);

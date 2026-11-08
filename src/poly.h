@@ -49,8 +49,8 @@ void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n2,
   @param domain_separator: XOF domain separator
   @param n: size of the polynomial
 */
-uint64_t poly_ternary_sampler(poly_t s, xof_state_t* xof_state,
-                              uint64_t domain_separator, uint32_t n);
+void poly_ternary_sampler(poly_t s, xof_state_t* xof_state,
+                          uint64_t domain_separator, uint32_t n);
 
 /*
   @param a: output public polynomial
@@ -60,9 +60,9 @@ uint64_t poly_ternary_sampler(poly_t s, xof_state_t* xof_state,
   @param R_q: R/q, round even
   @param n: size of the polynomials
 */
-uint64_t poly_uniform_sampler(poly_t a, xof_state_t* xof_state,
-                              uint64_t domain_separator, uint64_t q,
-                              int64_t R_q, uint32_t n);
+void poly_uniform_sampler(poly_t a, xof_state_t* xof_state,
+                          uint64_t domain_separator, uint64_t q, int64_t R_q,
+                          uint32_t n);
 
 /*
   @param e: output error polynomial
@@ -74,9 +74,9 @@ uint64_t poly_uniform_sampler(poly_t a, xof_state_t* xof_state,
   // The minimal cbd parameter is 21
   // However, for efficiency reasons I do a 24 cbd
 */
-uint64_t poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state,
-                                uint64_t domain_separator, uint8_t* buf,
-                                const poly_t m, uint32_t n);
+void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state,
+                            uint64_t domain_separator, uint8_t* buf,
+                            const poly_t m, uint32_t n);
 
 /*
   @param e: output error polynomial
@@ -87,8 +87,8 @@ uint64_t poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state,
   // The minimal cbd parameter is 21
   // However, for efficiency reasons I do a 24 cbd
 */
-uint64_t poly_cbd24_sampler(poly_t e, xof_state_t* xof_state,
-                            uint64_t domain_separator, uint32_t n);
+void poly_cbd24_sampler(poly_t e, xof_state_t* xof_state,
+                        uint64_t domain_separator, uint32_t n);
 
 /*
   @param a: input/output polynomial
@@ -222,6 +222,148 @@ void poly_mulx_exact(poly_t a, int64_t x, uint64_t q, int64_t qinvmR,
   @param n: size of the polynomials
 */
 void poly_mod(poly_t b, const poly_t a, uint64_t q, int64_t R_q, uint32_t n);
+
+/*
+  @param a: input/output polynomial
+  @param b: input polynomial
+  @param n: size of the polynomials
+*/
+void poly_add_no_mod_omp(poly_t a, const poly_t b, uint32_t n);
+
+/*
+  @param a: input/output polynomial
+  @param b: input polynomial
+  @param n: size of the polynomials
+*/
+void poly_sub_no_mod_omp(poly_t a, const poly_t b, uint32_t n);
+
+/*
+  @param a: input/output polynomial
+  @param b: input polynomial
+  @param q: input moduli
+  @param R_q: R/q, round even
+  @param n: size of the polynomials
+*/
+void poly_add_omp(poly_t a, const poly_t b, uint64_t q, int64_t R_q,
+                  uint32_t n);
+
+/*
+  @param c: output polynomial
+  @param a: input polynomial
+  @param b: input polynomial
+  @param q: input moduli
+  @param R_q: R/q, round even
+  @param n: size of the polynomials
+*/
+void poly_add2_omp(poly_t c, const poly_t a, const poly_t b, uint64_t q,
+                   int64_t R_q, uint32_t n);
+
+/*
+  @param a: input/output polynomial
+  @param b: input polynomial
+  @param q: input moduli
+  @param R_q: R/q, round even
+  @param n: size of the polynomials
+*/
+void poly_sub_omp(poly_t a, const poly_t b, uint64_t q, int64_t R_q,
+                  uint32_t n);
+
+/*
+  @param a: input/output polynomial
+  @param b: input polynomial
+  @param q: input moduli
+  @param R_q: R/q, round even
+  @param n: size of the polynomials
+*/
+void poly_rsub_omp(poly_t a, const poly_t b, uint64_t q, int64_t R_q,
+                   uint32_t n);
+
+/*
+  @param a: input/output polynomial
+  @param b: input polynomial
+  @param h: permute from X to X^h
+  @param n: size of the polynomials
+*/
+void poly_permute_omp(poly_t a, const poly_t b, uint32_t h, uint32_t n);
+
+/*
+  @param c: output polynomial
+  @param a: input polynomial
+  @param b: input polynomial
+  @param q: input moduli
+  @param qinvmR: input q^(-1) mod 2^64
+  @param n: size of the polynomials
+*/
+void poly_pointwise_mul_omp(poly_t c, const poly_t a, const poly_t b,
+                            uint64_t q, int64_t qinvmR, uint32_t n);
+
+/*
+  @param d: output polynomial
+  @param a: input polynomial
+  @param b: input polynomial
+  @param c: input polynomial
+  @param q: input moduli
+  @param qinvmR: input q^(-1) mod 2^64
+  @param R_q: R/q, round even
+  @param n: size of the polynomials
+*/
+void poly_pointwise_macc_exact_omp(poly_t d, const poly_t a, const poly_t b,
+                                   const poly_t c, uint64_t q, int64_t qinvmR,
+                                   int64_t R_q, uint32_t n);
+
+/*
+  @param d: output polynomial
+  @param a: input polynomial
+  @param b: input polynomial
+  @param c: input polynomial
+  @param q: input moduli
+  @param qinvmR: input q^(-1) mod 2^64
+  @param R_q: R/q, round even
+  @param n: size of the polynomials
+*/
+void poly_pointwise_mrsub_exact_omp(poly_t d, const poly_t a, const poly_t b,
+                                    const poly_t c, uint64_t q, int64_t qinvmR,
+                                    int64_t R_q, uint32_t n);
+
+/*
+  @param a: input/output polynomial
+  @param x: input multiplicative constant
+  @param q: input moduli
+  @param qinvmR: input q^(-1) mod 2^64
+  @param n: size of the polynomials
+*/
+void poly_mulx_omp(poly_t a, int64_t x, uint64_t q, int64_t qinvmR, uint32_t n);
+
+/*
+  @param a: output polynomial
+  @param b: input polynomial
+  @param x: input multiplicative constant
+  @param q: input moduli
+  @param qinvmR: input q^(-1) mod 2^64
+  @param n: size of the polynomials
+*/
+void poly_mulx2_omp(poly_t a, const poly_t b, int64_t x, uint64_t q,
+                    int64_t qinvmR, uint32_t n);
+
+/*
+  @param a: input/output polynomial
+  @param x: input multiplicative constant
+  @param q: input moduli
+  @param qinvmR: input q^(-1) mod 2^64
+  @param n: size of the polynomials
+*/
+void poly_mulx_exact_omp(poly_t a, int64_t x, uint64_t q, int64_t qinvmR,
+                         uint32_t n);
+
+/*
+  @param b: output polynomial
+  @param a: input polynomial
+  @param q: input moduli
+  @param R_q: R/q, round even
+  @param n: size of the polynomials
+*/
+void poly_mod_omp(poly_t b, const poly_t a, uint64_t q, int64_t R_q,
+                  uint32_t n);
 
 /*
   @param a: input/output polynomial

@@ -341,6 +341,7 @@ void aes128ctr_squeeze(uint8_t *out, size_t outlen, aes128ctr_ctx *state,
     n += 4;
     for (size_t i = 0; i < outlen; i++) out[i] = buf[i];
   }
+  state->n = n;
 }
 
 void aes128ctr_squeeze_omp(uint8_t *out, size_t outlen, aes128ctr_ctx *state,
@@ -367,7 +368,7 @@ void aes128ctr_squeeze_omp(uint8_t *out, size_t outlen, aes128ctr_ctx *state,
 #pragma omp single
   {
     // state->n = state->n + 4 * (blocks + remaining);
-    n = n + 4 * (blocks + remaining);
+    n = n + 4 * (blocks + remaining - 1);
     if (remaining > 0) {
 #ifdef __NEON_MODE__
       aesni_encrypt(buf, n, state->rkeys, domain_separator);
@@ -379,9 +380,10 @@ void aes128ctr_squeeze_omp(uint8_t *out, size_t outlen, aes128ctr_ctx *state,
       for (size_t i = 0; i < remaining; i++)
         out[blocks * AES128CTR_BLOCKBYTES + i] = buf[i];
     }
+    state->n = state->n + 4 * (blocks + remaining);
   }
 }
 
 void aes128ctr_state_update(aes128ctr_ctx *state, uint64_t blocks) {
-  state->n += blocks;
+  state->n = blocks;
 }

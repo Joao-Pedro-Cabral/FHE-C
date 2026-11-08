@@ -76,13 +76,13 @@ static const uint32_t perm_table[16][8] = {
     /* 0xF */ {0, 1, 2, 3, 4, 5, 6, 7}};
 #endif
 
-uint64_t poly_ternary_sampler(poly_t s, xof_state_t* xof_state,
-                              uint64_t domain_separator, uint32_t n) {
+void poly_ternary_sampler(poly_t s, xof_state_t* xof_state,
+                          uint64_t domain_separator, uint32_t n) {
   // Sample
   size_t blocks = (((4 * (n / 4) + 2) / 3) + XOF_RATE - 1) / XOF_RATE;
   size_t buflen = blocks * XOF_RATE;
   uint8_t* buf = malloc(buflen);  // Initial guess
-  xof_squeeze(buf, buflen, xof_state, domain_separator);
+  xof_squeeze_omp(buf, buflen, xof_state, domain_separator);
   uint32_t i = 0, j = 0;
 #ifdef __AVX2_MODE__
   __m256i v0123 = _mm256_set_epi64x(3, 2, 1, 0);
@@ -91,6 +91,7 @@ uint64_t poly_ternary_sampler(poly_t s, xof_state_t* xof_state,
   __m256i v3 = _mm256_set1_epi64x(3);
   __m256i vn = _mm256_set1_epi64x(n);
 #endif
+#pragma omp single
   while (i < n) {
     // We're probably almost at the end so just fetch one more block
     if (j == buflen) {
@@ -134,13 +135,12 @@ uint64_t poly_ternary_sampler(poly_t s, xof_state_t* xof_state,
     j++;
   }
   free(buf);
-  return blocks;
 }
 
 // AVX2 doesn't support int64_t multiplication
-uint64_t poly_uniform_sampler(poly_t a, xof_state_t* xof_state,
-                              uint64_t domain_separator, uint64_t q,
-                              int64_t R_q, uint32_t n) {
+void poly_uniform_sampler(poly_t a, xof_state_t* xof_state,
+                          uint64_t domain_separator, uint64_t q, int64_t R_q,
+                          uint32_t n) {
   // Sample
   uint64_t bound = UINT64_C(-1) / q;
   bound *= q;
@@ -170,17 +170,16 @@ uint64_t poly_uniform_sampler(poly_t a, xof_state_t* xof_state,
     j++;
   }
   free(buf);
-  return blocks;
 }
 
 #define ERROR(b, c) ((b) - (c))
 
 // AVX2 doesn't support popcnt
 // TODO: With error the things doesn't work well...
-uint64_t poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state,
-                                uint64_t domain_separator, uint8_t* buf,
-                                const poly_t m, uint32_t n) {
-  xof_squeeze(buf, 6 * n, xof_state, domain_separator);
+void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state,
+                            uint64_t domain_separator, uint8_t* buf,
+                            const poly_t m, uint32_t n) {
+  xof_squeeze_omp(buf, 6 * n, xof_state, domain_separator);
   uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
   uint8_t *c0_8 = buf + 3 * n, *c1_8 = buf + 4 * n, *c2_8 = buf + 5 * n;
 #ifdef __NEON_MODE__
@@ -272,11 +271,10 @@ uint64_t poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state,
     e[i] = m[i] + ERROR(b, c);
   }
 #endif
-  return (6 * n + XOF_RATE - 1) / XOF_RATE;
 }
 
-uint64_t poly_cbd24_sampler(poly_t e, xof_state_t* xof_state,
-                            uint64_t domain_separator, uint32_t n) {
+void poly_cbd24_sampler(poly_t e, xof_state_t* xof_state,
+                        uint64_t domain_separator, uint32_t n) {
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
   xof_squeeze(buf, 6 * n, xof_state, domain_separator);
   uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
@@ -352,7 +350,6 @@ uint64_t poly_cbd24_sampler(poly_t e, xof_state_t* xof_state,
   }
 #endif
   free(buf);
-  return (6 * n + XOF_RATE - 1) / XOF_RATE;
 }
 
 void poly_add_no_mod(poly_t a, const poly_t b, uint32_t n) {
@@ -454,9 +451,39 @@ void poly_permute(poly_t a, const poly_t b, uint32_t h, uint32_t n) {
   uint32_t log2_n = floor_log2(n);
   int32_t sign;
   for (uint32_t i = 0; i < n; i++) {
+    j = (i * h) & (n2 - 1);  // mod 2n
     sign = 1 - 2 * (int32_t)(j >> log2_n);
     a[j & (n - 1)] = sign * b[i];
-    j = (j + h) & (n2 - 1);  // mod 2n
+  }
+}
+
+void poly_pointwise_mul_omp(poly_t c, const poly_t a, const poly_t b,
+                            uint64_t q, int64_t qinvmR, uint32_t n) {
+#pragma omp for
+  for (uint32_t i = 0; i < n; i++) {
+    c[i] = mod_mul_ct(a[i], b[i], (int64_t)q, qinvmR);
+  }
+}
+
+void poly_mulx_omp(poly_t a, int64_t x, uint64_t q, int64_t qinvmR,
+                   uint32_t n) {
+#pragma omp for
+  for (uint32_t i = 0; i < n; i++) {
+    a[i] = mod_mul_ct(a[i], x, (int64_t)q, qinvmR);
+  }
+}
+
+void poly_permute_omp(poly_t a, const poly_t b, uint32_t h, uint32_t n) {
+  // Apply the automorphism X^i -> (X^(rot))^i
+  uint32_t j = 0;
+  uint32_t n2 = 2 * n;
+  uint32_t log2_n = floor_log2(n);
+  int32_t sign;
+#pragma omp for
+  for (uint32_t i = 0; i < n; i++) {
+    j = (i * h) & (n2 - 1);  // mod 2n
+    sign = 1 - 2 * (int32_t)(j >> log2_n);
+    a[j & (n - 1)] = sign * b[i];
   }
 }
 
@@ -692,6 +719,7 @@ void poly_ntt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
 #else
   for (uint32_t len = n / 2; len > 0; len >>= 1) {
     uint32_t k = n / (2 * len);
+#pragma omp for
     for (uint32_t start = 0; start < n; start += 2 * len) {
       zeta = roots[k];
       k++;
@@ -968,6 +996,7 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
 #else
   for (uint32_t len = 1; len < n; len <<= 1) {
     uint32_t k = n / (2 * len);
+#pragma omp for
     for (uint32_t start = 0; start < n; start += 2 * len) {
       zeta = roots[k];
       k++;
