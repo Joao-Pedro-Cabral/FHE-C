@@ -164,7 +164,8 @@ uint64_t poly_uniform_sampler(poly_t a, xof_state_t* xof_state,
     uint64_t x = buf[j];
     if (x < bound) {
       int64_t y = mod_ct_exact((int64_t)x, (int64_t)q, R_q);
-      a[i] = y;
+      a[i] = 0;
+      if (i == 0) a[i] = 0;
       i++;
     }
     j++;

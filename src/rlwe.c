@@ -305,6 +305,8 @@ void rlwe_plaintext_encrypt_server(rlwe_t* ab, xof_state_t* xof_state,
     memcpy(u_ntt, u, sizeof(int64_t) * n);
     poly_ntt(u_ntt, &params->w[n * i], params->q[i], params->R_q[i],
              params->qinvmR[i], n);
+    poly_mulx(u_ntt, params->R2mq[i], params->q[i], params->qinvmR[i],
+              params->n);
     poly_pointwise_mul(&ab->a[n * i], &pk.a[n * i], u_ntt, params->q[i],
                        params->qinvmR[i], n);
     poly_pointwise_mul(&ab->b[n * i], &pk.b[n * i], u_ntt, params->q[i],
@@ -316,6 +318,8 @@ void rlwe_plaintext_encrypt_server(rlwe_t* ab, xof_state_t* xof_state,
     memcpy(e2_ntt, e2, sizeof(int64_t) * n);
     poly_ntt(e2_ntt, &params->w[n * i], params->q[i], params->R_q[i],
              params->qinvmR[i], n);
+    poly_mulx(e2_ntt, params->R2mq[i], params->q[i], params->qinvmR[i],
+              params->n);
     poly_add(&ab->a[n * i], e2_ntt, params->q[i], params->R_q[i], n);
   }
   poly_free(&u);
