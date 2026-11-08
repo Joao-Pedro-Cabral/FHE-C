@@ -94,22 +94,26 @@ void rlwe_gen_secret_key(keys_t* keys, xof_state_t* xof_state,
 
 void rlwe_gen_relinearization_key(keys_t* keys, xof_state_t* xof_state,
                                   const rns_params_t* params) {
-  poly_t s2, e, tmp;
+  poly_t s2;
   uint32_t n = params->n;
   poly_new(&s2, n);
-  poly_new(&e, n);
-  poly_new(&tmp, n);
-  // Compute S^2 in the first (biggest) NTT domain
-  poly_pointwise_mul_omp(s2, &keys->s[0], &keys->s[0], params->q[0],
-                         params->qinvmR[0], n);
-  poly_intt(s2, &params->w_1[0], params->q[0], params->R_q[0],
-            params->qinvmR[0], n);
-  // Removes the INTT R^2/n factor
-  poly_mulx_omp(s2, params->R2_nmq[0], params->q[0], params->qinvmR[0], n);
-  rlwe_key_switch_encrypt_omp(keys->r, xof_state, s2, tmp, e, keys, params);
+#pragma omp parallel
+  {
+    poly_t e, tmp;
+    poly_new(&e, n);
+    poly_new(&tmp, n);
+    // Compute S^2 in the first (biggest) NTT domain
+    poly_pointwise_mul_omp(s2, &keys->s[0], &keys->s[0], params->q[0],
+                           params->qinvmR[0], n);
+    poly_intt(s2, &params->w_1[0], params->q[0], params->R_q[0],
+              params->qinvmR[0], n);
+    // Removes the INTT R^2/n factor
+    poly_mulx_omp(s2, params->R2_nmq[0], params->q[0], params->qinvmR[0], n);
+    rlwe_key_switch_encrypt_omp(keys->r, xof_state, s2, tmp, e, keys, params);
+    poly_free(&e);
+    poly_free(&tmp);
+  }
   poly_free(&s2);
-  poly_free(&e);
-  poly_free(&tmp);
 }
 
 // RLWE encryption step (one of the l polynomials)
