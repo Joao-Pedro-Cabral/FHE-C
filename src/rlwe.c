@@ -210,7 +210,7 @@ void rlwe_key_switch_encrypt(switch_t key_switch, xof_state_t* xof_state,
     }
     poly_add_no_mod(e, tmp, n);
     rlwe_encrypt_step(&key_switch[k].a[n * k], &key_switch[k].b[n * k], tmp,
-                      xof_state, 0, e, &keys->s[n * k], &params->w[n * k],
+                      xof_state, k, e, &keys->s[n * k], &params->w[n * k],
                       params->q[k], params->R_q[k], params->qinvmR[k], n);
   }
 }

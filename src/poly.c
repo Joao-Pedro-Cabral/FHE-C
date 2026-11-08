@@ -719,7 +719,6 @@ void poly_ntt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
 #else
   for (uint32_t len = n / 2; len > 0; len >>= 1) {
     uint32_t k = n / (2 * len);
-#pragma omp for
     for (uint32_t start = 0; start < n; start += 2 * len) {
       zeta = roots[k];
       k++;
