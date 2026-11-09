@@ -140,22 +140,28 @@ void ckks_encode(poly_t m, const vec_t* v, const ckks_params_t* params) {
   vec_t v2;
   vec_new(&v2, params->n2);
   memcpy(v2.rel, v->rel, 2 * params->n2 * sizeof(double));
-  // First step: IFFT
-  ifft(&v2, &params->w, params->n2);
-  // Second step: Rescale (with base scale) + Bit Reverse
-  vector_to_poly(m, &v2, params->rns.scales[params->rns.l - 1], params->n2,
-                 params->rns.n);
+#pragma omp parallel
+  {
+    // First step: IFFT
+    ifft(&v2, &params->w, params->n2);
+    // Second step: Rescale (with base scale) + Bit Reverse
+    vector_to_poly(m, &v2, params->rns.scales[params->rns.l - 1], params->n2,
+                   params->rns.n);
+  }
   // Free
   vec_free(&v2);
 }
 
 void ckks_decode(vec_t* v, const poly_t m, uint32_t level,
                  const ckks_params_t* params) {
-  // First step: Rescale (accordingly to the current level) + Bit Reverse
-  poly_to_vector(v, m, params->rns.scales[level - 1], params->n2,
-                 params->rns.n);
-  // Second step: FFT
-  fft(v, &params->w, params->n2);
+#pragma omp parallel
+  {
+    // First step: Rescale (accordingly to the current level) + Bit Reverse
+    poly_to_vector(v, m, params->rns.scales[level - 1], params->n2,
+                   params->rns.n);
+    // Second step: FFT
+    fft(v, &params->w, params->n2);
+  }
 }
 
 void ckks_encrypt(ciphertext_t* ct, const poly_t m, ckks_params_t* params) {
