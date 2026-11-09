@@ -80,10 +80,10 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
   free(keys->lt);
 }
 
-void rlwe_gen_secret_key(keys_t* keys, xof_state_t* xof_state,
+void rlwe_gen_secret_key(keys_t* keys, xof_state_t* xof_state, uint8_t* buf,
                          const rns_params_t* params) {
   uint32_t n = params->n;
-  poly_ternary_sampler(keys->s_hat, xof_state, 0, n);
+  poly_ternary_sampler(keys->s_hat, xof_state, 0, buf, n);
 #pragma omp for
   for (uint32_t i = 0; i < params->l + params->k; i++) {
     memcpy(&keys->s[n * i], keys->s_hat, sizeof(int64_t) * n);
@@ -347,8 +347,12 @@ void rlwe_plaintext_encrypt_server(rlwe_t* ab, xof_state_t* xof_state,
   poly_new(&u_ntt, n);
   poly_new(&e1_ntt, n);
   poly_new(&e2_ntt, n);
-  uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
-  poly_ternary_sampler(u, xof_state, 0, n);
+  uint32_t cbd = 6 * n * sizeof(uint8_t);
+  uint32_t tern =
+      ((((4 * (n / 4) + 2) / 3) + XOF_RATE - 1) / XOF_RATE) * XOF_RATE;
+  uint32_t max = (cbd > tern) ? cbd : tern;
+  uint8_t* buf = malloc(max);
+  poly_ternary_sampler(u, xof_state, 0, buf, n);
   poly_cbd24_sampler_add(e1, xof_state, 0, buf, m, n);
   poly_cbd24_sampler(e2, xof_state, 0, n);
   for (uint32_t i = 0; i < params->l; i++) {

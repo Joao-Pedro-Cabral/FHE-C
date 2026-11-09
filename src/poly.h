@@ -50,7 +50,7 @@ void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n2,
   @param n: size of the polynomial
 */
 void poly_ternary_sampler(poly_t s, xof_state_t* xof_state,
-                          uint64_t domain_separator, uint32_t n);
+                          uint64_t domain_separator, uint8_t* buf, uint32_t n);
 
 /*
   @param a: output public polynomial

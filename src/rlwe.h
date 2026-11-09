@@ -54,7 +54,7 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params);
   @param xof_state: XOF state
   @param params: RNS params
 */
-void rlwe_gen_secret_key(keys_t* keys, xof_state_t* xof_state,
+void rlwe_gen_secret_key(keys_t* keys, xof_state_t* xof_state, uint8_t* buf,
                          const rns_params_t* params);
 
 /*

@@ -7,6 +7,7 @@
 #include <immintrin.h>
 #endif
 #include <math.h>
+#include <omp.h>
 #include <stdlib.h>
 
 #include "mod.h"
@@ -100,7 +101,7 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
   uint32_t n_threads = (uint32_t)omp_get_num_threads();
   uint32_t tid = (uint32_t)omp_get_thread_num();
   uint32_t chunk_size = m / n_threads;
-  uint32_t log2_m = floor_log2(n / 16);
+  uint32_t log2_m = floor_log2(m / 16);
   uint32_t m3_rem = log2_m % 3;
   uint32_t m3 = 1 << (log2_m + 4 - m3_rem);
   bool sync_before_rem = chunk_size >= m3 && chunk_size < m;
@@ -480,9 +481,8 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
     }
   } else if (m3_rem == 1) {
     // Last layer
-    if (chunk_size >= n / 2) chunk_size = (n / 2) / n_threads;
-    int64_t w = roots[1];
-    for (uint32_t jj = tid * chunk_size; jj < n / 2;
+    if (chunk_size >= m / 2) chunk_size = (m / 2) / n_threads;
+    for (uint32_t jj = tid * chunk_size; jj < m / 2;
          jj += n_threads * chunk_size) {
       for (uint32_t j = jj; j < jj + chunk_size; j += 8) {
         // Load
@@ -861,16 +861,13 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
   uint32_t n_threads = (uint32_t)omp_get_num_threads();
   uint32_t tid = (uint32_t)omp_get_thread_num();
   uint32_t chunk_size = m / n_threads;
-  uint32_t log2_m = floor_log2(n / 16);
+  uint32_t log2_m = floor_log2(m / 16);
   uint32_t m3_rem = log2_m % 3;
   uint32_t m3 = 1 << (log2_m + 4 - m3_rem);
   bool sync_first_3x = chunk_size < m3 && chunk_size < m;
   if (sync_first_3x) chunk_size = m3 >> 3;
 
-  uint32_t log2_m = floor_log2(m / 16);
-  uint32_t rem = log2_m % 3;
-
-  if (rem == 2) {
+  if (m3_rem == 2) {
     // Merge two layers
 #pragma omp for
     for (uint32_t j = 0; j < m / 4; j += 4) {
@@ -949,12 +946,11 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
       vst1q_f64(&v->rel[j + m / 2 + m / 4 + 2], vk3_rel);
       vst1q_f64(&v->img[j + m / 2 + m / 4 + 2], vk3_img);
     }
-  } else if (rem == 1) {
+  } else if (m3_rem == 1) {
     // Last layer
     uint32_t chunk_size2 = chunk_size;
-    if (chunk_size2 >= n / 2) chunk_size2 = (n / 2) / n_threads;
-    int64_t w = roots[1];
-    for (uint32_t jj = tid * chunk_size2; jj < n / 2;
+    if (chunk_size2 >= m / 2) chunk_size2 = (m / 2) / n_threads;
+    for (uint32_t jj = tid * chunk_size2; jj < m / 2;
          jj += n_threads * chunk_size2) {
       for (uint32_t j = jj; j < jj + chunk_size2; j += 8) {
         // Load
@@ -1031,7 +1027,7 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
       jj_inc = m3;
       i_inc = 8 * chunk_size;
     }
-    for (uint32_t jj = tid * chunk_size; jj < n; jj += jj_inc) {
+    for (uint32_t jj = tid * chunk_size; jj < m; jj += jj_inc) {
       for (uint32_t i = 0; i < m; i += 2 * len) {
         uint32_t klen = len - i;
         uint32_t k2len = len / 2 - i;

@@ -230,12 +230,12 @@ gem5: $(TARGET)
 # ----------------------------------------------------------------------
 
 cloud_ssh:
-	gcloud compute ssh axion-arm --zone=us-central1-c
+	gcloud compute ssh axion-arm-3 --zone=northamerica-northeast2-b --ssh-key-file=~/.ssh/gcloud_key
 
 cloud_scp:
-	gcloud compute scp --recurse Makefile  axion-arm:~/FHE-C/ --zone=us-central1-c
-	gcloud compute scp --recurse test  axion-arm:~/FHE-C/ --zone=us-central1-c
-	gcloud compute scp --recurse src  axion-arm:~/FHE-C/ --zone=us-central1-c
+	gcloud compute scp --recurse Makefile  axion-arm-3:~/FHE-C/ --zone=northamerica-northeast2-b --ssh-key-file=~/.ssh/gcloud_key
+	gcloud compute scp --recurse test  axion-arm-3:~/FHE-C/ --zone=northamerica-northeast2-b --ssh-key-file=~/.ssh/gcloud_key
+	gcloud compute scp --recurse src  axion-arm-3:~/FHE-C/ --zone=northamerica-northeast2-b --ssh-key-file=~/.ssh/gcloud_key
 
 # ----------------------------------------------------------------------
 # Clean

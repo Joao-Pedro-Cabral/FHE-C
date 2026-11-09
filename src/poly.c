@@ -77,11 +77,10 @@ static const uint32_t perm_table[16][8] = {
 #endif
 
 void poly_ternary_sampler(poly_t s, xof_state_t* xof_state,
-                          uint64_t domain_separator, uint32_t n) {
+                          uint64_t domain_separator, uint8_t* buf, uint32_t n) {
   // Sample
   size_t blocks = (((4 * (n / 4) + 2) / 3) + XOF_RATE - 1) / XOF_RATE;
   size_t buflen = blocks * XOF_RATE;
-  uint8_t* buf = malloc(buflen);  // Initial guess
   xof_squeeze_omp(buf, buflen, xof_state, domain_separator);
   uint32_t i = 0, j = 0;
 #ifdef __AVX2_MODE__
@@ -134,7 +133,6 @@ void poly_ternary_sampler(poly_t s, xof_state_t* xof_state,
 #endif
     j++;
   }
-  free(buf);
 }
 
 // AVX2 doesn't support int64_t multiplication

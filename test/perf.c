@@ -4,6 +4,7 @@
 
 #include "ckks.h"
 #include "poly.h"
+#include "random.h"
 #include "rlwe.h"
 #include "vector.h"
 #include "xof.h"

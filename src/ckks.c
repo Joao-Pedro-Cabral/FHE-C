@@ -23,11 +23,16 @@ void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   xof_absorb(&params->xof_state, seed);
   // keys
   rlwe_keys_new(&params->keys, &params->rns);
+  size_t blocks =
+      (((4 * (params->rns.n / 4) + 2) / 3) + XOF_RATE - 1) / XOF_RATE;
+  size_t buflen = blocks * XOF_RATE;
+  uint8_t* buf = malloc(buflen);
 #pragma omp parallel
   {
     vec_gen_roots(&params->w, n2);
-    rlwe_gen_secret_key(&params->keys, &params->xof_state, &params->rns);
+    rlwe_gen_secret_key(&params->keys, &params->xof_state, buf, &params->rns);
   }
+  free(buf);
 }
 
 void ckks_relinearization_keygen(ckks_params_t* params) {

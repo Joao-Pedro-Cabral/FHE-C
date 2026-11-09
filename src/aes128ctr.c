@@ -12,13 +12,18 @@
 static void aesni_encrypt(uint8_t out[AES128CTR_BLOCKBYTES], uint64_t n,
                           const uint8_t rkeys[AES128CTR_KEYBYTES * 11],
                           uint64_t domain_separator) {
-  uint8x16_t f, f0, f1, f2, f3;
+  uint8x16_t f;
 
   /* Increase counter in 4 consecutive blocks */
-  f0 = {n + 0, domain_separator};
-  f1 = {n + 1, domain_separator};
-  f2 = {n + 2, domain_separator};
-  f3 = {n + 3, domain_separator};
+  uint64x2_t f0_64 = {n + 0, domain_separator};
+  uint64x2_t f1_64 = {n + 1, domain_separator};
+  uint64x2_t f2_64 = {n + 2, domain_separator};
+  uint64x2_t f3_64 = {n + 3, domain_separator};
+
+  uint8x16_t f0 = vreinterpretq_u8_u64(f0_64);
+  uint8x16_t f1 = vreinterpretq_u8_u64(f1_64);
+  uint8x16_t f2 = vreinterpretq_u8_u64(f2_64);
+  uint8x16_t f3 = vreinterpretq_u8_u64(f3_64);
 
   /* Write counter for next iteration, increased by 4 */
   // vst1_u64((uint64_t *)n,

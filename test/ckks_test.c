@@ -251,9 +251,9 @@ void check_encoded_polynomial(const poly_t m, const int64_t* q, uint32_t n) {
   }
 }
 
-void check_decoded_polynomial(const poly_t m, const poly_t m2, uint64_t scale,
-                              uint32_t n) {
-  printf("---------- VERIFY DECODED POLYNOMIAL ----------\n");
+void check_decrypted_polynomial(const poly_t m, const poly_t m2, uint64_t scale,
+                                uint32_t n) {
+  printf("---------- VERIFY DECRYPTED POLYNOMIAL ----------\n");
   uint8_t correct = 1;
   for (uint32_t i = 0; i < n; i++) {
     int64_t diff = m[i] - m2[i];
@@ -263,9 +263,9 @@ void check_decoded_polynomial(const poly_t m, const poly_t m2, uint64_t scale,
     }
   }
   if (correct) {
-    printf("---------- DECODED POLYNOMIAL CORRECT ----------\n");
+    printf("---------- DECRYPTED POLYNOMIAL CORRECT ----------\n");
   } else {
-    printf("---------- DECODED POLYNOMIAL WRONG ----------\n");
+    printf("---------- DECRYPTED POLYNOMIAL WRONG ----------\n");
   }
 }
 
@@ -593,7 +593,7 @@ void check_hybrid_multiplication(xof_state_t* xof_state,
 
 int main() {
   // Parameters Construction
-  uint32_t l = 1;
+  uint32_t l = 3;
   uint32_t n2 = 16;
   uint32_t q0_bits = 60;
   uint32_t scale_bits = 40;
@@ -646,7 +646,7 @@ int main() {
   vec_new(&v, n2);
   for (uint32_t i = 0; i < n2; i++) {
     v.rel[i] = (double)0.25 * i;
-    v.img[i] = 0;
+    v.img[i] = -(double)0.25 * i;
   }
   // printf("---------- ENCODE VECTOR ----------\n");
   // for (uint32_t i = 0; i < n / 2; i++) {
@@ -714,8 +714,8 @@ int main() {
     ckks_decrypt(m2, &ct, &params);
   }
 #ifdef __DEBUG_MODE__
-  check_decoded_polynomial(m, m2, params.rns.scales[ct.level - 1],
-                           params.rns.n);
+  check_decrypted_polynomial(m, m2, params.rns.scales[ct.level - 1],
+                             params.rns.n);
 #endif
   // printf("---------- DECRYPTED POLYNOMIAL ----------\n");
   // for (uint32_t i = 0; i < params.rns.n; i++) {
