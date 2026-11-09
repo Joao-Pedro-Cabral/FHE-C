@@ -39,8 +39,11 @@ static uint64_t time_ns(void) {
 static void perf_cbd(poly_t p, xof_state_t* xof) {
   uint64_t start = time_ns();
 
-  for (uint32_t i = 0; i < N_TESTS; i++) {
-    poly_cbd24_sampler(p, xof, 0, N);
+#pragma omp parallel
+  {
+    for (uint32_t i = 0; i < N_TESTS; i++) {
+      poly_cbd24_sampler(p, xof, 0, N);
+    }
   }
 
   uint64_t end = time_ns();
@@ -51,13 +54,24 @@ static void perf_cbd(poly_t p, xof_state_t* xof) {
 }
 
 static void perf_fft(vec_t* v, const vec_t* w) {
+  for (uint32_t i = 0; i < N2; i++) {
+    v->rel[i] = i;
+    v->img[i] = i;
+  }
   uint64_t start = time_ns();
 
-  for (uint32_t i = 0; i < N_TESTS; i++) {
-    fft(v, w, N2);
+#pragma omp parallel
+  {
+    for (uint32_t i = 0; i < N_TESTS; i++) {
+      fft(v, w, N2);
+    }
   }
 
   uint64_t end = time_ns();
+
+  for (uint32_t i = 0; i < N2; i++) {
+    printf("v[%d]: %lf\n", i, v->rel[i]);
+  }
 
   double total = (double)(end - start) / 1000.0;
 
@@ -65,13 +79,24 @@ static void perf_fft(vec_t* v, const vec_t* w) {
 }
 
 static void perf_ifft(vec_t* v, const vec_t* w) {
+  for (uint32_t i = 0; i < N2; i++) {
+    v->rel[i] = i;
+    v->img[i] = i;
+  }
   uint64_t start = time_ns();
 
-  for (uint32_t i = 0; i < N_TESTS; i++) {
-    ifft(v, w, N2);
+#pragma omp parallel
+  {
+    for (uint32_t i = 0; i < N_TESTS; i++) {
+      ifft(v, w, N2);
+    }
   }
 
   uint64_t end = time_ns();
+
+  // for (uint32_t i = 0; i < N2; i++) {
+  //   printf("v[%d]: %lf\n", i, v->rel[i]);
+  // }
 
   double total = (double)(end - start) / 1000.0;
 
@@ -82,8 +107,11 @@ static void perf_ntt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
                      int64_t qinvmR) {
   uint64_t start = time_ns();
 
-  for (uint32_t i = 0; i < N_TESTS; i++) {
-    poly_ntt(p, r, q, R_q, qinvmR, N);
+#pragma omp parallel
+  {
+    for (uint32_t i = 0; i < N_TESTS; i++) {
+      poly_ntt(p, r, q, R_q, qinvmR, N);
+    }
   }
 
   uint64_t end = time_ns();
@@ -97,8 +125,11 @@ static void perf_intt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
                       int64_t qinvmR) {
   uint64_t start = time_ns();
 
-  for (uint32_t i = 0; i < N_TESTS; i++) {
-    poly_intt(p, r, q, R_q, qinvmR, N);
+#pragma omp parallel
+  {
+    for (uint32_t i = 0; i < N_TESTS; i++) {
+      poly_intt(p, r, q, R_q, qinvmR, N);
+    }
   }
 
   uint64_t end = time_ns();
