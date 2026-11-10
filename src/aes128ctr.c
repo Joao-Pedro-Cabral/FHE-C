@@ -356,7 +356,7 @@ void aes128ctr_squeeze_omp(uint8_t *out, size_t outlen, aes128ctr_ctx *state,
   uint64_t remaining = outlen - blocks * AES128CTR_BLOCKBYTES;
   uint64_t n = state->n;
 
-#pragma omp for nowait
+#pragma omp for
   for (uint64_t i = 0; i < blocks; i++) {
 #ifdef __NEON_MODE__
     aesni_encrypt(&out[AES128CTR_BLOCKBYTES * i], n + 4 * i, state->rkeys,
