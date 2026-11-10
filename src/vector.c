@@ -1023,18 +1023,20 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
   }
 
   // Merge 3 consecutive layers
-  uint32_t jj_inc = n_threads * chunk_size;
   for (uint32_t len = m3 / 2; len > 8; len >>= 3) {
+    uint32_t jj_inc = n_threads * chunk_size;
     uint32_t i_inc = 2 * len;
+    uint32_t klen_inc = 0;
     if (sync_first_3x && len == (m3 >> 1)) {
       jj_inc = m3;
       i_inc = 8 * chunk_size;
+      klen_inc = tid * chunk_size;
     }
     for (uint32_t jj = tid * chunk_size; jj < m; jj += jj_inc) {
       for (uint32_t i = 0; i < m; i += 2 * len) {
-        uint32_t klen = len - i;
-        uint32_t k2len = len / 2 - i;
-        uint32_t k4len = len / 4 - i;
+        uint32_t klen = len - i + klen_inc;
+        uint32_t k2len = len / 2 - i + klen_inc;
+        uint32_t k4len = len / 4 - i + klen_inc;
         for (uint32_t j = i; j < i + (i_inc / 8); j += 2) {
           // Load
           // First Quarter
