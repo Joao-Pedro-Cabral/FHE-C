@@ -8,6 +8,7 @@
 #endif
 #include <math.h>
 #include <omp.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "mod.h"
@@ -105,7 +106,7 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
   uint32_t log2_m = floor_log2(m / 16);
   uint32_t m3_rem = log2_m % 3;
   uint32_t m3 = 1 << (log2_m + 4 - m3_rem);
-  bool sync_before_rem = chunk_size >= m3 && chunk_size < m;
+  bool sync_before_rem = (chunk_size >= m3 || m3 == 32) && chunk_size < m;
   bool sync_last_3x = chunk_size < m3 && chunk_size < m;
   if (sync_before_rem)
     chunk_size = m3;
@@ -121,6 +122,10 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
   double w1_img = w->img[k1];
   float64x2_t vw2_rel = vld1q_f64(&w->rel[k2]);
   float64x2_t vw2_img = vld1q_f64(&w->img[k2]);
+  if (m <= 32) {
+    chunk_size = 16;
+    if (tid >= m / 16) goto fft_rem_barrier;
+  }
   for (uint32_t jj = tid * chunk_size; jj < m; jj += n_threads * chunk_size) {
     for (uint32_t j = jj; j < jj + chunk_size; j += 16) {
       // Load
@@ -399,6 +404,7 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
     }
   }
 
+fft_rem_barrier:
   if (m3_rem == 0 || sync_before_rem) {
 #pragma omp barrier
   }
@@ -485,10 +491,11 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
   } else if (m3_rem == 1) {
     // Last layer
     if (chunk_size >= m / 2) chunk_size = (m / 2) / n_threads;
+    if (m == 32 && n_threads == 4) chunk_size = 4;
     for (uint32_t jj = tid * chunk_size; jj < m / 2;
          jj += n_threads * chunk_size) {
       // Special case to remove segfaults
-      if (m == 256 && n_threads == 4) {
+      if (((m == 256) || (m == 32)) && n_threads == 4) {
         uint32_t j = jj;
         // Load
         // First Quarter
@@ -905,7 +912,7 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
   uint32_t log2_m = floor_log2(m / 16);
   uint32_t m3_rem = log2_m % 3;
   uint32_t m3 = 1 << (log2_m + 4 - m3_rem);
-  bool sync_after_rem = chunk_size >= m3 && chunk_size < m;
+  bool sync_after_rem = (chunk_size >= m3 || m == 32) && chunk_size < m;
   bool sync_first_3x = chunk_size < m3 && chunk_size < m;
   if (sync_first_3x) chunk_size = m3 >> 3;
 
@@ -997,10 +1004,11 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
       chunk_size = (m / 2) / n_threads;
     else
       chunk_size = (m / 16) / n_threads;
+    if (m == 32 && n_threads == 4) chunk_size = 4;
     for (uint32_t jj = tid * chunk_size; jj < m / 2;
          jj += n_threads * chunk_size) {
       // Special case to remove segfaults
-      if (m == 256 && n_threads == 4) {
+      if (((m == 256) || (m == 32)) && n_threads == 4) {
         uint32_t j = jj;
         // Load
         // First Quarter
@@ -1232,6 +1240,10 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
   double w1_img = -w->img[k1];
   float64x2_t vw2_rel = vld1q_f64(&w->rel[k2]);
   float64x2_t vw2_img = vnegq_f64(vld1q_f64(&w->img[k2]));
+  if (m <= 32) {
+    chunk_size = 16;
+    if (tid >= m / 16) goto ifft_final_barrier;
+  }
   for (uint32_t jj = tid * chunk_size; jj < m; jj += n_threads * chunk_size) {
     for (uint32_t j = jj; j < jj + chunk_size; j += 16) {
       // Load
@@ -1390,7 +1402,9 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
     }
   }
 
+ifft_final_barrier : {
 #pragma omp barrier
+}
 
 #elif __AVX2_MODE__
   if (m < 16) {
