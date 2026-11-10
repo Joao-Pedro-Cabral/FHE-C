@@ -106,7 +106,7 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
   uint32_t log2_m = floor_log2(m / 16);
   uint32_t m3_rem = log2_m % 3;
   uint32_t m3 = 1 << (log2_m + 4 - m3_rem);
-  bool sync_before_rem = (chunk_size >= m3 || m3 == 32) && chunk_size < m;
+  bool sync_before_rem = (chunk_size >= m3 || m == 32) && chunk_size < m;
   bool sync_last_3x = chunk_size < m3 && chunk_size < m;
   if (sync_before_rem)
     chunk_size = m3;

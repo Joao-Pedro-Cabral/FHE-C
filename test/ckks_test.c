@@ -10,6 +10,22 @@
 #include "random.h"
 #include "utils.h"
 
+#ifndef N2
+#define N2 16
+#endif
+
+#ifndef L
+#define L 4
+#endif
+
+#ifndef N
+#define N 512
+#endif
+
+#ifndef SET_N
+#define SET_N 0
+#endif
+
 #ifdef __RUN_MODE__
 #define N_TESTS 1
 #elif __VTUNE_MODE__
@@ -593,8 +609,8 @@ void check_hybrid_multiplication(xof_state_t* xof_state,
 
 int main() {
   // Parameters Construction
-  uint32_t l = 3;
-  uint32_t n2 = 16;
+  uint32_t l = L;
+  uint32_t n2 = N2;
   uint32_t q0_bits = 60;
   uint32_t scale_bits = 40;
 
@@ -612,7 +628,7 @@ int main() {
 #endif
   // 10x less tests because it takes too long
   for (uint32_t i = 0; i < (N_TESTS + 9) / 10; i++) {
-    ckks_keygen(&params, q0_bits, scale_bits, n2, l, 0, 0, NULL, 0);
+    ckks_keygen(&params, q0_bits, scale_bits, n2, l, N, SET_N, NULL, 0);
     ckks_relinearization_keygen(&params);
     ckks_conjugation_keygen(&params);
     ckks_public_keygen(&params);
