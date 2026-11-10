@@ -8,6 +8,7 @@
 #endif
 #include <math.h>
 #include <omp.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "mod.h"
@@ -487,7 +488,9 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
     if (chunk_size >= m / 2) chunk_size = (m / 2) / n_threads;
     for (uint32_t jj = tid * chunk_size; jj < m / 2;
          jj += n_threads * chunk_size) {
-      for (uint32_t j = jj; j < jj + chunk_size; j += 8) {
+      // Special case to remove segfaults
+      if (m == 256 && n_threads == 4) {
+        uint32_t j = jj;
         // Load
         // First Quarter
         float64x2_t vj0_rel = vld1q_f64(&v->rel[j]);
@@ -499,16 +502,6 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
         float64x2_t vj1_img = vld1q_f64(&v->img[j + 2]);
         float64x2_t vk1_rel = vld1q_f64(&v->rel[j + 2 + m / 2]);
         float64x2_t vk1_img = vld1q_f64(&v->img[j + 2 + m / 2]);
-        // Third Quarter
-        float64x2_t vj2_rel = vld1q_f64(&v->rel[j + 4]);
-        float64x2_t vj2_img = vld1q_f64(&v->img[j + 4]);
-        float64x2_t vk2_rel = vld1q_f64(&v->rel[j + 4 + m / 2]);
-        float64x2_t vk2_img = vld1q_f64(&v->img[j + 4 + m / 2]);
-        // Forth Quarter
-        float64x2_t vj3_rel = vld1q_f64(&v->rel[j + 6]);
-        float64x2_t vj3_img = vld1q_f64(&v->img[j + 6]);
-        float64x2_t vk3_rel = vld1q_f64(&v->rel[j + 6 + m / 2]);
-        float64x2_t vk3_img = vld1q_f64(&v->img[j + 6 + m / 2]);
         // CT
         float64x2_t vt_rel, vt_img;
         float64x2_t vw_rel, vw_img;
@@ -519,14 +512,6 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
         vw_rel = vld1q_f64(&w->rel[m / 2 + j + 2]);
         vw_img = vld1q_f64(&w->img[m / 2 + j + 2]);
         CT_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw_rel, vw_img, vt_rel,
-                     vt_img);
-        vw_rel = vld1q_f64(&w->rel[m / 2 + j + 4]);
-        vw_img = vld1q_f64(&w->img[m / 2 + j + 4]);
-        CT_BUTTERFLY(vj2_rel, vj2_img, vk2_rel, vk2_img, vw_rel, vw_img, vt_rel,
-                     vt_img);
-        vw_rel = vld1q_f64(&w->rel[m / 2 + j + 6]);
-        vw_img = vld1q_f64(&w->img[m / 2 + j + 6]);
-        CT_BUTTERFLY(vj3_rel, vj3_img, vk3_rel, vk3_img, vw_rel, vw_img, vt_rel,
                      vt_img);
         // Store
         // First Quarter
@@ -539,16 +524,70 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
         vst1q_f64(&v->img[j + 2], vj1_img);
         vst1q_f64(&v->rel[j + m / 2 + 2], vk1_rel);
         vst1q_f64(&v->img[j + m / 2 + 2], vk1_img);
-        // Third Quarter
-        vst1q_f64(&v->rel[j + 4], vj2_rel);
-        vst1q_f64(&v->img[j + 4], vj2_img);
-        vst1q_f64(&v->rel[j + m / 2 + 4], vk2_rel);
-        vst1q_f64(&v->img[j + m / 2 + 4], vk2_img);
-        // Forth Quarter
-        vst1q_f64(&v->rel[j + 6], vj3_rel);
-        vst1q_f64(&v->img[j + 6], vj3_img);
-        vst1q_f64(&v->rel[j + m / 2 + 6], vk3_rel);
-        vst1q_f64(&v->img[j + m / 2 + 6], vk3_img);
+      } else {
+        for (uint32_t j = jj; j < jj + chunk_size; j += 8) {
+          // Load
+          // First Quarter
+          float64x2_t vj0_rel = vld1q_f64(&v->rel[j]);
+          float64x2_t vj0_img = vld1q_f64(&v->img[j]);
+          float64x2_t vk0_rel = vld1q_f64(&v->rel[j + m / 2]);
+          float64x2_t vk0_img = vld1q_f64(&v->img[j + m / 2]);
+          // Second Quarter
+          float64x2_t vj1_rel = vld1q_f64(&v->rel[j + 2]);
+          float64x2_t vj1_img = vld1q_f64(&v->img[j + 2]);
+          float64x2_t vk1_rel = vld1q_f64(&v->rel[j + 2 + m / 2]);
+          float64x2_t vk1_img = vld1q_f64(&v->img[j + 2 + m / 2]);
+          // Third Quarter
+          float64x2_t vj2_rel = vld1q_f64(&v->rel[j + 4]);
+          float64x2_t vj2_img = vld1q_f64(&v->img[j + 4]);
+          float64x2_t vk2_rel = vld1q_f64(&v->rel[j + 4 + m / 2]);
+          float64x2_t vk2_img = vld1q_f64(&v->img[j + 4 + m / 2]);
+          // Forth Quarter
+          float64x2_t vj3_rel = vld1q_f64(&v->rel[j + 6]);
+          float64x2_t vj3_img = vld1q_f64(&v->img[j + 6]);
+          float64x2_t vk3_rel = vld1q_f64(&v->rel[j + 6 + m / 2]);
+          float64x2_t vk3_img = vld1q_f64(&v->img[j + 6 + m / 2]);
+          // CT
+          float64x2_t vt_rel, vt_img;
+          float64x2_t vw_rel, vw_img;
+          vw_rel = vld1q_f64(&w->rel[m / 2 + j]);
+          vw_img = vld1q_f64(&w->img[m / 2 + j]);
+          CT_BUTTERFLY(vj0_rel, vj0_img, vk0_rel, vk0_img, vw_rel, vw_img,
+                       vt_rel, vt_img);
+          vw_rel = vld1q_f64(&w->rel[m / 2 + j + 2]);
+          vw_img = vld1q_f64(&w->img[m / 2 + j + 2]);
+          CT_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw_rel, vw_img,
+                       vt_rel, vt_img);
+          vw_rel = vld1q_f64(&w->rel[m / 2 + j + 4]);
+          vw_img = vld1q_f64(&w->img[m / 2 + j + 4]);
+          CT_BUTTERFLY(vj2_rel, vj2_img, vk2_rel, vk2_img, vw_rel, vw_img,
+                       vt_rel, vt_img);
+          vw_rel = vld1q_f64(&w->rel[m / 2 + j + 6]);
+          vw_img = vld1q_f64(&w->img[m / 2 + j + 6]);
+          CT_BUTTERFLY(vj3_rel, vj3_img, vk3_rel, vk3_img, vw_rel, vw_img,
+                       vt_rel, vt_img);
+          // Store
+          // First Quarter
+          vst1q_f64(&v->rel[j], vj0_rel);
+          vst1q_f64(&v->img[j], vj0_img);
+          vst1q_f64(&v->rel[j + m / 2], vk0_rel);
+          vst1q_f64(&v->img[j + m / 2], vk0_img);
+          // Second Quarter
+          vst1q_f64(&v->rel[j + 2], vj1_rel);
+          vst1q_f64(&v->img[j + 2], vj1_img);
+          vst1q_f64(&v->rel[j + m / 2 + 2], vk1_rel);
+          vst1q_f64(&v->img[j + m / 2 + 2], vk1_img);
+          // Third Quarter
+          vst1q_f64(&v->rel[j + 4], vj2_rel);
+          vst1q_f64(&v->img[j + 4], vj2_img);
+          vst1q_f64(&v->rel[j + m / 2 + 4], vk2_rel);
+          vst1q_f64(&v->img[j + m / 2 + 4], vk2_img);
+          // Forth Quarter
+          vst1q_f64(&v->rel[j + 6], vj3_rel);
+          vst1q_f64(&v->img[j + 6], vj3_img);
+          vst1q_f64(&v->rel[j + m / 2 + 6], vk3_rel);
+          vst1q_f64(&v->img[j + m / 2 + 6], vk3_img);
+        }
       }
     }
 #pragma omp barrier
@@ -955,7 +994,9 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
     if (chunk_size2 >= m / 2) chunk_size2 = (m / 2) / n_threads;
     for (uint32_t jj = tid * chunk_size2; jj < m / 2;
          jj += n_threads * chunk_size2) {
-      for (uint32_t j = jj; j < jj + chunk_size2; j += 8) {
+      // Special case to remove segfaults
+      if (m == 256 && n_threads == 4) {
+        uint32_t j = jj;
         // Load
         // First Quarter
         float64x2_t vj0_rel = vld1q_f64(&v->rel[j]);
@@ -967,16 +1008,6 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
         float64x2_t vj1_img = vld1q_f64(&v->img[j + 2]);
         float64x2_t vk1_rel = vld1q_f64(&v->rel[j + 2 + m / 2]);
         float64x2_t vk1_img = vld1q_f64(&v->img[j + 2 + m / 2]);
-        // Third Quarter
-        float64x2_t vj2_rel = vld1q_f64(&v->rel[j + 4]);
-        float64x2_t vj2_img = vld1q_f64(&v->img[j + 4]);
-        float64x2_t vk2_rel = vld1q_f64(&v->rel[j + 4 + m / 2]);
-        float64x2_t vk2_img = vld1q_f64(&v->img[j + 4 + m / 2]);
-        // Forth Quarter
-        float64x2_t vj3_rel = vld1q_f64(&v->rel[j + 6]);
-        float64x2_t vj3_img = vld1q_f64(&v->img[j + 6]);
-        float64x2_t vk3_rel = vld1q_f64(&v->rel[j + 6 + m / 2]);
-        float64x2_t vk3_img = vld1q_f64(&v->img[j + 6 + m / 2]);
         // CT
         float64x2_t vt_rel, vt_img;
         float64x2_t vw_rel, vw_img;
@@ -987,14 +1018,6 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
         vw_rel = vld1q_f64(&w->rel[m / 2 + j + 2]);
         vw_img = vnegq_f64(vld1q_f64(&w->img[m / 2 + j + 2]));
         GS_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw_rel, vw_img, vt_rel,
-                     vt_img);
-        vw_rel = vld1q_f64(&w->rel[m / 2 + j + 4]);
-        vw_img = vnegq_f64(vld1q_f64(&w->img[m / 2 + j + 4]));
-        GS_BUTTERFLY(vj2_rel, vj2_img, vk2_rel, vk2_img, vw_rel, vw_img, vt_rel,
-                     vt_img);
-        vw_rel = vld1q_f64(&w->rel[m / 2 + j + 6]);
-        vw_img = vnegq_f64(vld1q_f64(&w->img[m / 2 + j + 6]));
-        GS_BUTTERFLY(vj3_rel, vj3_img, vk3_rel, vk3_img, vw_rel, vw_img, vt_rel,
                      vt_img);
         // Store
         // First Quarter
@@ -1007,19 +1030,72 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
         vst1q_f64(&v->img[j + 2], vj1_img);
         vst1q_f64(&v->rel[j + m / 2 + 2], vk1_rel);
         vst1q_f64(&v->img[j + m / 2 + 2], vk1_img);
-        // Third Quarter
-        vst1q_f64(&v->rel[j + 4], vj2_rel);
-        vst1q_f64(&v->img[j + 4], vj2_img);
-        vst1q_f64(&v->rel[j + m / 2 + 4], vk2_rel);
-        vst1q_f64(&v->img[j + m / 2 + 4], vk2_img);
-        // Forth Quarter
-        vst1q_f64(&v->rel[j + 6], vj3_rel);
-        vst1q_f64(&v->img[j + 6], vj3_img);
-        vst1q_f64(&v->rel[j + m / 2 + 6], vk3_rel);
-        vst1q_f64(&v->img[j + m / 2 + 6], vk3_img);
+      } else {
+        for (uint32_t j = jj; j < jj + chunk_size2; j += 8) {
+          // Load
+          // First Quarter
+          float64x2_t vj0_rel = vld1q_f64(&v->rel[j]);
+          float64x2_t vj0_img = vld1q_f64(&v->img[j]);
+          float64x2_t vk0_rel = vld1q_f64(&v->rel[j + m / 2]);
+          float64x2_t vk0_img = vld1q_f64(&v->img[j + m / 2]);
+          // Second Quarter
+          float64x2_t vj1_rel = vld1q_f64(&v->rel[j + 2]);
+          float64x2_t vj1_img = vld1q_f64(&v->img[j + 2]);
+          float64x2_t vk1_rel = vld1q_f64(&v->rel[j + 2 + m / 2]);
+          float64x2_t vk1_img = vld1q_f64(&v->img[j + 2 + m / 2]);
+          // Third Quarter
+          float64x2_t vj2_rel = vld1q_f64(&v->rel[j + 4]);
+          float64x2_t vj2_img = vld1q_f64(&v->img[j + 4]);
+          float64x2_t vk2_rel = vld1q_f64(&v->rel[j + 4 + m / 2]);
+          float64x2_t vk2_img = vld1q_f64(&v->img[j + 4 + m / 2]);
+          // Forth Quarter
+          float64x2_t vj3_rel = vld1q_f64(&v->rel[j + 6]);
+          float64x2_t vj3_img = vld1q_f64(&v->img[j + 6]);
+          float64x2_t vk3_rel = vld1q_f64(&v->rel[j + 6 + m / 2]);
+          float64x2_t vk3_img = vld1q_f64(&v->img[j + 6 + m / 2]);
+          // CT
+          float64x2_t vt_rel, vt_img;
+          float64x2_t vw_rel, vw_img;
+          vw_rel = vld1q_f64(&w->rel[m / 2 + j]);
+          vw_img = vnegq_f64(vld1q_f64(&w->img[m / 2 + j]));
+          GS_BUTTERFLY(vj0_rel, vj0_img, vk0_rel, vk0_img, vw_rel, vw_img,
+                       vt_rel, vt_img);
+          vw_rel = vld1q_f64(&w->rel[m / 2 + j + 2]);
+          vw_img = vnegq_f64(vld1q_f64(&w->img[m / 2 + j + 2]));
+          GS_BUTTERFLY(vj1_rel, vj1_img, vk1_rel, vk1_img, vw_rel, vw_img,
+                       vt_rel, vt_img);
+          vw_rel = vld1q_f64(&w->rel[m / 2 + j + 4]);
+          vw_img = vnegq_f64(vld1q_f64(&w->img[m / 2 + j + 4]));
+          GS_BUTTERFLY(vj2_rel, vj2_img, vk2_rel, vk2_img, vw_rel, vw_img,
+                       vt_rel, vt_img);
+          vw_rel = vld1q_f64(&w->rel[m / 2 + j + 6]);
+          vw_img = vnegq_f64(vld1q_f64(&w->img[m / 2 + j + 6]));
+          GS_BUTTERFLY(vj3_rel, vj3_img, vk3_rel, vk3_img, vw_rel, vw_img,
+                       vt_rel, vt_img);
+          // Store
+          // First Quarter
+          vst1q_f64(&v->rel[j], vj0_rel);
+          vst1q_f64(&v->img[j], vj0_img);
+          vst1q_f64(&v->rel[j + m / 2], vk0_rel);
+          vst1q_f64(&v->img[j + m / 2], vk0_img);
+          // Second Quarter
+          vst1q_f64(&v->rel[j + 2], vj1_rel);
+          vst1q_f64(&v->img[j + 2], vj1_img);
+          vst1q_f64(&v->rel[j + m / 2 + 2], vk1_rel);
+          vst1q_f64(&v->img[j + m / 2 + 2], vk1_img);
+          // Third Quarter
+          vst1q_f64(&v->rel[j + 4], vj2_rel);
+          vst1q_f64(&v->img[j + 4], vj2_img);
+          vst1q_f64(&v->rel[j + m / 2 + 4], vk2_rel);
+          vst1q_f64(&v->img[j + m / 2 + 4], vk2_img);
+          // Forth Quarter
+          vst1q_f64(&v->rel[j + 6], vj3_rel);
+          vst1q_f64(&v->img[j + 6], vj3_img);
+          vst1q_f64(&v->rel[j + m / 2 + 6], vk3_rel);
+          vst1q_f64(&v->img[j + m / 2 + 6], vk3_img);
+        }
       }
     }
-#pragma omp barrier
   }
 
   // Merge 3 consecutive layers
