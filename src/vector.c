@@ -294,19 +294,21 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
 
   // Merge 3 consecutive layers
   uint32_t jj_inc = n_threads * chunk_size;
+  uint32_t klen_inc = 0;
   for (uint32_t len = 16; len < m3; len <<= 3) {
     uint32_t i_inc = 8 * len;
     if (sync_last_3x && len == (m3 >> 3)) {
       jj_inc = m3;
       chunk_size = chunk_size / n_threads;  // chunk_size = n3 >> 3
       i_inc = 8 * chunk_size;
+      klen_inc = tid * chunk_size;
 #pragma omp barrier
     }
     for (uint32_t jj = tid * chunk_size; jj < m; jj += jj_inc) {
       for (uint32_t i = jj; i < jj + chunk_size; i += i_inc) {
-        uint32_t klen = len - i;
-        uint32_t k2len = 2 * len - i;
-        uint32_t k4len = 4 * len - i;
+        uint32_t klen = len - i + klen_inc;
+        uint32_t k2len = 2 * len - i + klen_inc;
+        uint32_t k4len = 4 * len - i + klen_inc;
         for (uint32_t j = i; j < i + (i_inc / 8); j += 2) {
           // Load
           // First Quarter
