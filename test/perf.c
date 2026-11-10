@@ -69,10 +69,6 @@ static void perf_fft(vec_t* v, const vec_t* w) {
 
   uint64_t end = time_ns();
 
-  for (uint32_t i = 0; i < N2; i++) {
-    printf("v[%d]: %lf\n", i, v->rel[i]);
-  }
-
   double total = (double)(end - start) / 1000.0;
 
   printf("FFT) Total: %.3f ms, AVG: %.3f ms\n", total, total / N_TESTS);
@@ -94,10 +90,6 @@ static void perf_ifft(vec_t* v, const vec_t* w) {
 
   uint64_t end = time_ns();
 
-  // for (uint32_t i = 0; i < N2; i++) {
-  //   printf("v[%d]: %lf\n", i, v->rel[i]);
-  // }
-
   double total = (double)(end - start) / 1000.0;
 
   printf("IFFT) Total: %.3f ms, AVG: %.3f ms\n", total, total / N_TESTS);
@@ -107,11 +99,8 @@ static void perf_ntt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
                      int64_t qinvmR) {
   uint64_t start = time_ns();
 
-#pragma omp parallel
-  {
-    for (uint32_t i = 0; i < N_TESTS; i++) {
-      poly_ntt(p, r, q, R_q, qinvmR, N);
-    }
+  for (uint32_t i = 0; i < N_TESTS; i++) {
+    poly_ntt(p, r, q, R_q, qinvmR, N);
   }
 
   uint64_t end = time_ns();
@@ -123,6 +112,10 @@ static void perf_ntt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
 
 static void perf_intt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
                       int64_t qinvmR) {
+  for (uint32_t i = 0; i < N; i++) {
+    p[i] = i;
+  }
+
   uint64_t start = time_ns();
 
 #pragma omp parallel
