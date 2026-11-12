@@ -1,0 +1,53 @@
+%!TEX root=main.tex
+\chapter{Work Methodology} \label{cap:metodo}
+
+In this section, we describe the main steps comprising the adopted waterfall work methodology: state-of-the-art analysis, requirements specification, implementation, evaluation and documentation. Table~\ref{tab:gann} presents the project timeline, illustrating how the activities are distributed over the five-month project period. The first four phases are performed sequentially, with each phase beginning after the completion of the previous one. In contrast, the documentation phase is conducted continuously throughout the project and therefore runs in parallel with all other phases.
+
+\begin{table}[!ht]
+\centering
+\label{tab:gann}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{lrrrrr}
+\hline
+Phase      & \begin{tabular}[c]{@{}r@{}}State of the Art\\ Analysis\end{tabular} & \begin{tabular}[c]{@{}r@{}}Requirements\\ Specification\end{tabular} & Implementation & Evaluation & Documentation \\ \hline
+Start Date & 01/08/2026                                                          & 16/08/2026                                                           & 21/08/2026     & 08/11/2026 & 01/09/2026    \\ \hline
+End Date   & 15/08/2026                                                          & 20/08/2026                                                           & 07/11/2026     & 20/11/2026 & 31/11/2026    \\ \hline
+\end{tabular}
+}
+\end{table}
+
+\section{State of the Art Analysis}
+\label{metodo:soa}
+
+Since the objective of this work is to develop a highly efficient implementation of the CKKS client-side operations, rather than optimizing only individual functions as in \cite{wang2023he,chen2026hi}, it is first necessary to obtain a comprehensive understanding of the scheme, including its operations and implementation details.
+
+Second, we conduct a broad study of state-of-the-art optimizations at the algorithmic, software, and hardware levels. Although this work primarily focuses on software optimization, techniques developed at the hardware and algorithmic levels can provide valuable insights and inspire new software optimizations. Moreover, this analysis is essential for establishing the relevance of the proposed work and identifying the existing gap in the literature, namely, the lack of highly optimized software implementations of CKKS targeting ARMv8-based edge platforms.
+
+\section{Requirements Specification}
+\label{metodo:req}
+
+During this phase, we identified the project scope and defined its main requirements according to the characteristics of the CKKS scheme and the constraints and capabilities of the target platform. A key decision was to focus the optimization effort exclusively on client-side operations, particularly when considering the potential deployment and long-term use of the proposed implementation.
+
+This decision is motivated by the rapidly evolving nature of CKKS server-side operations. Several recent works propose substantial algorithmic modifications to these operations, such as~\cite{cheon2025ship,cheon2023homomorphic}. Since the objective of this work is to provide a complete software implementation rather than optimizing only isolated computational kernels, investing significant effort in highly specialized optimizations for the current set of server-side algorithms could limit the long-term applicability of the implementation. In contrast, focusing the optimization effort on the client side provides a more stable foundation, as the client-side operations are less affected by ongoing changes to the homomorphic evaluation algorithms.
+
+%Nevertheless, server-side operations are implemented to provide a complete CKKS software framework and enable end-to-end execution between the client and server. These operations are not the primary target of optimization and are instead designed to provide the functionality required to evaluate complete applications and facilitate future extensions as the CKKS algorithms continue to evolve.
+
+\section{Implementation}
+\label{metodo:imp}
+
+The implementation phase constitutes the larger development stage of the project, during which the proposed software is developed. To facilitate development and initial functional validation, we first implemented a platform-agnostic reference implementation of the CKKS operations in the C programming language.
+
+Once it functionality was validated, we progressively introduced platform-specific optimizations targeting ARMv8-based edge devices. In particular, we explored techniques for exploiting SIMD parallelism through the ARM NEON extension and thread-level parallelism through the multiple cores available on the target platforms with OpenMP.
+
+\section{Evaluation}
+\label{metodo:eval}
+
+During the evaluation phase, we assess the extent to which the proposed implementation satisfies the project requirements. In particular, we evaluate its performance on ARMv8-based edge platforms and analyze the impact of the proposed vectorization and multicore optimizations.
+
+Furthermore, we compare the performance of the proposed implementation with representative state-of-the-art FHE libraries~\cite{al2022openfhe,sealcrypto,brakerski2014leveled}. This comparison allows us to quantify the benefits of the proposed solution.
+
+\section{Documentation}
+\label{metodo:doc}
+
+Documentation is an essential part of the project development process, particularly when considering the future reuse, maintenance, and extension. It will be organized into three main deliverables: the present document, which describes the project methodology, implementation, and results; the presentation banners, which summarize the project for its practical presentation; and a developer guide hosted in the project's GitHub repository, providing the technical information necessary for future developers to understand, reproduce, maintain, and extend the implementation.
+
