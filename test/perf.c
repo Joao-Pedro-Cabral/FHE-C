@@ -1,5 +1,6 @@
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 
 #include "ckks.h"
@@ -36,11 +37,10 @@ static uint64_t time_ns(void) {
   return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
 }
 
-static void perf_elem_wise(vec_t* v, poly_t d, const poly_t a,
-                          const poly_t b, const poly_t c,
-                          int64_t x, uint32_t h, uint64_t q,
-                          int64_t R_q, int64_t qinvmR,
-                          uint64_t scale, uint32_t n2, uint32_t n) {
+static void perf_elem_wise(vec_t* v, poly_t d, const poly_t a, const poly_t b,
+                           const poly_t c, int64_t x, uint32_t h, uint64_t q,
+                           int64_t R_q, int64_t qinvmR, uint64_t scale,
+                           uint32_t n2, uint32_t n) {
   uint64_t start = time_ns();
 
 #pragma omp parallel
@@ -58,8 +58,8 @@ static void perf_elem_wise(vec_t* v, poly_t d, const poly_t a,
   uint64_t end = time_ns();
   double total = (double)(end - start) / 1000.0;
 
-  printf("Element-Wise) Total: %.3f us, AVG: %.3f us\n",
-         total, total / N_TESTS);
+  printf("Element-Wise) Total: %.3f us, AVG: %.3f us\n", total,
+         total / N_TESTS);
 }
 
 static void perf_ternary_sampler(poly_t s, xof_state_t* xof_state,
@@ -77,11 +77,12 @@ static void perf_ternary_sampler(poly_t s, xof_state_t* xof_state,
   uint64_t end = time_ns();
   double total = (double)(end - start) / 1000.0;
 
-  printf("Ternary Sampler) Total: %.3f us, AVG: %.3f us\n",
-         total, total / N_TESTS);
+  printf("Ternary Sampler) Total: %.3f us, AVG: %.3f us\n", total,
+         total / N_TESTS);
 }
 
-static void perf_cbd_add(poly_t p,  uint8_t* buf, const poly_t m, xof_state_t* xof) {
+static void perf_cbd_add(poly_t p, uint8_t* buf, const poly_t m,
+                         xof_state_t* xof) {
   uint64_t start = time_ns();
 
 #pragma omp parallel
@@ -180,7 +181,8 @@ static void perf_keygen(ckks_params_t* params) {
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("KeyGen) Total: %.3f us, AVG: %.3f us\n", total, total / N_TESTS);
+  printf("KeyGen) Total: %.3f us, AVG: %.3f us\n", total,
+         total / ((N_TESTS + 9) / 10));
 }
 
 static void perf_relinearization_keygen(ckks_params_t* params) {
@@ -194,8 +196,8 @@ static void perf_relinearization_keygen(ckks_params_t* params) {
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("Relinearization KeyGen) Total: %.3f us, AVG: %.3f us\n",
-         total, total / N_TESTS);
+  printf("Relinearization KeyGen) Total: %.3f us, AVG: %.3f us\n", total,
+         total / N_TESTS);
 }
 
 static void perf_conjugation_keygen(ckks_params_t* params) {
@@ -209,8 +211,8 @@ static void perf_conjugation_keygen(ckks_params_t* params) {
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("Conjugation KeyGen) Total: %.3f us, AVG: %.3f us\n",
-         total, total / N_TESTS);
+  printf("Conjugation KeyGen) Total: %.3f us, AVG: %.3f us\n", total,
+         total / N_TESTS);
 }
 
 static void perf_public_keygen(ckks_params_t* params) {
@@ -224,8 +226,8 @@ static void perf_public_keygen(ckks_params_t* params) {
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("Public KeyGen) Total: %.3f us, AVG: %.3f us\n",
-         total, total / N_TESTS);
+  printf("Public KeyGen) Total: %.3f us, AVG: %.3f us\n", total,
+         total / N_TESTS);
 }
 
 static void perf_inner_product_keygen(ckks_params_t* params) {
@@ -239,12 +241,11 @@ static void perf_inner_product_keygen(ckks_params_t* params) {
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("Inner Product KeyGen) Total: %.3f us, AVG: %.3f us\n",
-         total, total / N_TESTS);
+  printf("Inner Product KeyGen) Total: %.3f us, AVG: %.3f us\n", total,
+         total / N_TESTS);
 }
 
-static void perf_encode(poly_t m, const vec_t* v,
-                        const ckks_params_t* params) {
+static void perf_encode(poly_t m, const vec_t* v, const ckks_params_t* params) {
   uint64_t start = time_ns();
 
   for (uint32_t i = 0; i < N_TESTS; i++) {
@@ -255,8 +256,7 @@ static void perf_encode(poly_t m, const vec_t* v,
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("Encode) Total: %.3f us, AVG: %.3f us\n",
-         total, total / N_TESTS);
+  printf("Encode) Total: %.3f us, AVG: %.3f us\n", total, total / N_TESTS);
 }
 
 static void perf_decode(vec_t* v, const poly_t m, uint32_t level,
@@ -271,12 +271,10 @@ static void perf_decode(vec_t* v, const poly_t m, uint32_t level,
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("Decode) Total: %.3f us, AVG: %.3f us\n",
-         total, total / N_TESTS);
+  printf("Decode) Total: %.3f us, AVG: %.3f us\n", total, total / N_TESTS);
 }
 
-static void perf_encrypt(ciphertext_t* ct, poly_t m,
-                         ckks_params_t* params) {
+static void perf_encrypt(ciphertext_t* ct, poly_t m, ckks_params_t* params) {
   uint64_t start = time_ns();
 
   for (uint32_t i = 0; i < N_TESTS; i++) {
@@ -329,8 +327,8 @@ int main() {
   poly_new(&c, N);
 
   uint32_t buflen = (((4 * (N / 4) + 2) / 3) + XOF_RATE - 1) / XOF_RATE;
-  buflen = (buflen > 6*N) ? buflen : 6*N; 
-  uint8_t * buf = malloc(buflen);
+  buflen = (buflen > 6 * N) ? buflen : 6 * N;
+  uint8_t* buf = malloc(buflen);
 
   rns_params_new(&rns_params, q0_bits, scale_bits, L, N, 1, NULL, 0);
 
