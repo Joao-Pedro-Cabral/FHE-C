@@ -53,6 +53,24 @@ static void print_perf(const char* name, uint64_t start, uint64_t end,
 }
 
 // --------------------------------------------------
+// CryptoContext Generation
+// --------------------------------------------------
+
+static void perf_context_gen(const CCParams<CryptoContextCKKSRNS>& parameters) {
+  CryptoContext<DCRTPoly> cc;
+
+  uint64_t start = time_ns();
+
+  for (uint32_t i = 0; i < CKKS_N_TESTS; i++) {
+    cc = GenCryptoContext(parameters);
+  }
+
+  uint64_t end = time_ns();
+
+  print_perf("Context Generation", start, end, CKKS_N_TESTS);
+}
+
+// --------------------------------------------------
 // CKKS Key Generation
 // --------------------------------------------------
 
@@ -61,13 +79,15 @@ static KeyPair<DCRTPoly> perf_keygen(CryptoContext<DCRTPoly> cc) {
 
   uint64_t start = time_ns();
 
-  for (uint32_t i = 0; i < (CKKS_N_TESTS + 9) / 10; i++) {
+  for (uint32_t i = 0; i < CKKS_N_TESTS; i++) {
+    keys.publicKey.reset();
+    keys.secretKey.reset();
     keys = cc->KeyGen();
   }
 
   uint64_t end = time_ns();
 
-  print_perf("KeyGen", start, end, (CKKS_N_TESTS + 9) / 10);
+  print_perf("KeyGen", start, end, CKKS_N_TESTS);
 
   return keys;
 }
@@ -81,6 +101,7 @@ static void perf_relinearization_keygen(CryptoContext<DCRTPoly> cc,
   uint64_t start = time_ns();
 
   for (uint32_t i = 0; i < CKKS_N_TESTS; i++) {
+    cc->ClearEvalMultKeys(sk->GetKeyTag());
     cc->EvalMultKeyGen(sk);
   }
 
@@ -99,6 +120,7 @@ static void perf_conjugation_keygen(CryptoContext<DCRTPoly> cc,
 
   uint32_t indexConj = 2 * cc->GetRingDimension() - 1;
   for (uint32_t i = 0; i < CKKS_N_TESTS; i++) {
+    cc->ClearEvalAutomorphismKeys(sk->GetKeyTag());
     cc->EvalAutomorphismKeyGen(sk, {indexConj});
   }
 
@@ -116,6 +138,7 @@ static void perf_inner_product_keygen(CryptoContext<DCRTPoly> cc,
   uint64_t start = time_ns();
 
   for (uint32_t i = 0; i < CKKS_N_TESTS; i++) {
+    cc->ClearEvalAutomorphismKeys(sk->GetKeyTag());
     cc->EvalSumKeyGen(sk);
   }
 
@@ -139,24 +162,6 @@ static void perf_encode(CryptoContext<DCRTPoly> cc,
   uint64_t end = time_ns();
 
   print_perf("Encode", start, end, CKKS_N_TESTS);
-}
-
-// --------------------------------------------------
-// CKKS Decoding
-// --------------------------------------------------
-
-static void perf_decode(Plaintext pt) {
-  uint64_t start = time_ns();
-
-  for (uint32_t i = 0; i < CKKS_N_TESTS; i++) {
-    auto values = pt->GetCKKSPackedValue();
-
-    (void)values;
-  }
-
-  uint64_t end = time_ns();
-
-  print_perf("Decode", start, end, CKKS_N_TESTS);
 }
 
 // --------------------------------------------------
@@ -192,7 +197,7 @@ static void perf_decrypt(CryptoContext<DCRTPoly> cc, PrivateKey<DCRTPoly> sk,
 
   uint64_t end = time_ns();
 
-  print_perf("Decrypt", start, end, CKKS_N_TESTS);
+  print_perf("Decrypt + Decode", start, end, CKKS_N_TESTS);
 }
 
 // --------------------------------------------------
@@ -241,6 +246,12 @@ int main() {
   std::cout << "--------------------------------------" << std::endl;
 
   // ----------------------------------------------
+  // Context Generation
+  // ----------------------------------------------
+
+  perf_context_gen(parameters);
+
+  // ----------------------------------------------
   // Key Generation
   // ----------------------------------------------
 
@@ -275,12 +286,6 @@ int main() {
   perf_encode(cc, values, pt);
 
   // ----------------------------------------------
-  // Decoding
-  // ----------------------------------------------
-
-  perf_decode(pt);
-
-  // ----------------------------------------------
   // Encryption
   // ----------------------------------------------
 
@@ -289,7 +294,7 @@ int main() {
   perf_encrypt(cc, keys.publicKey, pt, ct);
 
   // ----------------------------------------------
-  // Decryption
+  // Decryption + Decoding
   // ----------------------------------------------
 
   perf_decrypt(cc, keys.secretKey, ct);

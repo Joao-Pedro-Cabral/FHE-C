@@ -170,19 +170,33 @@ static void perf_intt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
   printf("INTT) Total: %.3f us, AVG: %.3f us\n", total, total / N_TESTS);
 }
 
-static void perf_keygen(ckks_params_t* params) {
+static void perf_context_generation(ckks_params_t* params) {
   uint64_t start = time_ns();
 
-  for (uint32_t i = 0; i < (N_TESTS + 9) / 10; i++) {
-    ckks_keygen(params, q0_bits, scale_bits, N2, L, N, 1, NULL, 0);
+  for (uint32_t i = 0; i < N_TESTS; i++) {
+    ckks_context_generation(params, q0_bits, scale_bits, N2, L, N, 1, NULL, 0);
   }
 
   uint64_t end = time_ns();
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("KeyGen) Total: %.3f us, AVG: %.3f us\n", total,
-         total / ((N_TESTS + 9) / 10));
+  printf("ContextGen) Total: %.3f us, AVG: %.3f us\n", total, total / N_TESTS);
+}
+
+static void perf_keygen(ckks_params_t* params) {
+  uint64_t start = time_ns();
+
+  for (uint32_t i = 0; i < N_TESTS; i++) {
+    ckks_secret_keygen(params);
+    ckks_public_keygen(params);
+  }
+
+  uint64_t end = time_ns();
+
+  double total = (double)(end - start) / 1000.0;
+
+  printf("KeyGen) Total: %.3f us, AVG: %.3f us\n", total, total / N_TESTS);
 }
 
 static void perf_relinearization_keygen(ckks_params_t* params) {
@@ -212,21 +226,6 @@ static void perf_conjugation_keygen(ckks_params_t* params) {
   double total = (double)(end - start) / 1000.0;
 
   printf("Conjugation KeyGen) Total: %.3f us, AVG: %.3f us\n", total,
-         total / N_TESTS);
-}
-
-static void perf_public_keygen(ckks_params_t* params) {
-  uint64_t start = time_ns();
-
-  for (uint32_t i = 0; i < N_TESTS; i++) {
-    ckks_public_keygen(params);
-  }
-
-  uint64_t end = time_ns();
-
-  double total = (double)(end - start) / 1000.0;
-
-  printf("Public KeyGen) Total: %.3f us, AVG: %.3f us\n", total,
          total / N_TESTS);
 }
 
@@ -349,12 +348,13 @@ int main() {
   perf_intt(p, r_1, rns_params.q[0], rns_params.R_q[0], rns_params.qinvmR[0]);
 
   // Perf CKKS Operations
-  perf_keygen(&ckks_params);
+  // Context generation
+  perf_context_generation(&ckks_params);
 
   // Key generation operations
+  perf_keygen(&ckks_params);
   perf_relinearization_keygen(&ckks_params);
   perf_conjugation_keygen(&ckks_params);
-  perf_public_keygen(&ckks_params);
   perf_inner_product_keygen(&ckks_params);
 
   // Encoding and decoding

@@ -240,15 +240,6 @@ cloud_scp:
 	gcloud compute scp --recurse test	axion-arm-3:~/FHE-C/ --zone=northamerica-northeast2-b --ssh-key-file=~/.ssh/gcloud_key
 	gcloud compute scp --recurse src	axion-arm-3:~/FHE-C/ --zone=northamerica-northeast2-b --ssh-key-file=~/.ssh/gcloud_key
 
-# ----------------------------------------------------------------------
-# Clean
-# ----------------------------------------------------------------------
-
-clean:
-	rm -rf build build-arm
-
-# FORCE causes objects to be recompiled for each mode.
-FORCE:
 
 # ----------------------------------------------------------------------
 # OpenFHE Toolchain
@@ -313,7 +304,7 @@ openfhe: openfhe_run
 
 openfhe_build: $(OPENFHE_TARGET)
 
-$(OPENFHE_TARGET): $(OPENFHE_SRC)
+$(OPENFHE_TARGET): $(OPENFHE_SRC) FORCE
 	@mkdir -p $(OPENFHE_BUILD_DIR)
 	$(OPENFHE_CXX) \
 			$(OPENFHE_CXXFLAGS) \
@@ -328,3 +319,12 @@ openfhe_run: $(OPENFHE_TARGET)
 openfhe_clean:
 	rm -rf $(OPENFHE_BUILD_DIR)
 
+# ----------------------------------------------------------------------
+# Clean
+# ----------------------------------------------------------------------
+
+clean:
+	rm -rf build build-arm build-openfhe
+
+# FORCE causes objects to be recompiled for each mode.
+FORCE:

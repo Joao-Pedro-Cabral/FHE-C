@@ -8,9 +8,10 @@
 #include "random.h"
 #include "utils.h"
 
-void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
-                 uint32_t n2, uint32_t l, uint32_t n, int set_n,
-                 uint64_t* q_chain, int set_q) {
+void ckks_context_generation(ckks_params_t* params, uint32_t q0_bits,
+                             uint32_t scale_bits, uint32_t n2, uint32_t l,
+                             uint32_t n, int set_n, uint64_t* q_chain,
+                             int set_q) {
   // RNS construction
   rns_params_new(&params->rns, q0_bits, scale_bits, l, n, set_n, q_chain,
                  set_q);
@@ -23,15 +24,17 @@ void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   xof_absorb(&params->xof_state, seed);
   // keys
   rlwe_keys_new(&params->keys, &params->rns);
+#pragma omp parallel
+  { vec_gen_roots(&params->w, n2); }
+}
+
+void ckks_secret_keygen(ckks_params_t* params) {
   size_t blocks =
       (((4 * (params->rns.n / 4) + 2) / 3) + XOF_RATE - 1) / XOF_RATE;
   size_t buflen = blocks * XOF_RATE;
   uint8_t* buf = malloc(buflen);
 #pragma omp parallel
-  {
-    vec_gen_roots(&params->w, n2);
-    rlwe_gen_secret_key(&params->keys, &params->xof_state, buf, &params->rns);
-  }
+  { rlwe_gen_secret_key(&params->keys, &params->xof_state, buf, &params->rns); }
   free(buf);
 }
 
