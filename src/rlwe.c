@@ -34,8 +34,9 @@ void key_switch_free(switch_t* r, const rns_params_t* params) {
   free(*r);
 }
 
-void rlwe_keys_new(keys_t* keys, const rns_params_t* params) {
+void rlwe_keys_new(keys_t* keys, const rns_params_t* params, int with_lt) {
   uint32_t n = params->n;
+  keys->with_lt = with_lt;
   poly_new(&keys->s_hat, n);
   rns_new(&keys->s, params);
   key_switch_new(&keys->r, params);
@@ -46,14 +47,16 @@ void rlwe_keys_new(keys_t* keys, const rns_params_t* params) {
   for (uint32_t i = 0; i < log2_n; i++) {
     key_switch_new(&keys->ip[i], params);
   }
-  uint32_t log2_m = floor_log2(n) - 1;
-  uint32_t log2_n2 = floor_log2(n / (2 * N1N2_RATIO)) / 2;
-  uint32_t log2_n1 = log2_m - log2_n2;
-  uint32_t n1 = (1 << log2_n1);
-  uint32_t n2 = (1 << log2_n2);
-  keys->lt = malloc((n1 + n2) * sizeof(switch_t));
-  for (uint32_t i = 0; i < n1 + n2; i++) {
-    key_switch_new(&keys->lt[i], params);
+  if (with_lt) {
+    uint32_t log2_m = floor_log2(n) - 1;
+    uint32_t log2_n2 = floor_log2(n / (2 * N1N2_RATIO)) / 2;
+    uint32_t log2_n1 = log2_m - log2_n2;
+    uint32_t n1 = (1 << log2_n1);
+    uint32_t n2 = (1 << log2_n2);
+    keys->lt = malloc((n1 + n2) * sizeof(switch_t));
+    for (uint32_t i = 0; i < n1 + n2; i++) {
+      key_switch_new(&keys->lt[i], params);
+    }
   }
 }
 
@@ -69,15 +72,17 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params) {
     key_switch_free(&keys->ip[i], params);
   }
   free(keys->ip);
-  uint32_t log2_m = floor_log2(n) - 1;
-  uint32_t log2_n2 = floor_log2(n / (2 * N1N2_RATIO)) / 2;
-  uint32_t log2_n1 = log2_m - log2_n2;
-  uint32_t n1 = (1 << log2_n1);
-  uint32_t n2 = (1 << log2_n2);
-  for (uint32_t i = 0; i < n1 + n2; i++) {
-    key_switch_free(&keys->lt[i], params);
+  if (keys->with_lt) {
+    uint32_t log2_m = floor_log2(n) - 1;
+    uint32_t log2_n2 = floor_log2(n / (2 * N1N2_RATIO)) / 2;
+    uint32_t log2_n1 = log2_m - log2_n2;
+    uint32_t n1 = (1 << log2_n1);
+    uint32_t n2 = (1 << log2_n2);
+    for (uint32_t i = 0; i < n1 + n2; i++) {
+      key_switch_free(&keys->lt[i], params);
+    }
+    free(keys->lt);
   }
-  free(keys->lt);
 }
 
 void rlwe_gen_secret_key(keys_t* keys, xof_state_t* xof_state, uint8_t* buf,

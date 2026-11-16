@@ -629,7 +629,7 @@ int main() {
   // 10x less tests because it takes too long
   for (uint32_t i = 0; i < (N_TESTS + 9) / 10; i++) {
     ckks_context_generation(&params, q0_bits, scale_bits, n2, l, N, SET_N, NULL,
-                            0);
+                            0, 1);
     ckks_secret_keygen(&params);
     ckks_relinearization_keygen(&params);
     ckks_conjugation_keygen(&params);

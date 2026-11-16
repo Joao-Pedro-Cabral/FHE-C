@@ -331,8 +331,6 @@ static int randombytes_js_randombytes_nodejs(void *buf, size_t n) {
 }
 #endif /* defined(__EMSCRIPTEN__) */
 
-static uint8_t c = 0;
-
 int randombytes(uint8_t *output, size_t n) {
   void *buf = (void *)output;
 #if defined(__EMSCRIPTEN__)

@@ -24,6 +24,7 @@ typedef struct {
   switch_t cg;   // conjugation key
   switch_t* ip;  // log2_n - 1 inner product rotation keys by 5^h, h = 2^i
   switch_t* lt;  // n1+n2 linear transform rotation keys by 5^h
+  int with_lt;   // with linear transform keys?
 } keys_t;
 
 /*
@@ -40,8 +41,9 @@ void rlwe_free(rlwe_t* ab);
 /*
   @param params: RNS params
   @param keys: rlwe_t context to be allocated
+  @param with_lt: with linear transform keys?
 */
-void rlwe_keys_new(keys_t* keys, const rns_params_t* params);
+void rlwe_keys_new(keys_t* keys, const rns_params_t* params, int with_lt);
 
 /*
   @param params: RNS params

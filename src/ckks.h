@@ -22,11 +22,12 @@ typedef struct {
   @param scale_bits: number of bits of the scale and the other moduli
   @param n2: size of the vector slot
   @param l: size of the rns_t
+  @param with_lt: with linear transform keys?
 */
 void ckks_context_generation(ckks_params_t* params, uint32_t q0_bits,
                              uint32_t scale_bits, uint32_t n2, uint32_t l,
                              uint32_t n, int set_n, uint64_t* q_chain,
-                             int set_q);
+                             int set_q, int with_lt);
 
 /*
   @param params: CKKS params

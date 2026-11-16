@@ -144,7 +144,7 @@ static void perf_inner_product_keygen(CryptoContext<DCRTPoly> cc,
 
   uint64_t end = time_ns();
 
-  print_perf("Summation KeyGen", start, end, CKKS_N_TESTS);
+  print_perf("Inner Product KeyGen", start, end, CKKS_N_TESTS);
 }
 
 // --------------------------------------------------

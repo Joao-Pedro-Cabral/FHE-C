@@ -28,7 +28,7 @@
 
 // "Don't care" for performance
 static const uint64_t q0_bits = 60;
-static const uint64_t scale_bits = 30;
+static const uint64_t scale_bits = 50;
 
 static uint64_t time_ns(void) {
   struct timespec ts;
@@ -45,7 +45,7 @@ static void perf_elem_wise(vec_t* v, poly_t d, const poly_t a, const poly_t b,
 
 #pragma omp parallel
   {
-    for (uint32_t i = 0; i < N_TESTS; i++) {
+    for (uint32_t i = 0; i < (10 * N_TESTS); i++) {
       vector_to_poly(d, v, scale, n2, n);
       poly_to_vector(v, d, scale, n2, n);
       poly_pointwise_macc_exact(d, a, b, c, q, qinvmR, R_q, n);
@@ -59,7 +59,7 @@ static void perf_elem_wise(vec_t* v, poly_t d, const poly_t a, const poly_t b,
   double total = (double)(end - start) / 1000.0;
 
   printf("Element-Wise) Total: %.3f us, AVG: %.3f us\n", total,
-         total / N_TESTS);
+         total / (10 * N_TESTS));
 }
 
 static void perf_ternary_sampler(poly_t s, xof_state_t* xof_state,
@@ -69,7 +69,7 @@ static void perf_ternary_sampler(poly_t s, xof_state_t* xof_state,
 
 #pragma omp parallel
   {
-    for (uint32_t i = 0; i < N_TESTS; i++) {
+    for (uint32_t i = 0; i < (10 * N_TESTS); i++) {
       poly_ternary_sampler(s, xof_state, domain_separator, buf, n);
     }
   }
@@ -78,7 +78,7 @@ static void perf_ternary_sampler(poly_t s, xof_state_t* xof_state,
   double total = (double)(end - start) / 1000.0;
 
   printf("Ternary Sampler) Total: %.3f us, AVG: %.3f us\n", total,
-         total / N_TESTS);
+         total / (10 * N_TESTS));
 }
 
 static void perf_cbd_add(poly_t p, uint8_t* buf, const poly_t m,
@@ -87,7 +87,7 @@ static void perf_cbd_add(poly_t p, uint8_t* buf, const poly_t m,
 
 #pragma omp parallel
   {
-    for (uint32_t i = 0; i < N_TESTS; i++) {
+    for (uint32_t i = 0; i < (10 * N_TESTS); i++) {
       poly_cbd24_sampler_add(p, xof, 0, buf, m, N);
     }
   }
@@ -96,7 +96,8 @@ static void perf_cbd_add(poly_t p, uint8_t* buf, const poly_t m,
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("CBD) Total: %.3f us, AVG: %.3f us\n", total, total / N_TESTS);
+  printf("CBD + Add) Total: %.3f us, AVG: %.3f us\n", total,
+         total / (10 * N_TESTS));
 }
 
 static void perf_fft(vec_t* v, const vec_t* w) {
@@ -104,7 +105,7 @@ static void perf_fft(vec_t* v, const vec_t* w) {
 
 #pragma omp parallel
   {
-    for (uint32_t i = 0; i < N_TESTS; i++) {
+    for (uint32_t i = 0; i < (10 * N_TESTS); i++) {
       fft(v, w, N2);
     }
   }
@@ -113,7 +114,7 @@ static void perf_fft(vec_t* v, const vec_t* w) {
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("FFT) Total: %.3f us, AVG: %.3f us\n", total, total / N_TESTS);
+  printf("FFT) Total: %.3f us, AVG: %.3f us\n", total, total / (10 * N_TESTS));
 }
 
 static void perf_ifft(vec_t* v, const vec_t* w) {
@@ -121,7 +122,7 @@ static void perf_ifft(vec_t* v, const vec_t* w) {
 
 #pragma omp parallel
   {
-    for (uint32_t i = 0; i < N_TESTS; i++) {
+    for (uint32_t i = 0; i < (10 * N_TESTS); i++) {
       ifft(v, w, N2);
     }
   }
@@ -130,14 +131,14 @@ static void perf_ifft(vec_t* v, const vec_t* w) {
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("IFFT) Total: %.3f us, AVG: %.3f us\n", total, total / N_TESTS);
+  printf("IFFT) Total: %.3f us, AVG: %.3f us\n", total, total / (10 * N_TESTS));
 }
 
 static void perf_ntt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
                      int64_t qinvmR) {
   uint64_t start = time_ns();
 
-  for (uint32_t i = 0; i < N_TESTS; i++) {
+  for (uint32_t i = 0; i < (10 * N_TESTS); i++) {
     poly_ntt(p, r, q, R_q, qinvmR, N);
   }
 
@@ -145,7 +146,7 @@ static void perf_ntt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("NTT) Total: %.3f us, AVG: %.3f us\n", total, total / N_TESTS);
+  printf("NTT) Total: %.3f us, AVG: %.3f us\n", total, total / (10 * N_TESTS));
 }
 
 static void perf_intt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
@@ -158,7 +159,7 @@ static void perf_intt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
 
 #pragma omp parallel
   {
-    for (uint32_t i = 0; i < N_TESTS; i++) {
+    for (uint32_t i = 0; i < (10 * N_TESTS); i++) {
       poly_intt(p, r, q, R_q, qinvmR, N);
     }
   }
@@ -167,14 +168,15 @@ static void perf_intt(poly_t p, const poly_t r, uint64_t q, int64_t R_q,
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("INTT) Total: %.3f us, AVG: %.3f us\n", total, total / N_TESTS);
+  printf("INTT) Total: %.3f us, AVG: %.3f us\n", total, total / (10 * N_TESTS));
 }
 
 static void perf_context_generation(ckks_params_t* params) {
   uint64_t start = time_ns();
 
   for (uint32_t i = 0; i < N_TESTS; i++) {
-    ckks_context_generation(params, q0_bits, scale_bits, N2, L, N, 1, NULL, 0);
+    ckks_context_generation(params, q0_bits, scale_bits, N2, L, N, 1, NULL, 0,
+                            0);
   }
 
   uint64_t end = time_ns();
@@ -184,11 +186,25 @@ static void perf_context_generation(ckks_params_t* params) {
   printf("ContextGen) Total: %.3f us, AVG: %.3f us\n", total, total / N_TESTS);
 }
 
-static void perf_keygen(ckks_params_t* params) {
+static void perf_secret_keygen(ckks_params_t* params) {
   uint64_t start = time_ns();
 
   for (uint32_t i = 0; i < N_TESTS; i++) {
     ckks_secret_keygen(params);
+  }
+
+  uint64_t end = time_ns();
+
+  double total = (double)(end - start) / 1000.0;
+
+  printf("Secret KeyGen) Total: %.3f us, AVG: %.3f us\n", total,
+         total / N_TESTS);
+}
+
+static void perf_public_keygen(ckks_params_t* params) {
+  uint64_t start = time_ns();
+
+  for (uint32_t i = 0; i < N_TESTS; i++) {
     ckks_public_keygen(params);
   }
 
@@ -196,7 +212,8 @@ static void perf_keygen(ckks_params_t* params) {
 
   double total = (double)(end - start) / 1000.0;
 
-  printf("KeyGen) Total: %.3f us, AVG: %.3f us\n", total, total / N_TESTS);
+  printf("Public KeyGen) Total: %.3f us, AVG: %.3f us\n", total,
+         total / N_TESTS);
 }
 
 static void perf_relinearization_keygen(ckks_params_t* params) {
@@ -341,7 +358,7 @@ int main() {
   perf_cbd_add(p, buf, m, &xof_state);
   perf_ternary_sampler(p, &xof_state, 0, buf, N);
   perf_elem_wise(&v, p, a, b, c, 10, 5, rns_params.q[0], rns_params.R_q[0],
-                 rns_params.qinvmR[0], 1 << scale_bits, N2, N);
+                 rns_params.qinvmR[0], 1UL << scale_bits, N2, N);
   perf_fft(&v, &w);
   perf_ifft(&v, &w);
   perf_ntt(p, r, rns_params.q[0], rns_params.R_q[0], rns_params.qinvmR[0]);
@@ -352,7 +369,8 @@ int main() {
   perf_context_generation(&ckks_params);
 
   // Key generation operations
-  perf_keygen(&ckks_params);
+  perf_secret_keygen(&ckks_params);
+  perf_public_keygen(&ckks_params);
   perf_relinearization_keygen(&ckks_params);
   perf_conjugation_keygen(&ckks_params);
   perf_inner_product_keygen(&ckks_params);

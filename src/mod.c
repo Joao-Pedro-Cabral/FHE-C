@@ -82,16 +82,20 @@ static bool miller_rabin_primality_test(uint64_t p) {
   uint64_t d = (p - 1) >> s;
   // Test
   for (uint32_t i = 0; i < MILLER_N_TESTS; i++) {
-    uint64_t a = miller_basis[i];
+    uint64_t a = miller_basis[i] % p;
+    if (a == 0) continue;
     uint64_t x = mod_pow0(a, d, p);
-    bool composity;
-    for (uint32_t j = 0; j < s; j++) {
-      // p-1 and -p+1 are impossible because 4*p < 2^64
-      composity = (x != 1 && x != p - 1);
+    if (x == 1 || x == p - 1) continue;
+    bool probably_prime = false;
+    for (uint32_t j = 1; j < s; j++) {
       x = mod_mul0(x, x, p);
-      if (x == 1 && composity) return false;
+      if (x == p - 1) {
+        probably_prime = true;
+        break;
+      }
+      if (x == 1) return false;
     }
-    if (x != 1) return false;
+    if (!probably_prime) return false;
   }
   return true;
 }

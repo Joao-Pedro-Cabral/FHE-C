@@ -1,3 +1,6 @@
 build/
 build-arm/
 build-openfhe/
+*.txt
+*.tex
+*.log
