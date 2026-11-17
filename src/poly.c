@@ -969,25 +969,30 @@ void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
     int64_t w10 = roots[2];
     int64_t w11 = roots[3];
     int64_t w2 = roots[1];
-#pragma omp for
-    for (uint32_t j = 0; j < n / 4; j++) {
-      // Load
-      int64_t aj0 = a[j + 0 * (n / 4)];
-      int64_t aj1 = a[j + 1 * (n / 4)];
-      int64_t aj2 = a[j + 2 * (n / 4)];
-      int64_t aj3 = a[j + 3 * (n / 4)];
-      // First layer (n/4)
-      GS_BUTTERFLY(aj0, aj1, w10, t);
-      GS_BUTTERFLY(aj2, aj3, w11, t);
-      // Second layer (n/2)
-      GS_BUTTERFLY(aj0, aj2, w2, t);
-      GS_BUTTERFLY(aj1, aj3, w2, t);
-      // Store
-      a[j + 0 * (n / 4)] = aj0;
-      a[j + 1 * (n / 4)] = aj1;
-      a[j + 2 * (n / 4)] = aj2;
-      a[j + 3 * (n / 4)] = aj3;
+    // Roots
+    if (chunk_size >= n / 4) chunk_size = (n / 4) / n_threads;
+    for (uint32_t jj = tid * chunk_size; jj < n / 4;
+         jj += n_threads * chunk_size) {
+      for (uint32_t j = jj; j < jj + chunk_size; j++) {
+        // Load
+        int64_t aj0 = a[j + 0 * (n / 4)];
+        int64_t aj1 = a[j + 1 * (n / 4)];
+        int64_t aj2 = a[j + 2 * (n / 4)];
+        int64_t aj3 = a[j + 3 * (n / 4)];
+        // First layer (n/4)
+        GS_BUTTERFLY(aj0, aj1, w10, t);
+        GS_BUTTERFLY(aj2, aj3, w11, t);
+        // Second layer (n/2)
+        GS_BUTTERFLY(aj0, aj2, w2, t);
+        GS_BUTTERFLY(aj1, aj3, w2, t);
+        // Store
+        a[j + 0 * (n / 4)] = aj0;
+        a[j + 1 * (n / 4)] = aj1;
+        a[j + 2 * (n / 4)] = aj2;
+        a[j + 3 * (n / 4)] = aj3;
+      }
     }
+#pragma omp barrier
   }
 
 #else
