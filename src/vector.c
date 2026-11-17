@@ -415,7 +415,7 @@ fft_rem_barrier:
     else chunk_size = (m / 32) / n_threads;
     if ((m == 64) && n_threads == 8) {
       chunk_size = 4;
-      if (tid >= 4) goto sync_after_rem;
+      if (tid >= 4) goto fft_final_barrier;
     }
     for (uint32_t jj = tid * chunk_size; jj < m / 4;
          jj += n_threads * chunk_size) {
@@ -935,7 +935,7 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
     else chunk_size = (m / 32) / n_threads;
     if ((m == 64) && n_threads == 8) {
       chunk_size = 4;
-      if (tid >= 4) goto sync_after_rem;
+      if (tid >= 4) goto ifft_rem_barrier;
     }
     // Merge two layers
     for (uint32_t jj = tid * chunk_size; jj < m / 4;
@@ -1017,7 +1017,6 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
         vst1q_f64(&v->img[j + m / 2 + m / 4 + 2], vk3_img);
         }
       }
-    }
   } else if (m3_rem == 1) {
     // Last layer
     if (chunk_size >= m / 2)
