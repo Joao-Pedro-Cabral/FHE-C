@@ -538,18 +538,18 @@ fft_rem_barrier:
       }
     }
   }
+#pragma omp barrier
   } else if (m3_rem == 1) {
     // Last layer
     if (chunk_size >= m / 2) chunk_size = (m / 2) / n_threads;
-    if (m == 32 && n_threads == 4) chunk_size = 4;
-        if (m == 32 && n_threads >= 4) {
+    if (m == 32 && n_threads >= 4) {
       chunk_size = 4;
       if (tid >= 4) goto fft_final_barrier;
     }
     for (uint32_t jj = tid * chunk_size; jj < m / 2;
          jj += n_threads * chunk_size) {
       // Special case to remove segfaults
-      if (((m == 256) || (m == 32)) && n_threads == 4) {
+      if ((m == 256 && n_threads == 4) || (m == 32 && n_threads >= 4)) {
         uint32_t j = jj;
         // Load
         // First Quarter
