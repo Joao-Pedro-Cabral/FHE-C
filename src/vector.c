@@ -122,7 +122,7 @@ void fft(vec_t* v, const vec_t* w, uint32_t m) {
   double w1_img = w->img[k1];
   float64x2_t vw2_rel = vld1q_f64(&w->rel[k2]);
   float64x2_t vw2_img = vld1q_f64(&w->img[k2]);
-  if (m <= 32) {
+  if (m <= 64) {
     chunk_size = 16;
     if (tid >= m / 16) goto fft_rem_barrier;
   }
@@ -411,8 +411,15 @@ fft_rem_barrier:
 
   if (m3_rem == 2) {
     // Merge two layers
-#pragma omp for
-    for (uint32_t j = 0; j < m / 4; j += 4) {
+    if (chunk_size >= m / 4) chunk_size = (m / 4) / n_threads;
+    else chunk_size = (m / 32) / n_threads;
+    if ((m == 64) && n_threads == 8) {
+      chunk_size = 4;
+      if (tid >= 4) goto sync_after_rem;
+    }
+    for (uint32_t jj = tid * chunk_size; jj < m / 4;
+         jj += n_threads * chunk_size) {
+      for (uint32_t j = jj; j < jj + chunk_size; j += 4) {
       // Load
       // First Quarter
       float64x2_t vj0_rel = vld1q_f64(&v->rel[j]);
@@ -487,15 +494,20 @@ fft_rem_barrier:
       vst1q_f64(&v->img[j + m / 2 + 2], vj3_img);
       vst1q_f64(&v->rel[j + m / 2 + m / 4 + 2], vk3_rel);
       vst1q_f64(&v->img[j + m / 2 + m / 4 + 2], vk3_img);
+      }
     }
   } else if (m3_rem == 1) {
     // Last layer
     if (chunk_size >= m / 2) chunk_size = (m / 2) / n_threads;
     if (m == 32 && n_threads == 4) chunk_size = 4;
+    if (((m == 256) || (m == 32)) && n_threads == 8) {
+      chunk_size = 4;
+      if (tid >= 4) goto fft_final_barrier;
+    }
     for (uint32_t jj = tid * chunk_size; jj < m / 2;
          jj += n_threads * chunk_size) {
       // Special case to remove segfaults
-      if (((m == 256) || (m == 32)) && n_threads == 4) {
+      if (((m == 256) || (m == 32)) && n_threads >= 4) {
         uint32_t j = jj;
         // Load
         // First Quarter
@@ -596,7 +608,9 @@ fft_rem_barrier:
         }
       }
     }
+fft_final_barrier: {
 #pragma omp barrier
+}
   }
 #elif __AVX2_MODE__
   if (m < 16) {
@@ -917,7 +931,12 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
   if (sync_first_3x) chunk_size = m3 >> 3;
 
   if (m3_rem == 2) {
-    chunk_size = (m / 4) / n_threads;
+    if (chunk_size >= m / 4) chunk_size = (m / 4) / n_threads;
+    else chunk_size = (m / 32) / n_threads;
+    if ((m == 64) && n_threads == 8) {
+      chunk_size = 4;
+      if (tid >= 4) goto sync_after_rem;
+    }
     // Merge two layers
     for (uint32_t jj = tid * chunk_size; jj < m / 4;
          jj += n_threads * chunk_size) {
@@ -996,6 +1015,7 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
         vst1q_f64(&v->img[j + m / 2 + 2], vj3_img);
         vst1q_f64(&v->rel[j + m / 2 + m / 4 + 2], vk3_rel);
         vst1q_f64(&v->img[j + m / 2 + m / 4 + 2], vk3_img);
+        }
       }
     }
   } else if (m3_rem == 1) {
@@ -1005,10 +1025,14 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
     else
       chunk_size = (m / 16) / n_threads;
     if (m == 32 && n_threads == 4) chunk_size = 4;
+    if (((m == 256) || (m == 32)) && n_threads == 8) {
+      chunk_size = 4;
+      if (tid >= 4) goto ifft_rem_barrier;
+    }
     for (uint32_t jj = tid * chunk_size; jj < m / 2;
          jj += n_threads * chunk_size) {
       // Special case to remove segfaults
-      if (((m == 256) || (m == 32)) && n_threads == 4) {
+      if (((m == 256) || (m == 32)) && n_threads >= 4) {
         uint32_t j = jj;
         // Load
         // First Quarter
@@ -1111,6 +1135,7 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
     }
   }
 
+ifft_rem_barrier:
   if (sync_after_rem) {
     chunk_size = chunk_size * n_threads;
 #pragma omp barrier
@@ -1240,7 +1265,7 @@ void ifft(vec_t* v, const vec_t* w, uint32_t m) {
   double w1_img = -w->img[k1];
   float64x2_t vw2_rel = vld1q_f64(&w->rel[k2]);
   float64x2_t vw2_img = vnegq_f64(vld1q_f64(&w->img[k2]));
-  if (m <= 32) {
+  if (m <= 64) {
     chunk_size = 16;
     if (tid >= m / 16) goto ifft_final_barrier;
   }
