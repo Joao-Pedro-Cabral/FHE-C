@@ -11,7 +11,7 @@
 void ckks_context_generation(ckks_params_t* params, uint32_t q0_bits,
                              uint32_t scale_bits, uint32_t n2, uint32_t l,
                              uint32_t n, int set_n, uint64_t* q_chain,
-                             int set_q, int with_lt) {
+                             int set_q, int with_ip, int with_lt) {
   // RNS construction
   rns_params_new(&params->rns, q0_bits, scale_bits, l, n, set_n, q_chain,
                  set_q);
@@ -23,7 +23,7 @@ void ckks_context_generation(ckks_params_t* params, uint32_t q0_bits,
   randombytes(seed, SEED_BYTES);
   xof_absorb(&params->xof_state, seed);
   // keys
-  rlwe_keys_new(&params->keys, &params->rns, with_lt);
+  rlwe_keys_new(&params->keys, &params->rns, with_ip, with_lt);
 #pragma omp parallel
   { vec_gen_roots(&params->w, n2); }
 }

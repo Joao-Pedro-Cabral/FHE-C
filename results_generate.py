@@ -5,7 +5,7 @@ from datetime import datetime
 N_VALUES = [2**13, 2**15, 2**17]
 L_VALUES = [8, 16, 24]
 
-OMP_VALUES = [1, 2, 4]
+OMP_VALUES = [1, 2, 4, 8]
 OPT_VALUES = [0, 1]
 
 N_TESTS = 1
@@ -74,6 +74,7 @@ with open(LOG_FILE, "w") as log:
                     command = [
                         "make",
                         "TEST=perf",
+                        "ARCH=arm",
                         f"OPT={OPT}",
                         f"OMP_NUM_THREADS={OMP}",
                         f"N_TESTS={N_TESTS}",

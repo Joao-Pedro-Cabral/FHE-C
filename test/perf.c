@@ -176,7 +176,7 @@ static void perf_context_generation(ckks_params_t* params) {
 
   for (uint32_t i = 0; i < N_TESTS; i++) {
     ckks_context_generation(params, q0_bits, scale_bits, N2, L, N, 1, NULL, 0,
-                            0);
+                            0, 0);
   }
 
   uint64_t end = time_ns();
@@ -373,7 +373,7 @@ int main() {
   perf_public_keygen(&ckks_params);
   perf_relinearization_keygen(&ckks_params);
   perf_conjugation_keygen(&ckks_params);
-  perf_inner_product_keygen(&ckks_params);
+  // perf_inner_product_keygen(&ckks_params);
 
   // Encoding and decoding
   perf_encode(p, &v, &ckks_params);
