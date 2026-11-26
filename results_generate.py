@@ -2,13 +2,13 @@ import subprocess
 from datetime import datetime
 
 # Configuration
-N_VALUES = [2**13, 2**15, 2**17]
-L_VALUES = [8, 16, 24]
+N_VALUES = [2**13, 2**14, 2**15]
+L_VALUES = [8, 12, 16]
 
 OMP_VALUES = [1, 2, 4, 8]
 OPT_VALUES = [0, 1]
 
-N_TESTS = 1
+N_TESTS = 1000
 
 LOG_FILE = "benchmark_results.log"
 
@@ -102,7 +102,7 @@ with open(LOG_FILE, "w") as log:
                 f"N={N}",
                 f"N2={N2}",
                 f"L={L}",
-                "OMP_NUM_THREADS=4",
+                "OMP_NUM_THREADS=8",
                 f"N_TESTS={N_TESTS}"
             ]
 

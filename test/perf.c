@@ -176,12 +176,16 @@ static void perf_context_generation(ckks_params_t* params) {
 
   for (uint32_t i = 0; i < N_TESTS; i++) {
     ckks_context_generation(params, q0_bits, scale_bits, N2, L, N, 1, NULL, 0,
-                            0, 0);
+                            1, 1, 1, 0);
+    ckks_free(params);
   }
 
   uint64_t end = time_ns();
 
   double total = (double)(end - start) / 1000.0;
+
+  ckks_context_generation(params, q0_bits, scale_bits, N2, L, N, 1, NULL, 0, 1,
+                          1, 1, 0);
 
   printf("ContextGen) Total: %.3f us, AVG: %.3f us\n", total, total / N_TESTS);
 }
@@ -373,7 +377,7 @@ int main() {
   perf_public_keygen(&ckks_params);
   perf_relinearization_keygen(&ckks_params);
   perf_conjugation_keygen(&ckks_params);
-  // perf_inner_product_keygen(&ckks_params);
+  perf_inner_product_keygen(&ckks_params);
 
   // Encoding and decoding
   perf_encode(p, &v, &ckks_params);

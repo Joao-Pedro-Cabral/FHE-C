@@ -8,15 +8,15 @@ from pathlib import Path
 LOG_FILE = "benchmark_results.log"
 OUTPUT_FILE = "generated_tables.tex"
 
-N_VALUES = [2**13, 2**15, 2**17]
-L_VALUES = [8, 16, 24]
-THREADS = [1, 2, 4]
+N_VALUES = [2**13, 2**14, 2**15]
+L_VALUES = [8, 12, 16]
+THREADS = [1, 2, 4, 8]
 
 # Table 1 has no L dimension, so select one L.
 PRIMITIVE_L = 8
 
 # Number of threads used for the OpenFHE comparison.
-OPENFHE_COMPARE_THREADS = 4
+OPENFHE_COMPARE_THREADS = 8
 
 # --------------------------------------------------
 # Regular expressions
@@ -118,7 +118,8 @@ PRIMITIVES = {
 
 OPERATIONS = {
     "Context Gen.": "ContextGen",
-    "Key Gen.": "KeyGen",
+    "Secret Key Gen.": "Secret KeyGen",
+    "Public Key Gen.": "Public KeyGen",
     "Relin. Key Gen.": "Relinearization KeyGen",
     "Conjug. Key Gen.": "Conjugation KeyGen",
     "Inner. Key Gen.": "Inner Product KeyGen",
@@ -130,7 +131,7 @@ OPERATIONS = {
 
 OPENFHE_OPERATIONS = {
     "Context Gen.": ("ContextGen", "Context Generation"),
-    "Key Gen.": ("KeyGen", "KeyGen"),
+    "Key Gen.": ("KeyGenTotal", "KeyGen"),
     "Relin. Key Gen.": (
         "Relinearization KeyGen",
         "Relinearization KeyGen"
@@ -153,6 +154,12 @@ def get_time(data, key, operation):
 
     if key not in data:
         raise KeyError(f"Missing benchmark configuration: {key}")
+
+    if operation == "KeyGenTotal":
+        # Combined key-generation time for comparison with OpenFHE.
+        return get_time(data, key, "Secret KeyGen") + get_time(
+            data, key, "Public KeyGen"
+        )
 
     if operation not in data[key]:
         raise KeyError(
@@ -308,7 +315,7 @@ def generate_table1():
 \multirow{2}{*}{${\textbf{Threads}}$} &
 \multicolumn{3}{c}{\textbf{N}} \\
 \cline{3-5}
-&& $2^{13}$ & $2^{15}$ & $2^{17}$ \\
+&& $2^{13}$ & $2^{14}$ & $2^{15}$ \\
 \midrule
 """ + "\n".join(rows) + r"""
 \bottomrule
@@ -383,11 +390,11 @@ def generate_table2():
 
     header += (
         r" & ".join(
-            [r"$2^{13}$", r"$2^{15}$", r"$2^{17}$"]
+            [r"$2^{13}$", r"$2^{14}$", r"$2^{15}$"]
             for _ in []
         ) if False else
         " & & ".join(
-            [r"$2^{13}$ & $2^{15}$ & $2^{17}$"] * 3
+            [r"$2^{13}$ & $2^{14}$ & $2^{15}$"] * 3
         )
     )
 
@@ -504,7 +511,7 @@ def generate_table3():
 
     return r"""
 \begin{table*}[!ht]
-\caption{Speedup of the optimized CKKS operations over OpenFHE for $4$ threads.}
+\caption{Speedup of the optimized CKKS operations over OpenFHE for $8$ threads.}
 \label{tab::evaluation::speedups_openfhe}
 \centering
 \definecolor{vscleanColor}{rgb}{0.3, 0.3, 0.3}

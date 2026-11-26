@@ -265,7 +265,7 @@ int main() {
 
   perf_conjugation_keygen(cc, keys.secretKey);
 
-  // perf_inner_product_keygen(cc, keys.secretKey);
+  perf_inner_product_keygen(cc, keys.secretKey);
 
   // ----------------------------------------------
   // Input Vector
