@@ -161,8 +161,8 @@ void rns_params_new(rns_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
   if (p2_bits < 3) {
     printf("Be careful! Probably this is a invalid configuration!\n");
   }
-  uint32_t qtotal_bits = q0_bits + l * scale_bits + P_MOD_BITS + p2_bits;
-  l++;  // q0 prime + l for multiplicative depth
+  uint32_t qtotal_bits = q0_bits + (l * 1) * scale_bits + P_MOD_BITS + p2_bits;
+  l += 2;  // q0 prime + l for multiplicative depth + 1 q_aux for P mult
   uint32_t k = P_MOD_SIZE;
   if (!set_n) n = compute_ring_dimension(qtotal_bits);
   params->n = n;

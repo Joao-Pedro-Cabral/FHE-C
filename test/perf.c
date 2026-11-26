@@ -28,7 +28,7 @@
 
 // "Don't care" for performance
 static const uint64_t q0_bits = 60;
-static const uint64_t scale_bits = 50;
+static const uint64_t scale_bits = 40;
 
 static uint64_t time_ns(void) {
   struct timespec ts;

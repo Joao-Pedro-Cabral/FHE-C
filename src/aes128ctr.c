@@ -5,7 +5,6 @@
 
 #include "aes128ctr.h"
 
-#include <stdio.h>
 #include <string.h>
 
 #ifdef __NEON_MODE__
