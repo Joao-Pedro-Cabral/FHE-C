@@ -1,0 +1,54 @@
+%!TEX root=main.tex
+\chapter{Requirement Specification} \label{cap:especificacao}
+
+The following two sections describe the functional and non-functional requirements for the client-side operations.
+
+\section{Functional Requirements}
+
+The implementation shall satisfy the following functional requirements:
+
+\begin{itemize}
+\item \textbf{FR1 -- Parameter configuration:} The implementation shall allow the user to configure the CKKS parameters. It shall support both a simplified configuration, in which the user specifies the slot vector size, the scale factor, multiplicative depth, and size of the initial modulus, and a complete configuration, in which the user can specify the slot vector size, the scale factor, multiplicative depth, polynomial degree, and modulus chain.
+
+    \textbf{Acceptance Criterion}: The simplified configuration shall successfully derive all remaining CKKS parameters for every valid combination of user-provided parameters. The complete configuration shall successfully accept and initialize every valid CKKS parameter set provided by the user.
+
+\item \textbf{FR2 -- Key generation:} The implementation shall support the generation of all keys required by the client-side CKKS operations, including the secret key, public key, conjugation key, rotation keys, and relinearization keys.
+
+    \textbf{Acceptance Criterion}: For a given set of test configurations, the implementation shall successfully generate a complete and valid set of keys.
+
+\item \textbf{FR3 -- Encryption:} Given a vector slot, the implementation shall encode and encrypt the vector into a valid CKKS ciphertext.
+
+    \textbf{Acceptance Criterion}: For a given set of test configurations and valid test input vector slot, the implementation shall successfully encode and encrypt the vector, producing a valid CKKS ciphertext that can subsequently be decrypted approximately to the same input vector slot.
+
+\item \textbf{FR4 -- Decryption:} Given a valid CKKS ciphertext, the implementation shall decrypt and decode it into a vector slot.
+
+    \textbf{Acceptance Criterion}: For a given set of CKKS parameter configuration and valid test input ciphertext, the implementation shall successfully decrypt and decode the ciphertext, producing a vector whose values approximately correspond to the original vector slot.
+
+\item \textbf{FR5 -- Network communication:} The implementation shall provide the mechanisms required for the client to communicate with a server through a network connection, enabling the transmission and reception of the data required for end-to-end CKKS operations.
+
+    \textbf{Acceptance Criterion}: The implementation shall successfully establish a network connection between the client and server and exchange all data required to perform an end-to-end CKKS operation.
+
+\end{itemize}
+
+\section{Non-Functional Requirements}
+
+The implementation shall satisfy the following non-functional requirements:
+
+\begin{itemize}
+\item \textbf{NFR1 -- Constant-time execution:} Security-sensitive operations shall be implemented using constant-time algorithms, avoiding data-dependent execution paths and memory accesses where applicable.
+
+    \textbf{Acceptance Criterion}: All security-sensitive operations shall exhibit no data-dependent branches or memory accesses when analyzed through source-code inspection.
+
+\item \textbf{NFR2 -- Security:} The implementation shall provide at least 128-bit computational security under the IND-CPA security model for the simplified configuration.
+
+    \textbf{Acceptance Criterion}: For a given set of simplified configurations, the resulting complete configuration must provide at least 128-bit computational security accordingly to a security estimator.
+
+\item \textbf{NFR3 -- Computational efficiency:} The implementation shall efficiently exploit the SIMD capabilities and multiple CPU cores available on the target ARMv8 platforms.
+
+    \textbf{Acceptance Criterion}: The implementation shall demonstrate performance speedup compared to the reference implementation with values as close as possible to the theoreticals.
+
+\item \textbf{NFR4 -- Modularity:} The software architecture shall provide a clear and consistent interface between client-side and server-side components, allowing different server-side implementations to be integrated to the client-side implementation.
+
+    \textbf{Acceptance Criterion}: The interface shall be clearly defined and documented to allow integration with other systems.
+
+\end{itemize}

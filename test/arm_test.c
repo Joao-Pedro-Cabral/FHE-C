@@ -12,7 +12,7 @@
 
 void test_cbd(poly_t e, xof_state_t *xof_state, uint32_t n) {
   uint8_t *buf = malloc(6 * n * sizeof(uint8_t));
-  xof_squeeze(buf, 6 * n, xof_state);
+  xof_squeeze(buf, 6 * n, xof_state, 0);
   uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
   uint8_t *c0_8 = buf + 3 * n, *c1_8 = buf + 4 * n, *c2_8 = buf + 5 * n;
   for (uint32_t i = 0; i < n; i++) {
@@ -173,7 +173,7 @@ static void aes128_encrypt(uint8_t out[16], const uint8_t in[16],
  * Increment a 128-bit big-endian counter.
  */
 static void increment_counter(uint8_t counter[16]) {
-  for (int i = 0; i < 16; --i) {
+  for (int i = 0; i < 16; ++i) {
     if (++counter[i] != 0) break;
   }
 }
@@ -266,7 +266,7 @@ int main() {
   randombytes(seed, SEED_BYTES);
 
   xof_absorb(&xof_state, seed);
-  xof_squeeze((uint8_t *)e1, 8 * n, &xof_state);
+  xof_squeeze((uint8_t *)e1, 8 * n, &xof_state, 0);
   aes128_key_expand(round_keys, seed);
   memset(counter, 0, 16);
   aes128_ctr_generate(round_keys, counter, (uint8_t *)e2, 8 * n);
@@ -285,7 +285,7 @@ int main() {
   printf("---------- TEST CBD ----------\n");
 
   xof_absorb(&xof_state, seed);  // Resets the counter
-  poly_cbd24_sampler(e1, &xof_state, n);
+  poly_cbd24_sampler(e1, &xof_state, 0, n);
   xof_absorb(&xof_state, seed);  // Resets the counter
   test_cbd(e2, &xof_state, n);
 

@@ -8,21 +8,35 @@
 #include "random.h"
 #include "utils.h"
 
-void ckks_keygen(ckks_params_t* params, uint32_t q0_bits, uint32_t scale_bits,
-                 uint32_t n2, uint32_t l) {
+void ckks_context_generation(ckks_params_t* params, uint32_t q0_bits,
+                             uint32_t scale_bits, uint32_t n2, uint32_t l,
+                             uint32_t n, int set_n, uint64_t* q_chain,
+                             int set_q, int with_r, int with_cg, int with_ip,
+                             int with_lt) {
   // RNS construction
-  rns_params_new(&params->rns, q0_bits, scale_bits, l);
+  rns_params_new(&params->rns, q0_bits, scale_bits, l, n, set_n, q_chain,
+                 set_q);
   // complex roots
   params->n2 = n2;
   vec_new(&params->w, n2);
-  vec_gen_roots(&params->w, n2);
   // XOF state
   uint8_t seed[SEED_BYTES];
   randombytes(seed, SEED_BYTES);
   xof_absorb(&params->xof_state, seed);
   // keys
-  rlwe_keys_new(&params->keys, &params->rns);
-  rlwe_gen_secret_key(&params->keys, &params->xof_state, &params->rns);
+  rlwe_keys_new(&params->keys, &params->rns, with_r, with_cg, with_ip, with_lt);
+#pragma omp parallel
+  { vec_gen_roots(&params->w, n2); }
+}
+
+void ckks_secret_keygen(ckks_params_t* params) {
+  size_t blocks =
+      (((4 * (params->rns.n / 4) + 2) / 3) + XOF_RATE - 1) / XOF_RATE;
+  size_t buflen = blocks * XOF_RATE;
+  uint8_t* buf = malloc(buflen);
+#pragma omp parallel
+  { rlwe_gen_secret_key(&params->keys, &params->xof_state, buf, &params->rns); }
+  free(buf);
 }
 
 void ckks_relinearization_keygen(ckks_params_t* params) {
@@ -31,17 +45,21 @@ void ckks_relinearization_keygen(ckks_params_t* params) {
 
 // KeySwitch(S^{-1})
 void ckks_conjugation_keygen(ckks_params_t* params) {
-  poly_t s2, e, me;
+  poly_t s2;
   poly_new(&s2, params->rns.n);
-  poly_new(&e, params->rns.n);
-  poly_new(&me, params->rns.n);
-  uint32_t exp = 2 * params->rns.n - 1;
-  poly_permute(s2, params->keys.s_hat, exp, params->rns.n);
-  rlwe_key_switch_encrypt(params->keys.cg, &params->xof_state, s2, me, me, e,
-                          &params->keys, &params->rns, false, params->rns.l);
+#pragma omp parallel
+  {
+    poly_t e, me;
+    poly_new(&e, params->rns.n);
+    poly_new(&me, params->rns.n);
+    uint32_t exp = 2 * params->rns.n - 1;
+    poly_permute_omp(s2, params->keys.s_hat, exp, params->rns.n);
+    rlwe_key_switch_encrypt_omp(params->keys.cg, &params->xof_state, s2, me, e,
+                                &params->keys, &params->rns);
+    poly_free(&e);
+    poly_free(&me);
+  }
   poly_free(&s2);
-  poly_free(&e);
-  poly_free(&me);
 }
 
 // RLWE(0)
@@ -60,21 +78,30 @@ void ckks_public_keygen(ckks_params_t* params) {
 // Our rotation keys are 5^(n/4), 5^(n/8), ... 5^1
 // We use these keys to reduce the memory usage during reductions
 void ckks_inner_product_keygen(ckks_params_t* params) {
-  poly_t s2, e, me;
-  poly_new(&s2, params->rns.n);
-  poly_new(&e, params->rns.n);
-  poly_new(&me, params->rns.n);
   uint32_t log2_n2 = floor_log2(params->rns.n) - 1;
-  for (uint32_t i = 0; i < log2_n2; i++) {
-    uint32_t exp = params->rns.n >> (i + 2);
-    uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
-    poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.ip[i], &params->xof_state, s2, me, me, e,
-                            &params->keys, &params->rns, false, params->rns.l);
+  uint64_t max_n = 0;
+#pragma omp parallel
+  {
+    poly_t s2, e, me;
+    poly_new(&s2, params->rns.n);
+    poly_new(&e, params->rns.n);
+    poly_new(&me, params->rns.n);
+#pragma omp for reduction(max : max_n)
+    for (uint32_t i = 0; i < log2_n2; i++) {
+      xof_state_t xof_state2;
+      memcpy(&xof_state2, &params->xof_state, sizeof(xof_state2));
+      uint32_t exp = params->rns.n >> (i + 2);
+      uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
+      poly_permute(s2, params->keys.s_hat, g, params->rns.n);
+      rlwe_key_switch_encrypt(params->keys.ip[i], &xof_state2, s2, me, e,
+                              &params->keys, &params->rns);
+      max_n = (xof_state2.n > max_n) ? xof_state2.n : max_n;
+    }
+    poly_free(&s2);
+    poly_free(&e);
+    poly_free(&me);
   }
-  poly_free(&s2);
-  poly_free(&e);
-  poly_free(&me);
+  xof_state_update(&params->xof_state, max_n);
 }
 
 // For linear transformations, we need n1+n2 keys for Dual Hoisting:
@@ -82,32 +109,34 @@ void ckks_inner_product_keygen(ckks_params_t* params) {
 // n2: 0*n1, 1*n1, ..., (n2-1)*n1
 // Where n1*n2 = n/2 = m and n1 = N1N2_RATIO*n2
 void ckks_linear_transform_keygen(ckks_params_t* params) {
-  poly_t s2, e, me;
-  poly_new(&s2, params->rns.n);
-  poly_new(&e, params->rns.n);
-  poly_new(&me, params->rns.n);
   uint32_t log2_m = floor_log2(params->rns.n) - 1;
   uint32_t log2_n2 = floor_log2(params->rns.n / (2 * N1N2_RATIO)) / 2;
   uint32_t log2_n1 = log2_m - log2_n2;
   uint32_t n1 = (1 << log2_n1);
   uint32_t n2 = (1 << log2_n2);
-  for (uint32_t i = 0; i < n1; i++) {
-    uint32_t exp = i;
-    uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
-    poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.lt[i], &params->xof_state, s2, me, me, e,
-                            &params->keys, &params->rns, false, params->rns.l);
+  uint64_t max_n = 0;
+#pragma omp parallel
+  {
+    poly_t s2, e, me;
+    poly_new(&s2, params->rns.n);
+    poly_new(&e, params->rns.n);
+    poly_new(&me, params->rns.n);
+#pragma omp for reduction(max : max_n)
+    for (uint32_t i = 0; i < n1 + n2; i++) {
+      xof_state_t xof_state2;
+      memcpy(&xof_state2, &params->xof_state, sizeof(xof_state2));
+      uint32_t exp = (i >= n1) ? n1 * (i - n1) : i;
+      uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
+      poly_permute(s2, params->keys.s_hat, g, params->rns.n);
+      rlwe_key_switch_encrypt(params->keys.lt[i], &xof_state2, s2, me, e,
+                              &params->keys, &params->rns);
+      max_n = (xof_state2.n > max_n) ? xof_state2.n : max_n;
+    }
+    poly_free(&s2);
+    poly_free(&e);
+    poly_free(&me);
   }
-  for (uint32_t i = 0; i < n2; i++) {
-    uint32_t exp = n1 * i;
-    uint32_t g = mod_pow2(5, exp, 2 * params->rns.n);
-    poly_permute(s2, params->keys.s_hat, g, params->rns.n);
-    rlwe_key_switch_encrypt(params->keys.lt[n1 + i], &params->xof_state, s2, me, me,
-                            e, &params->keys, &params->rns, false, params->rns.l);
-  }
-  poly_free(&s2);
-  poly_free(&e);
-  poly_free(&me);
+  xof_state_update(&params->xof_state, max_n);
 }
 
 void ckks_free(ckks_params_t* params) {
@@ -120,22 +149,28 @@ void ckks_encode(poly_t m, const vec_t* v, const ckks_params_t* params) {
   vec_t v2;
   vec_new(&v2, params->n2);
   memcpy(v2.rel, v->rel, 2 * params->n2 * sizeof(double));
-  // First step: IFFT
-  ifft(&v2, &params->w, params->n2);
-  // Second step: Rescale (with base scale) + Bit Reverse
-  vector_to_poly(m, &v2, params->rns.scales[params->rns.l - 1], params->n2,
-                 params->rns.n);
+#pragma omp parallel
+  {
+    // First step: IFFT
+    ifft(&v2, &params->w, params->n2);
+    // Second step: Rescale (with base scale) + Bit Reverse
+    vector_to_poly(m, &v2, params->rns.scales[params->rns.l - 1], params->n2,
+                   params->rns.n);
+  }
   // Free
   vec_free(&v2);
 }
 
 void ckks_decode(vec_t* v, const poly_t m, uint32_t level,
                  const ckks_params_t* params) {
-  // First step: Rescale (accordingly to the current level) + Bit Reverse
-  poly_to_vector(v, m, params->rns.scales[level - 1], params->n2,
-                 params->rns.n);
-  // Second step: FFT
-  fft(v, &params->w, params->n2);
+#pragma omp parallel
+  {
+    // First step: Rescale (accordingly to the current level) + Bit Reverse
+    poly_to_vector(v, m, params->rns.scales[level - 1], params->n2,
+                   params->rns.n);
+    // Second step: FFT
+    fft(v, &params->w, params->n2);
+  }
 }
 
 void ckks_encrypt(ciphertext_t* ct, const poly_t m, ckks_params_t* params) {
@@ -184,40 +219,48 @@ void ckks_server_encrypt(ciphertext_t* ct, const poly_t m,
 
 void ckks_ciphertext_conjugation(ciphertext_t* ct2, const ciphertext_t* ct1,
                                  const ckks_params_t* params) {
-  rns_t tmp_r;
-  poly_t tmp_p;
+  rns_t tmp_r, tmp_r2;
+  poly_t tmp_p, tmp_p2;
   uint32_t n = params->rns.n;
   rns_new(&tmp_r, &params->rns);
+  rns_new(&tmp_r2, &params->rns);
   poly_new(&tmp_p, n);
-  ciphertext_rotation(ct2, ct1, 2 * params->rns.n - 1, tmp_r, tmp_p,
-                      params->keys.cg, &params->rns);
+  poly_new(&tmp_p2, n);
+  ciphertext_rotation(ct2, ct1, 2 * params->rns.n - 1, tmp_r, tmp_r2, tmp_p,
+                      tmp_p2, params->keys.cg, &params->rns);
   rns_free(&tmp_r);
+  rns_free(&tmp_r2);
   poly_free(&tmp_p);
+  poly_free(&tmp_p2);
 }
 
 void ckks_ciphertext_inner_product(ciphertext_t* ct3, const ciphertext_t* ct1,
                                    const ciphertext_t* ct2,
                                    const ckks_params_t* params) {
   ciphertext_t tmp_c;
-  rns_t tmp_r;
-  poly_t tmp_p;
+  rns_t tmp_r, tmp_r2;
+  poly_t tmp_p, tmp_p2;
   uint32_t n = params->rns.n;
   ciphertext_new(&tmp_c, &params->rns);
   rns_new(&tmp_r, &params->rns);
+  rns_new(&tmp_r2, &params->rns);
   poly_new(&tmp_p, n);
+  poly_new(&tmp_p2, n);
   ciphertext_ciphertext_multiplication(ct3, ct1, ct2, params->keys.r,
                                        &params->rns);
   uint32_t log2_n2 = floor_log2(n) - 1;
   for (uint32_t i = 0; i < log2_n2; i++) {
     uint32_t exp = n >> (i + 2);
     exp = mod_pow2(5, exp, 2 * n);
-    ciphertext_rotation(&tmp_c, ct3, exp, tmp_r, tmp_p, params->keys.ip[i],
-                        &params->rns);
+    ciphertext_rotation(&tmp_c, ct3, exp, tmp_r, tmp_r2, tmp_p, tmp_p2,
+                        params->keys.ip[i], &params->rns);
     ciphertext_ciphertext_addition(ct3, ct3, &tmp_c, &params->rns);
   }
   ciphertext_free(&tmp_c);
   rns_free(&tmp_r);
+  rns_free(&tmp_r2);
   poly_free(&tmp_p);
+  poly_free(&tmp_p2);
 }
 
 void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
@@ -225,8 +268,8 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
                                       const poly_t* mat,
                                       const ckks_params_t* params) {
   ciphertext_t acc, tmp_c;
-  rns_t tmp_r;
-  poly_t tmp_p;
+  rns_t tmp_r, tmp_r2;
+  poly_t tmp_p, tmp_p2;
   uint32_t n = params->rns.n;
   uint32_t log2_m = floor_log2(n) - 1;
   uint32_t log2_n2 = floor_log2(n / (2 * N1N2_RATIO)) / 2;
@@ -236,14 +279,16 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
   ciphertext_new(&acc, &params->rns);
   ciphertext_new(&tmp_c, &params->rns);
   rns_new(&tmp_r, &params->rns);
+  rns_new(&tmp_r2, &params->rns);
   poly_new(&tmp_p, n);
+  poly_new(&tmp_p2, n);
   // Compute rot(ct1, i); i = 0, 1, ..., n1-1 (jump 0)
   ciphertext_t* rot_ct1 = malloc(n1 * sizeof(ciphertext_t));
   for (uint32_t i = 1; i < n1; i++) {
     ciphertext_new(&rot_ct1[i], &params->rns);
     uint32_t exp = mod_pow2(5, i, 2 * n);
-    ciphertext_rotation(&rot_ct1[i], ct1, exp, tmp_r, tmp_p, params->keys.lt[i],
-                        &params->rns);
+    ciphertext_rotation(&rot_ct1[i], ct1, exp, tmp_r, tmp_r2, tmp_p, tmp_p2,
+                        params->keys.lt[i], &params->rns);
   }
   // Zero final ciphertext
   ct2->level = ct1->level - 1;
@@ -263,7 +308,7 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
     ciphertext_mod_switch(&acc, tmp_r, &params->rns);
     // Rotate and Accumulate
     uint32_t exp = mod_pow2(5, n1 * i, 2 * n);
-    ciphertext_rotation(&tmp_c, &acc, exp, tmp_r, tmp_p,
+    ciphertext_rotation(&tmp_c, &acc, exp, tmp_r, tmp_r2, tmp_p, tmp_p2,
                         params->keys.lt[n1 + i], &params->rns);
     ciphertext_ciphertext_addition(ct2, ct2, &tmp_c, &params->rns);
   }
@@ -275,7 +320,9 @@ void ckks_ciphertext_linear_transform(ciphertext_t* ct2,
   ciphertext_free(&tmp_c);
   ciphertext_free(&acc);
   rns_free(&tmp_r);
+  rns_free(&tmp_r2);
   poly_free(&tmp_p);
+  poly_free(&tmp_p2);
 }
 
 // Encode a linear transformation with the correct rotations

@@ -2,8 +2,9 @@
 #ifndef __RLWE_H__
 #define __RLWE_H__
 
-#include "rns.h"
 #include <stdbool.h>
+
+#include "rns.h"
 
 #define N1N2_RATIO 2
 
@@ -23,6 +24,10 @@ typedef struct {
   switch_t cg;   // conjugation key
   switch_t* ip;  // log2_n - 1 inner product rotation keys by 5^h, h = 2^i
   switch_t* lt;  // n1+n2 linear transform rotation keys by 5^h
+  int with_r;    // with relinearization keys?
+  int with_cg;   // with conjugation keys?
+  int with_ip;   // with inner-product keys?
+  int with_lt;   // with linear transform keys?
 } keys_t;
 
 /*
@@ -39,8 +44,13 @@ void rlwe_free(rlwe_t* ab);
 /*
   @param params: RNS params
   @param keys: rlwe_t context to be allocated
+  @param with_r: with relinearization keys?
+  @param with_cg: with conjugation keys?
+  @param with_ip: with inner-product keys?
+  @param with_lt: with linear transform keys?
 */
-void rlwe_keys_new(keys_t* keys, const rns_params_t* params);
+void rlwe_keys_new(keys_t* keys, const rns_params_t* params, int with_r,
+                   int with_cg, int with_ip, int with_lt);
 
 /*
   @param params: RNS params
@@ -53,7 +63,7 @@ void rlwe_keys_free(keys_t* keys, const rns_params_t* params);
   @param xof_state: XOF state
   @param params: RNS params
 */
-void rlwe_gen_secret_key(keys_t* keys, xof_state_t* xof_state,
+void rlwe_gen_secret_key(keys_t* keys, xof_state_t* xof_state, uint8_t* buf,
                          const rns_params_t* params);
 
 /*
@@ -85,19 +95,31 @@ void rlwe_plaintext_decrypt(poly_t m, const rlwe_t* ab, const keys_t* keys,
 /*
   @param params: RNS params
   @param xof_state: XOF state
-  @param tmp, tmp2: temporary polynomials
+  @param tmp: temporary polynomials
   @param keys: RLWE context
   @param key_switch: output key switch
   @param e: error polynomial (allocated by caller)
   @param m: output polynomial
   @param params: RNS params
-  @param mulP: multiply by P? (only useful for relinearization key)
-  @param l: RNS size
 */
 void rlwe_key_switch_encrypt(switch_t key_switch, xof_state_t* xof_state,
-                             const poly_t m, poly_t tmp, poly_t tmp2, poly_t e,
-                             const keys_t* keys, const rns_params_t* params,
-                             bool mulP, uint32_t l);
+                             const poly_t m, poly_t tmp, poly_t e,
+                             const keys_t* keys, const rns_params_t* params);
+
+/*
+  @param params: RNS params
+  @param xof_state: XOF state
+  @param tmp: temporary polynomials
+  @param keys: RLWE context
+  @param key_switch: output key switch
+  @param e: error polynomial (allocated by caller)
+  @param m: output polynomial
+  @param params: RNS params
+*/
+void rlwe_key_switch_encrypt_omp(switch_t key_switch, xof_state_t* xof_state,
+                                 const poly_t m, poly_t tmp, poly_t e,
+                                 const keys_t* keys,
+                                 const rns_params_t* params);
 
 /*
   @param params: RNS params
@@ -117,7 +139,8 @@ void rlwe_key_switch_decrypt(poly_t m, const switch_t key_switch,
   @param ab: output RLWE
 */
 void rlwe_key_switch(rlwe_t* ab, const rns_t a, const switch_t r, poly_t tmp,
-                     uint32_t level, const rns_params_t* params);
+                     poly_t tmp2, rns_t tmp_r, uint32_t level,
+                     const rns_params_t* params);
 
 /*
   @param params: RNS params

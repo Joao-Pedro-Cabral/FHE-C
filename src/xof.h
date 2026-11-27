@@ -22,6 +22,20 @@ void xof_absorb(xof_state_t *state, const uint8_t input[SEED_BYTES]);
  *
  * Supports being called multiple times
  */
-void xof_squeeze(uint8_t *output, size_t outlen, xof_state_t *state);
+void xof_squeeze(uint8_t *output, size_t outlen, xof_state_t *state,
+                 uint64_t domain_separator);
+
+/* Squeeze output out of the sponge.
+ *
+ * Supports being called multiple times
+ */
+void xof_state_update(xof_state_t *state, uint64_t blocks);
+
+/* Squeeze output out of the sponge using OpenMP.
+ *
+ * Supports being called multiple times
+ */
+void xof_squeeze_omp(uint8_t *output, size_t outlen, xof_state_t *state,
+                     uint64_t domain_separator);
 
 #endif  // __XOF_H__

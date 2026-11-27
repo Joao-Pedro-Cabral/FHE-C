@@ -10,10 +10,26 @@
 #include "random.h"
 #include "utils.h"
 
+#ifndef N2
+#define N2 16
+#endif
+
+#ifndef L
+#define L 4
+#endif
+
+#ifndef N
+#define N 512
+#endif
+
+#ifndef SET_N
+#define SET_N 0
+#endif
+
 #ifdef __RUN_MODE__
-#define N_TESTS 100
+#define N_TESTS 1
 #elif __VTUNE_MODE__
-#define N_TESTS 100
+#define N_TESTS 1
 #else
 #define N_TESTS 1
 #endif
@@ -251,9 +267,9 @@ void check_encoded_polynomial(const poly_t m, const int64_t* q, uint32_t n) {
   }
 }
 
-void check_decoded_polynomial(const poly_t m, const poly_t m2, uint64_t scale,
-                              uint32_t n) {
-  printf("---------- VERIFY DECODED POLYNOMIAL ----------\n");
+void check_decrypted_polynomial(const poly_t m, const poly_t m2, uint64_t scale,
+                                uint32_t n) {
+  printf("---------- VERIFY DECRYPTED POLYNOMIAL ----------\n");
   uint8_t correct = 1;
   for (uint32_t i = 0; i < n; i++) {
     int64_t diff = m[i] - m2[i];
@@ -263,9 +279,9 @@ void check_decoded_polynomial(const poly_t m, const poly_t m2, uint64_t scale,
     }
   }
   if (correct) {
-    printf("---------- DECODED POLYNOMIAL CORRECT ----------\n");
+    printf("---------- DECRYPTED POLYNOMIAL CORRECT ----------\n");
   } else {
-    printf("---------- DECODED POLYNOMIAL WRONG ----------\n");
+    printf("---------- DECRYPTED POLYNOMIAL WRONG ----------\n");
   }
 }
 
@@ -543,7 +559,8 @@ void check_hybrid_multiplication(xof_state_t* xof_state,
   rns_new(&d3, params);
 
   for (uint32_t i = 0; i < params->l; i++) {
-    poly_uniform_sampler(&d[n * i], xof_state, params->q[i], params->R_q[i], n);
+    poly_uniform_sampler(&d[n * i], xof_state, 0, params->q[i], params->R_q[i],
+                         n);
     for (uint32_t j = 0; j < n; j++) {
       d[n * i + j] = 1;
     }
@@ -560,6 +577,10 @@ void check_hybrid_multiplication(xof_state_t* xof_state,
     }
   }
   rns_mod_raise(d, params->l, params);
+  for (uint32_t i = 0; i < params->l + params->k; i++) {
+    poly_ntt(&d[n * i], &params->w[n * i], params->q[i], params->R_q[i],
+             params->qinvmR[i], n);
+  }
   rns_mod_switch(d, d3, params->l, params->l, params->k, params->zRbq,
                  params->yRbq, params);
 
@@ -588,8 +609,8 @@ void check_hybrid_multiplication(xof_state_t* xof_state,
 
 int main() {
   // Parameters Construction
-  uint32_t l = 1;
-  uint32_t n2 = 16;
+  uint32_t l = L;
+  uint32_t n2 = N2;
   uint32_t q0_bits = 60;
   uint32_t scale_bits = 40;
 
@@ -607,7 +628,9 @@ int main() {
 #endif
   // 10x less tests because it takes too long
   for (uint32_t i = 0; i < (N_TESTS + 9) / 10; i++) {
-    ckks_keygen(&params, q0_bits, scale_bits, n2, l);
+    ckks_context_generation(&params, q0_bits, scale_bits, n2, l, N, SET_N, NULL,
+                            0, 1, 1, 1, 1);
+    ckks_secret_keygen(&params);
     ckks_relinearization_keygen(&params);
     ckks_conjugation_keygen(&params);
     ckks_public_keygen(&params);
@@ -625,9 +648,8 @@ int main() {
   check_roots(params.rns.w_1, params.rns.q, params.rns.l + params.rns.k,
               params.rns.n);
   check_keys(&params);
-#endif
-
   check_hybrid_multiplication(&params.xof_state, &params.rns);
+#endif
 
 #ifdef __RUN_MODE__
   end = time_ns();
@@ -642,7 +664,7 @@ int main() {
   vec_new(&v, n2);
   for (uint32_t i = 0; i < n2; i++) {
     v.rel[i] = (double)0.25 * i;
-    v.img[i] = 0;
+    v.img[i] = -(double)0.25 * i;
   }
   // printf("---------- ENCODE VECTOR ----------\n");
   // for (uint32_t i = 0; i < n / 2; i++) {
@@ -685,6 +707,7 @@ int main() {
 #ifdef __DEBUG_MODE__
   check_ciphertext(&ct, &params.rns);
 #endif
+
   // printf("---------- ENCRYPTED B ----------\n");
   // for (uint32_t i = 0; i < l; i++) {
   //   for (uint32_t j = 0; j < params.rns.n; j++) {
@@ -709,11 +732,11 @@ int main() {
     ckks_decrypt(m2, &ct, &params);
   }
 #ifdef __DEBUG_MODE__
-  check_decoded_polynomial(m, m2, params.rns.scales[ct.level - 1],
-                           params.rns.n);
+  check_decrypted_polynomial(m, m2, params.rns.scales[ct.level - 1],
+                             params.rns.n);
 #endif
   // printf("---------- DECRYPTED POLYNOMIAL ----------\n");
-  // for (uint32_t i = 0; i < n; i++) {
+  // for (uint32_t i = 0; i < params.rns.n; i++) {
   //   printf("m2[%d]: %ld\n", i, m2[i]);
   // }
 

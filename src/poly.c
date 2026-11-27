@@ -1,11 +1,12 @@
 
 #include "poly.h"
 
-#ifdef __aarch64__
+#ifdef __NEON_MODE__
 #include <arm_neon.h>
-#else
+#elif __AVX2_MODE__
 #include <immintrin.h>
 #endif
+#include <omp.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -20,12 +21,16 @@ void poly_free(poly_t* m) { free(*m); }
 void vector_to_poly(poly_t m, const vec_t* v, uint64_t scale, uint32_t n2,
                     uint32_t n) {
   // 1/n from IFFT
-  memset(m, 0, sizeof(int64_t) * n);
   double inv_n2 = (double)scale / (n2);
-  uint32_t log2_n2 = floor_log2(n2);
-  uint32_t ratio = n / (2 * n2);
-  for (uint32_t i = 0; i < n2; i++) {
-    uint32_t j = bit_reverse32(i, log2_n2) * ratio;
+  uint32_t log2_n_2 = floor_log2(n / 2);
+#pragma omp for
+  for (uint32_t i = 0; i < n / 2; i++) {
+    uint32_t j = bit_reverse32(i, log2_n_2);
+    if (i >= n2) {
+      m[j] = 0;
+      m[j + n / 2] = 0;
+      continue;
+    }
     int64_t mask = ((int64_t)v->rel[i]) >> 63;
     mask = mask & 0x1;
     double round = 0.5 - (double)mask;
@@ -42,6 +47,7 @@ void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n2,
   double scale2 = 1.0 / (double)scale;
   uint32_t log2_n2 = floor_log2(n2);
   uint32_t ratio = n / (2 * n2);
+#pragma omp for
   for (uint32_t i = 0; i < n2; i++) {
     uint32_t j = bit_reverse32(i, log2_n2);
     v->rel[j] = (double)m[i * ratio] * scale2;
@@ -49,7 +55,7 @@ void poly_to_vector(vec_t* v, const poly_t m, uint64_t scale, uint32_t n2,
   }
 }
 
-#ifndef __aarch64__
+#ifdef __AVX2_MODE__
 static const uint32_t perm_table[16][8] = {
     // mask     destination 32-bit lanes
     /* 0x0 */ {0, 1, 0, 1, 0, 1, 0, 1},
@@ -70,28 +76,30 @@ static const uint32_t perm_table[16][8] = {
     /* 0xF */ {0, 1, 2, 3, 4, 5, 6, 7}};
 #endif
 
-void poly_ternary_sampler(poly_t s, xof_state_t* xof_state, uint32_t n) {
+void poly_ternary_sampler(poly_t s, xof_state_t* xof_state,
+                          uint64_t domain_separator, uint8_t* buf, uint32_t n) {
   // Sample
   size_t blocks = (((4 * (n / 4) + 2) / 3) + XOF_RATE - 1) / XOF_RATE;
   size_t buflen = blocks * XOF_RATE;
-  uint8_t* buf = malloc(buflen);  // Initial guess
-  xof_squeeze(buf, buflen, xof_state);
+  xof_squeeze_omp(buf, buflen, xof_state, domain_separator);
   uint32_t i = 0, j = 0;
-#ifndef __aarch64__
+#ifdef __AVX2_MODE__
   __m256i v0123 = _mm256_set_epi64x(3, 2, 1, 0);
   __m256i v0246 = _mm256_set_epi64x(6, 4, 2, 0);
   __m256i v1 = _mm256_set1_epi64x(1);
   __m256i v3 = _mm256_set1_epi64x(3);
   __m256i vn = _mm256_set1_epi64x(n);
 #endif
+#pragma omp single
   while (i < n) {
     // We're probably almost at the end so just fetch one more block
     if (j == buflen) {
       buflen = XOF_RATE;
-      xof_squeeze(buf, buflen, xof_state);
+      blocks++;
+      xof_squeeze(buf, buflen, xof_state, domain_separator);
       j = 0;
     }
-#ifdef __aarch64__
+#ifndef __AVX2_MODE__
     uint8_t x = buf[j];
     for (int k = 0; k < 8 / 2 && i < n; k++) {
       uint8_t y = (x >> (2 * k)) & 0x3;
@@ -125,12 +133,12 @@ void poly_ternary_sampler(poly_t s, xof_state_t* xof_state, uint32_t n) {
 #endif
     j++;
   }
-  free(buf);
 }
 
 // AVX2 doesn't support int64_t multiplication
-void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
-                          int64_t R_q, uint32_t n) {
+void poly_uniform_sampler(poly_t a, xof_state_t* xof_state,
+                          uint64_t domain_separator, uint64_t q, int64_t R_q,
+                          uint32_t n) {
   // Sample
   uint64_t bound = UINT64_C(-1) / q;
   bound *= q;
@@ -141,13 +149,14 @@ void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
   size_t bufbytes = blocks * XOF_RATE;
   // The rate is multiple of 8 so it's fine
   uint64_t* buf = (uint64_t*)malloc(bufbytes);  // Initial guess
-  xof_squeeze((uint8_t*)buf, bufbytes, xof_state);
+  xof_squeeze((uint8_t*)buf, bufbytes, xof_state, domain_separator);
   uint32_t i = 0, j = 0;
   while (i < n) {
     // We're probably almost at the end so just fetch one more block
     if (j == bufbytes / sizeof(int64_t)) {
       bufbytes = XOF_RATE;
-      xof_squeeze((uint8_t*)buf, bufbytes, xof_state);
+      blocks++;
+      xof_squeeze((uint8_t*)buf, bufbytes, xof_state, domain_separator);
       j = 0;
     }
     uint64_t x = buf[j];
@@ -161,15 +170,18 @@ void poly_uniform_sampler(poly_t a, xof_state_t* xof_state, uint64_t q,
   free(buf);
 }
 
+#define ERROR(b, c) ((b) - (c))
+
 // AVX2 doesn't support popcnt
 // TODO: With error the things doesn't work well...
-void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state, const poly_t m,
-                            uint32_t n) {
-  uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
-  xof_squeeze(buf, 6 * n, xof_state);
+void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state,
+                            uint64_t domain_separator, uint8_t* buf,
+                            const poly_t m, uint32_t n) {
+  xof_squeeze_omp(buf, 6 * n, xof_state, domain_separator);
   uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
   uint8_t *c0_8 = buf + 3 * n, *c1_8 = buf + 4 * n, *c2_8 = buf + 5 * n;
-#ifdef __aarch64__
+#ifdef __NEON_MODE__
+#pragma omp for
   for (uint32_t i = 0; i < n; i += 16) {
     // Load data
     uint8x16_t vb0_8 = vld1q_u8(&b0_8[i]);
@@ -248,23 +260,24 @@ void poly_cbd24_sampler_add(poly_t e, xof_state_t* xof_state, const poly_t m,
     vst1q_s64(&e[i + 14], vr_64);
   }
 #else
+#pragma omp for
   for (uint32_t i = 0; i < n; i++) {
     int b = __builtin_popcount(b0_8[i]) + __builtin_popcount(b1_8[i]) +
             __builtin_popcount(b2_8[i]);
     int c = __builtin_popcount(c0_8[i]) + __builtin_popcount(c1_8[i]) +
             __builtin_popcount(c2_8[i]);
-    e[i] = m[i];
+    e[i] = m[i] + ERROR(b, c);
   }
 #endif
-  free(buf);
 }
 
-void poly_cbd24_sampler(poly_t e, xof_state_t* xof_state, uint32_t n) {
+void poly_cbd24_sampler(poly_t e, xof_state_t* xof_state,
+                        uint64_t domain_separator, uint32_t n) {
   uint8_t* buf = malloc(6 * n * sizeof(uint8_t));
-  xof_squeeze(buf, 6 * n, xof_state);
+  xof_squeeze(buf, 6 * n, xof_state, domain_separator);
   uint8_t *b0_8 = buf + 0 * n, *b1_8 = buf + 1 * n, *b2_8 = buf + 2 * n;
   uint8_t *c0_8 = buf + 3 * n, *c1_8 = buf + 4 * n, *c2_8 = buf + 5 * n;
-#ifdef __aarch64__
+#ifdef __NEON_MODE__
   for (uint32_t i = 0; i < n; i += 16) {
     // Load data
     uint8x16_t vb0_8 = vld1q_u8(&b0_8[i]);
@@ -331,7 +344,7 @@ void poly_cbd24_sampler(poly_t e, xof_state_t* xof_state, uint32_t n) {
             __builtin_popcount(b2_8[i]);
     int c = __builtin_popcount(c0_8[i]) + __builtin_popcount(c1_8[i]) +
             __builtin_popcount(c2_8[i]);
-    e[i] = 0;
+    e[i] = ERROR(b, c);
   }
 #endif
   free(buf);
@@ -383,6 +396,25 @@ void poly_pointwise_mul(poly_t c, const poly_t a, const poly_t b, uint64_t q,
   }
 }
 
+void poly_pointwise_macc_exact(poly_t d, const poly_t a, const poly_t b,
+                               const poly_t c, uint64_t q, int64_t qinvmR,
+                               int64_t R_q, uint32_t n) {
+#pragma omp for
+  for (uint32_t i = 0; i < n; i++) {
+    d[i] = mod_ct_exact(mod_mul_ct(a[i], b[i], (int64_t)q, qinvmR) + c[i],
+                        (int64_t)q, R_q);
+  }
+}
+
+void poly_pointwise_mrsub_exact(poly_t d, const poly_t a, const poly_t b,
+                                const poly_t c, uint64_t q, int64_t qinvmR,
+                                int64_t R_q, uint32_t n) {
+  for (uint32_t i = 0; i < n; i++) {
+    d[i] = mod_ct_exact(-mod_mul_ct(a[i], b[i], (int64_t)q, qinvmR) + c[i],
+                        (int64_t)q, R_q);
+  }
+}
+
 void poly_mulx(poly_t a, int64_t x, uint64_t q, int64_t qinvmR, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) {
     a[i] = mod_mul_ct(a[i], x, (int64_t)q, qinvmR);
@@ -398,6 +430,7 @@ void poly_mulx2(poly_t a, const poly_t b, int64_t x, uint64_t q, int64_t qinvmR,
 
 void poly_mulx_exact(poly_t a, int64_t x, uint64_t q, int64_t qinvmR,
                      uint32_t n) {
+#pragma omp for
   for (uint32_t i = 0; i < n; i++) {
     a[i] = mod_mul_ct_exact(a[i], x, (int64_t)q, qinvmR);
   }
@@ -416,23 +449,54 @@ void poly_permute(poly_t a, const poly_t b, uint32_t h, uint32_t n) {
   uint32_t log2_n = floor_log2(n);
   int32_t sign;
   for (uint32_t i = 0; i < n; i++) {
+    j = (i * h) & (n2 - 1);  // mod 2n
     sign = 1 - 2 * (int32_t)(j >> log2_n);
     a[j & (n - 1)] = sign * b[i];
-    j = (j + h) & (n2 - 1);  // mod 2n
   }
 }
 
-#define CT_BUTTERFLY(aj, ak, zeta, t)                 \
-  do {                                                \
+void poly_pointwise_mul_omp(poly_t c, const poly_t a, const poly_t b,
+                            uint64_t q, int64_t qinvmR, uint32_t n) {
+#pragma omp for
+  for (uint32_t i = 0; i < n; i++) {
+    c[i] = mod_mul_ct(a[i], b[i], (int64_t)q, qinvmR);
+  }
+}
+
+void poly_mulx_omp(poly_t a, int64_t x, uint64_t q, int64_t qinvmR,
+                   uint32_t n) {
+#pragma omp for
+  for (uint32_t i = 0; i < n; i++) {
+    a[i] = mod_mul_ct(a[i], x, (int64_t)q, qinvmR);
+  }
+}
+
+void poly_permute_omp(poly_t a, const poly_t b, uint32_t h, uint32_t n) {
+  // Apply the automorphism X^i -> (X^(rot))^i
+  uint32_t j = 0;
+  uint32_t n2 = 2 * n;
+  uint32_t log2_n = floor_log2(n);
+  int32_t sign;
+#pragma omp for
+  for (uint32_t i = 0; i < n; i++) {
+    j = (i * h) & (n2 - 1);  // mod 2n
+    sign = 1 - 2 * (int32_t)(j >> log2_n);
+    a[j & (n - 1)] = sign * b[i];
+  }
+}
+
+#define CT_BUTTERFLY(aj, ak, zeta, t)                   \
+  do {                                                  \
     (t) = mod_mul_ct((zeta), (ak), (int64_t)q, qinvmR); \
-    (ak) = mod_ct((aj) - (t), (int64_t)q, R_q);       \
-    (aj) = mod_ct((aj) + (t), (int64_t)q, R_q);       \
+    (ak) = mod_ct((aj) - (t), (int64_t)q, R_q);         \
+    (aj) = mod_ct((aj) + (t), (int64_t)q, R_q);         \
   } while (0)
 
 void poly_ntt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
               int64_t qinvmR, uint32_t n) {
   int64_t zeta, t;
 
+#if defined(__NEON_MODE__) || defined(__AVX2_MODE__)
   uint32_t log2_n = floor_log2(n / 16);
   uint32_t n3_rem = log2_n % 3;
   if (n3_rem == 1) {  // Just First layer
@@ -650,236 +714,303 @@ void poly_ntt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
     a[j + 14] = aj14;
     a[j + 15] = aj15;
   }
+#else
+  for (uint32_t len = n / 2; len > 0; len >>= 1) {
+    uint32_t k = n / (2 * len);
+    for (uint32_t start = 0; start < n; start += 2 * len) {
+      zeta = roots[k];
+      k++;
+      for (uint32_t j = start; j < start + len; ++j) {
+        t = mod_mul_ct(zeta, a[j + len], (int64_t)q, qinvmR);
+        a[j + len] = mod_ct(a[j] - t, (int64_t)q, R_q);
+        a[j] = mod_ct(a[j] + t, (int64_t)q, R_q);
+      }
+    }
+  }
+#endif
 }
 
-#define GS_BUTTERFLY(aj, ak, zeta, t)                 \
-  do {                                                \
-    (t) = (aj) - (ak);                                \
-    (aj) = mod_ct((aj) + (ak), (int64_t)q, R_q);      \
+#define GS_BUTTERFLY(aj, ak, zeta, t)                   \
+  do {                                                  \
+    (t) = (aj) - (ak);                                  \
+    (aj) = mod_ct((aj) + (ak), (int64_t)q, R_q);        \
     (ak) = mod_mul_ct((zeta), (t), (int64_t)q, qinvmR); \
   } while (0)
 
 void poly_intt(poly_t a, const poly_t roots, uint64_t q, int64_t R_q,
                int64_t qinvmR, uint32_t n) {
   int64_t t, zeta;
-  // Merge first 4 layers using 16+ registers
-  uint32_t k1 = n / 2;
-  uint32_t k2 = n / 4;
-  uint32_t k3 = n / 8;
-  uint32_t k4 = n / 16;
-  for (uint32_t j = 0; j < n; j += 16) {
-    // Load
-    int64_t aj0 = a[j + 0];
-    int64_t aj1 = a[j + 1];
-    int64_t aj2 = a[j + 2];
-    int64_t aj3 = a[j + 3];
-    int64_t aj4 = a[j + 4];
-    int64_t aj5 = a[j + 5];
-    int64_t aj6 = a[j + 6];
-    int64_t aj7 = a[j + 7];
-    int64_t aj8 = a[j + 8];
-    int64_t aj9 = a[j + 9];
-    int64_t aj10 = a[j + 10];
-    int64_t aj11 = a[j + 11];
-    int64_t aj12 = a[j + 12];
-    int64_t aj13 = a[j + 13];
-    int64_t aj14 = a[j + 14];
-    int64_t aj15 = a[j + 15];
-    // First layer (len = 1), one root per eigth
-    // First Eigth
-    zeta = roots[k1];
-    k1 += 1;
-    GS_BUTTERFLY(aj0, aj1, zeta, t);
-    // Second Eigth
-    zeta = roots[k1];
-    k1 += 1;
-    GS_BUTTERFLY(aj2, aj3, zeta, t);
-    // Third Eigth
-    zeta = roots[k1];
-    k1 += 1;
-    GS_BUTTERFLY(aj4, aj5, zeta, t);
-    // Forth Eigth
-    zeta = roots[k1];
-    k1 += 1;
-    GS_BUTTERFLY(aj6, aj7, zeta, t);
-    // Fifth Eigth
-    zeta = roots[k1];
-    k1 += 1;
-    GS_BUTTERFLY(aj8, aj9, zeta, t);
-    // Sixth Eigth
-    zeta = roots[k1];
-    k1 += 1;
-    GS_BUTTERFLY(aj10, aj11, zeta, t);
-    // Seventh Eigth
-    zeta = roots[k1];
-    k1 += 1;
-    GS_BUTTERFLY(aj12, aj13, zeta, t);
-    // Eigth Eigth
-    zeta = roots[k1];
-    k1 += 1;
-    GS_BUTTERFLY(aj14, aj15, zeta, t);
-    // Second layer (len = 2), one root per quarter
-    // First Quarter
-    zeta = roots[k2];
-    k2 += 1;
-    GS_BUTTERFLY(aj0, aj2, zeta, t);
-    GS_BUTTERFLY(aj1, aj3, zeta, t);
-    // Second Quarter
-    zeta = roots[k2];
-    k2 += 1;
-    GS_BUTTERFLY(aj4, aj6, zeta, t);
-    GS_BUTTERFLY(aj5, aj7, zeta, t);
-    // Third Quarter
-    zeta = roots[k2];
-    k2 += 1;
-    GS_BUTTERFLY(aj8, aj10, zeta, t);
-    GS_BUTTERFLY(aj9, aj11, zeta, t);
-    // Forth Quarter
-    zeta = roots[k2];
-    k2 += 1;
-    GS_BUTTERFLY(aj12, aj14, zeta, t);
-    GS_BUTTERFLY(aj13, aj15, zeta, t);
-    // Third layer (len = 4), one root per half
-    // First Half
-    zeta = roots[k3];
-    k3 += 1;
-    GS_BUTTERFLY(aj0, aj4, zeta, t);
-    GS_BUTTERFLY(aj1, aj5, zeta, t);
-    GS_BUTTERFLY(aj2, aj6, zeta, t);
-    GS_BUTTERFLY(aj3, aj7, zeta, t);
-    // Second Half
-    zeta = roots[k3];
-    k3 += 1;
-    GS_BUTTERFLY(aj8, aj12, zeta, t);
-    GS_BUTTERFLY(aj9, aj13, zeta, t);
-    GS_BUTTERFLY(aj10, aj14, zeta, t);
-    GS_BUTTERFLY(aj11, aj15, zeta, t);
-    // Forth layer (len = 8), one root
-    zeta = roots[k4];
-    k4 += 1;
-    GS_BUTTERFLY(aj0, aj8, zeta, t);
-    GS_BUTTERFLY(aj1, aj9, zeta, t);
-    GS_BUTTERFLY(aj2, aj10, zeta, t);
-    GS_BUTTERFLY(aj3, aj11, zeta, t);
-    GS_BUTTERFLY(aj4, aj12, zeta, t);
-    GS_BUTTERFLY(aj5, aj13, zeta, t);
-    GS_BUTTERFLY(aj6, aj14, zeta, t);
-    GS_BUTTERFLY(aj7, aj15, zeta, t);
-    // Store
-    a[j + 0] = aj0;
-    a[j + 1] = aj1;
-    a[j + 2] = aj2;
-    a[j + 3] = aj3;
-    a[j + 4] = aj4;
-    a[j + 5] = aj5;
-    a[j + 6] = aj6;
-    a[j + 7] = aj7;
-    a[j + 8] = aj8;
-    a[j + 9] = aj9;
-    a[j + 10] = aj10;
-    a[j + 11] = aj11;
-    a[j + 12] = aj12;
-    a[j + 13] = aj13;
-    a[j + 14] = aj14;
-    a[j + 15] = aj15;
-  }
-
+#if defined(__NEON_MODE__) || defined(__AVX2_MODE__)
+  // Based on the number of threads and the format of n,
+  // we decide the almost-optimal block-division
+  uint32_t n_threads = (uint32_t)omp_get_num_threads();
+  uint32_t tid = (uint32_t)omp_get_thread_num();
+  uint32_t chunk_size = n / n_threads;
   uint32_t log2_n = floor_log2(n / 16);
   uint32_t n3_rem = log2_n % 3;
   uint32_t n3 = 1 << (log2_n + 4 - n3_rem);
-  // Merge 3 layers using 16+ registers
-  for (uint32_t len = 16; len < n3; len <<= 3) {
-    k1 = n / (2 * len);
-    k2 = k1 >> 1;
-    k3 = k1 >> 2;
-    for (uint32_t start = 0; start < n; start += 8 * len) {
-      // Roots
-      int64_t w10 = roots[k1];
-      int64_t w11 = roots[k1 + 1];
-      int64_t w12 = roots[k1 + 2];
-      int64_t w13 = roots[k1 + 3];
-      k1 += 4;
-      int64_t w20 = roots[k2];
-      int64_t w21 = roots[k2 + 1];
-      k2 += 2;
-      int64_t w3 = roots[k3];
+  bool sync_before_rem = chunk_size >= n3 && chunk_size < n;
+  bool sync_last_3x = chunk_size < n3 && chunk_size < n;
+  if (sync_before_rem)
+    chunk_size = n3;
+  else if (sync_last_3x)
+    chunk_size = n3 >> 3;
+
+  // Merge first 4 layers using 16+ registers
+  for (uint32_t jj = tid * chunk_size; jj < n; jj += n_threads * chunk_size) {
+    for (uint32_t j = jj; j < jj + chunk_size; j += 16) {
+      uint32_t k1 = (n + j) / 2;
+      uint32_t k2 = (n + j) / 4;
+      uint32_t k3 = (n + j) / 8;
+      uint32_t k4 = (n + j) / 16;
+      // Load
+      int64_t aj0 = a[j + 0];
+      int64_t aj1 = a[j + 1];
+      int64_t aj2 = a[j + 2];
+      int64_t aj3 = a[j + 3];
+      int64_t aj4 = a[j + 4];
+      int64_t aj5 = a[j + 5];
+      int64_t aj6 = a[j + 6];
+      int64_t aj7 = a[j + 7];
+      int64_t aj8 = a[j + 8];
+      int64_t aj9 = a[j + 9];
+      int64_t aj10 = a[j + 10];
+      int64_t aj11 = a[j + 11];
+      int64_t aj12 = a[j + 12];
+      int64_t aj13 = a[j + 13];
+      int64_t aj14 = a[j + 14];
+      int64_t aj15 = a[j + 15];
+      // First layer (len = 1), one root per eigth
+      // First Eigth
+      zeta = roots[k1];
+      k1 += 1;
+      GS_BUTTERFLY(aj0, aj1, zeta, t);
+      // Second Eigth
+      zeta = roots[k1];
+      k1 += 1;
+      GS_BUTTERFLY(aj2, aj3, zeta, t);
+      // Third Eigth
+      zeta = roots[k1];
+      k1 += 1;
+      GS_BUTTERFLY(aj4, aj5, zeta, t);
+      // Forth Eigth
+      zeta = roots[k1];
+      k1 += 1;
+      GS_BUTTERFLY(aj6, aj7, zeta, t);
+      // Fifth Eigth
+      zeta = roots[k1];
+      k1 += 1;
+      GS_BUTTERFLY(aj8, aj9, zeta, t);
+      // Sixth Eigth
+      zeta = roots[k1];
+      k1 += 1;
+      GS_BUTTERFLY(aj10, aj11, zeta, t);
+      // Seventh Eigth
+      zeta = roots[k1];
+      k1 += 1;
+      GS_BUTTERFLY(aj12, aj13, zeta, t);
+      // Eigth Eigth
+      zeta = roots[k1];
+      k1 += 1;
+      GS_BUTTERFLY(aj14, aj15, zeta, t);
+      // Second layer (len = 2), one root per quarter
+      // First Quarter
+      zeta = roots[k2];
+      k2 += 1;
+      GS_BUTTERFLY(aj0, aj2, zeta, t);
+      GS_BUTTERFLY(aj1, aj3, zeta, t);
+      // Second Quarter
+      zeta = roots[k2];
+      k2 += 1;
+      GS_BUTTERFLY(aj4, aj6, zeta, t);
+      GS_BUTTERFLY(aj5, aj7, zeta, t);
+      // Third Quarter
+      zeta = roots[k2];
+      k2 += 1;
+      GS_BUTTERFLY(aj8, aj10, zeta, t);
+      GS_BUTTERFLY(aj9, aj11, zeta, t);
+      // Forth Quarter
+      zeta = roots[k2];
+      k2 += 1;
+      GS_BUTTERFLY(aj12, aj14, zeta, t);
+      GS_BUTTERFLY(aj13, aj15, zeta, t);
+      // Third layer (len = 4), one root per half
+      // First Half
+      zeta = roots[k3];
       k3 += 1;
-      for (uint32_t j = start; j < start + len; j++) {
-        // Load
-        int64_t aj0 = a[j + 0 * len];
-        int64_t aj1 = a[j + 1 * len];
-        int64_t aj2 = a[j + 2 * len];
-        int64_t aj3 = a[j + 3 * len];
-        int64_t aj4 = a[j + 4 * len];
-        int64_t aj5 = a[j + 5 * len];
-        int64_t aj6 = a[j + 6 * len];
-        int64_t aj7 = a[j + 7 * len];
-        // First layer (len), one root per quarter
-        GS_BUTTERFLY(aj0, aj1, w10, t);
-        GS_BUTTERFLY(aj2, aj3, w11, t);
-        GS_BUTTERFLY(aj4, aj5, w12, t);
-        GS_BUTTERFLY(aj6, aj7, w13, t);
-        // Second layer (2*len), one root per half
-        GS_BUTTERFLY(aj0, aj2, w20, t);
-        GS_BUTTERFLY(aj1, aj3, w20, t);
-        GS_BUTTERFLY(aj4, aj6, w21, t);
-        GS_BUTTERFLY(aj5, aj7, w21, t);
-        // Third layer (4*len), one root
-        GS_BUTTERFLY(aj0, aj4, w3, t);
-        GS_BUTTERFLY(aj1, aj5, w3, t);
-        GS_BUTTERFLY(aj2, aj6, w3, t);
-        GS_BUTTERFLY(aj3, aj7, w3, t);
-        // Store
-        a[j + 0 * len] = aj0;
-        a[j + 1 * len] = aj1;
-        a[j + 2 * len] = aj2;
-        a[j + 3 * len] = aj3;
-        a[j + 4 * len] = aj4;
-        a[j + 5 * len] = aj5;
-        a[j + 6 * len] = aj6;
-        a[j + 7 * len] = aj7;
+      GS_BUTTERFLY(aj0, aj4, zeta, t);
+      GS_BUTTERFLY(aj1, aj5, zeta, t);
+      GS_BUTTERFLY(aj2, aj6, zeta, t);
+      GS_BUTTERFLY(aj3, aj7, zeta, t);
+      // Second Half
+      zeta = roots[k3];
+      k3 += 1;
+      GS_BUTTERFLY(aj8, aj12, zeta, t);
+      GS_BUTTERFLY(aj9, aj13, zeta, t);
+      GS_BUTTERFLY(aj10, aj14, zeta, t);
+      GS_BUTTERFLY(aj11, aj15, zeta, t);
+      // Forth layer (len = 8), one root
+      zeta = roots[k4];
+      k4 += 1;
+      GS_BUTTERFLY(aj0, aj8, zeta, t);
+      GS_BUTTERFLY(aj1, aj9, zeta, t);
+      GS_BUTTERFLY(aj2, aj10, zeta, t);
+      GS_BUTTERFLY(aj3, aj11, zeta, t);
+      GS_BUTTERFLY(aj4, aj12, zeta, t);
+      GS_BUTTERFLY(aj5, aj13, zeta, t);
+      GS_BUTTERFLY(aj6, aj14, zeta, t);
+      GS_BUTTERFLY(aj7, aj15, zeta, t);
+      // Store
+      a[j + 0] = aj0;
+      a[j + 1] = aj1;
+      a[j + 2] = aj2;
+      a[j + 3] = aj3;
+      a[j + 4] = aj4;
+      a[j + 5] = aj5;
+      a[j + 6] = aj6;
+      a[j + 7] = aj7;
+      a[j + 8] = aj8;
+      a[j + 9] = aj9;
+      a[j + 10] = aj10;
+      a[j + 11] = aj11;
+      a[j + 12] = aj12;
+      a[j + 13] = aj13;
+      a[j + 14] = aj14;
+      a[j + 15] = aj15;
+    }
+  }
+
+  // Merge 3 layers using 16+ registers
+  uint32_t jj_inc = n_threads * chunk_size;
+  for (uint32_t len = 16; len < n3; len <<= 3) {
+    uint32_t start_inc = 8 * len;
+    if (sync_last_3x && len == (n3 >> 3)) {
+      jj_inc = n3;
+      chunk_size = chunk_size / n_threads;  // chunk_size = n3 >> 3
+      start_inc = 8 * chunk_size;
+#pragma omp barrier
+    }
+    for (uint32_t jj = tid * chunk_size; jj < n; jj += jj_inc) {
+      for (uint32_t start = jj; start < jj + chunk_size; start += start_inc) {
+        uint32_t k1 = (n + start) / (2 * len);
+        uint32_t k2 = k1 >> 1;
+        uint32_t k3 = k1 >> 2;
+        // Roots
+        int64_t w10 = roots[k1];
+        int64_t w11 = roots[k1 + 1];
+        int64_t w12 = roots[k1 + 2];
+        int64_t w13 = roots[k1 + 3];
+        int64_t w20 = roots[k2];
+        int64_t w21 = roots[k2 + 1];
+        int64_t w3 = roots[k3];
+        for (uint32_t j = start; j < start + (start_inc / 8); j++) {
+          // Load
+          int64_t aj0 = a[j + 0 * len];
+          int64_t aj1 = a[j + 1 * len];
+          int64_t aj2 = a[j + 2 * len];
+          int64_t aj3 = a[j + 3 * len];
+          int64_t aj4 = a[j + 4 * len];
+          int64_t aj5 = a[j + 5 * len];
+          int64_t aj6 = a[j + 6 * len];
+          int64_t aj7 = a[j + 7 * len];
+          // First layer (len), one root per quarter
+          GS_BUTTERFLY(aj0, aj1, w10, t);
+          GS_BUTTERFLY(aj2, aj3, w11, t);
+          GS_BUTTERFLY(aj4, aj5, w12, t);
+          GS_BUTTERFLY(aj6, aj7, w13, t);
+          // Second layer (2*len), one root per half
+          GS_BUTTERFLY(aj0, aj2, w20, t);
+          GS_BUTTERFLY(aj1, aj3, w20, t);
+          GS_BUTTERFLY(aj4, aj6, w21, t);
+          GS_BUTTERFLY(aj5, aj7, w21, t);
+          // Third layer (4*len), one root
+          GS_BUTTERFLY(aj0, aj4, w3, t);
+          GS_BUTTERFLY(aj1, aj5, w3, t);
+          GS_BUTTERFLY(aj2, aj6, w3, t);
+          GS_BUTTERFLY(aj3, aj7, w3, t);
+          // Store
+          a[j + 0 * len] = aj0;
+          a[j + 1 * len] = aj1;
+          a[j + 2 * len] = aj2;
+          a[j + 3 * len] = aj3;
+          a[j + 4 * len] = aj4;
+          a[j + 5 * len] = aj5;
+          a[j + 6 * len] = aj6;
+          a[j + 7 * len] = aj7;
+        }
       }
     }
   }
 
+  if (n3_rem == 0 || sync_before_rem) {
+#pragma omp barrier
+  }
+
   if (n3_rem == 1) {  // Just last layer
     // Roots
+    if (chunk_size >= n / 2) chunk_size = (n / 2) / n_threads;
     int64_t w = roots[1];
-    for (uint32_t j = 0; j < n / 2; j++) {
-      // Load
-      int64_t aj0 = a[j + 0 * (n / 2)];
-      int64_t aj1 = a[j + 1 * (n / 2)];
-      // First Layer
-      GS_BUTTERFLY(aj0, aj1, w, t);
-      // Store
-      a[j + 0 * (n / 2)] = aj0;
-      a[j + 1 * (n / 2)] = aj1;
+    for (uint32_t jj = tid * chunk_size; jj < n / 2;
+         jj += n_threads * chunk_size) {
+      for (uint32_t j = jj; j < jj + chunk_size; j++) {
+        // Load
+        int64_t aj0 = a[j + 0 * (n / 2)];
+        int64_t aj1 = a[j + 1 * (n / 2)];
+        // First Layer
+        GS_BUTTERFLY(aj0, aj1, w, t);
+        // Store
+        a[j + 0 * (n / 2)] = aj0;
+        a[j + 1 * (n / 2)] = aj1;
+      }
     }
+#pragma omp barrier
   } else if (n3_rem == 2) {  // Two last layers
     // Roots
     int64_t w10 = roots[2];
     int64_t w11 = roots[3];
     int64_t w2 = roots[1];
-    for (uint32_t j = 0; j < n / 4; j++) {
-      // Load
-      int64_t aj0 = a[j + 0 * (n / 4)];
-      int64_t aj1 = a[j + 1 * (n / 4)];
-      int64_t aj2 = a[j + 2 * (n / 4)];
-      int64_t aj3 = a[j + 3 * (n / 4)];
-      // First layer (n/4)
-      GS_BUTTERFLY(aj0, aj1, w10, t);
-      GS_BUTTERFLY(aj2, aj3, w11, t);
-      // Second layer (n/2)
-      GS_BUTTERFLY(aj0, aj2, w2, t);
-      GS_BUTTERFLY(aj1, aj3, w2, t);
-      // Store
-      a[j + 0 * (n / 4)] = aj0;
-      a[j + 1 * (n / 4)] = aj1;
-      a[j + 2 * (n / 4)] = aj2;
-      a[j + 3 * (n / 4)] = aj3;
+    // Roots
+    if (chunk_size >= n / 4) chunk_size = (n / 4) / n_threads;
+    for (uint32_t jj = tid * chunk_size; jj < n / 4;
+         jj += n_threads * chunk_size) {
+      for (uint32_t j = jj; j < jj + chunk_size; j++) {
+        // Load
+        int64_t aj0 = a[j + 0 * (n / 4)];
+        int64_t aj1 = a[j + 1 * (n / 4)];
+        int64_t aj2 = a[j + 2 * (n / 4)];
+        int64_t aj3 = a[j + 3 * (n / 4)];
+        // First layer (n/4)
+        GS_BUTTERFLY(aj0, aj1, w10, t);
+        GS_BUTTERFLY(aj2, aj3, w11, t);
+        // Second layer (n/2)
+        GS_BUTTERFLY(aj0, aj2, w2, t);
+        GS_BUTTERFLY(aj1, aj3, w2, t);
+        // Store
+        a[j + 0 * (n / 4)] = aj0;
+        a[j + 1 * (n / 4)] = aj1;
+        a[j + 2 * (n / 4)] = aj2;
+        a[j + 3 * (n / 4)] = aj3;
+      }
     }
+#pragma omp barrier
   }
 
+#else
+  for (uint32_t len = 1; len < n; len <<= 1) {
+    uint32_t k = n / (2 * len);
+#pragma omp for
+    for (uint32_t start = 0; start < n; start += 2 * len) {
+      zeta = roots[k];
+      k++;
+      for (uint32_t j = start; j < start + len; ++j) {
+        t = a[j];
+        a[j] = mod_ct(t + a[j + len], (int64_t)q, R_q);
+        a[j + len] = t - a[j + len];  // lazy reduction with the multiplication
+        a[j + len] = mod_mul_ct(zeta, a[j + len], (int64_t)q, qinvmR);
+      }
+    }
+  }
+#endif
   // R^2/n multiplication performed in poly_add/poly_rsub
 }
 

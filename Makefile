@@ -19,8 +19,8 @@ ifeq ($(ARCH),x86)
 CC := gcc
 
 ARCH_CFLAGS := \
-          -O3 \
-          -mavx2 -mfma -march=native
+					-O3 -fopenmp \
+					-mavx2 -mfma -march=native
 
 BUILD_DIR := build
 
@@ -29,8 +29,8 @@ else ifeq ($(ARCH),arm)
 CC := $(ARM_CC)
 
 ARCH_CFLAGS := \
-          -O3 \
-          -march=armv8.2-a+simd+crypto
+					-O3 -fopenmp \
+					-march=armv8.2-a+simd+crypto
 
 BUILD_DIR := build-arm
 
@@ -40,19 +40,57 @@ $(error Unsupported ARCH='$(ARCH)'. Use ARCH=x86 or ARCH=arm)
 
 endif
 
+# ----------------------------------------------------------------------
+# Optimization mode
+# ----------------------------------------------------------------------
+
+OPT ?= 0
+
+ifeq ($(OPT),1)
+
+		ifeq ($(ARCH),x86)
+				OPT_CFLAGS := -D__AVX2_MODE__
+
+		else ifeq ($(ARCH),arm)
+				OPT_CFLAGS := -D__NEON_MODE__
+
+		endif
+
+else
+
+		OPT_CFLAGS :=
+
+endif
+
+# ----------------------------------------------------------------------
+# Configuration parameters
+# ----------------------------------------------------------------------
+
+N2			?= 16
+L			 ?= 4
+SET_N	 ?= 0
+N			 ?= 512
+N_TESTS ?= 1000
+
+PARAM_CFLAGS := \
+					-DN2=$(N2) \
+					-DL=$(L) \
+					-DN=$(N) \
+					-DSET_N=$(SET_N) \
+					-DN_TESTS=$(N_TESTS)
 
 # ----------------------------------------------------------------------
 # Common compiler flags
 # ----------------------------------------------------------------------
 
 COMMON_CFLAGS := \
-          -Wall -Wextra \
-          -Wshadow -Wconversion \
-          -Wundef -Wdouble-promotion \
-          -Wformat=2 \
-          -Isrc
+					-Wall -Wextra \
+					-Wshadow -Wconversion \
+					-Wdouble-promotion \
+					-Wformat=2 \
+					-Isrc
 
-CFLAGS := $(COMMON_CFLAGS) $(ARCH_CFLAGS)
+CFLAGS := $(COMMON_CFLAGS) $(ARCH_CFLAGS) $(OPT_CFLAGS) $(PARAM_CFLAGS)
 
 LDLIBS := -lm
 
@@ -82,7 +120,7 @@ TEST ?= ckks_test
 TARGET := $(BUILD_DIR)/$(TEST)
 
 SRC_OBJ := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SRC_C)) \
-           $(patsubst %.S,$(BUILD_DIR)/%.o,$(SRC_S))
+					 $(patsubst %.S,$(BUILD_DIR)/%.o,$(SRC_S))
 
 TEST_OBJ := $(BUILD_DIR)/$(TEST).o
 
@@ -91,7 +129,8 @@ TEST_OBJ := $(BUILD_DIR)/$(TEST).o
 # Phony targets
 # ----------------------------------------------------------------------
 
-.PHONY: all build run debug valgrind vtune cloud_scp cloud_ssh clean FORCE
+.PHONY: all build run debug valgrind vtune cloud_scp cloud_ssh clean FORCE \
+				openfhe openfhe_build openfhe_run openfhe_clean
 
 all: run
 
@@ -121,6 +160,13 @@ $(BUILD_DIR)/%.o: $(TEST_DIR)/%.c FORCE
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# ----------------------------------------------------------------------
+# OpenMP runtime configuration
+# ----------------------------------------------------------------------
+
+OMP_NUM_THREADS ?= 4
+
+export OMP_NUM_THREADS
 
 # ----------------------------------------------------------------------
 # Run
@@ -187,19 +233,98 @@ gem5: $(TARGET)
 # ----------------------------------------------------------------------
 
 cloud_ssh:
-	gcloud compute ssh axion-arm --zone=us-central1-c
+	gcloud compute ssh axion-arm-3 --zone=northamerica-northeast2-b --ssh-key-file=~/.ssh/gcloud_key
 
 cloud_scp:
-	gcloud compute scp --recurse Makefile  axion-arm:~/FHE-C/ --zone=us-central1-c
-	gcloud compute scp --recurse test  axion-arm:~/FHE-C/ --zone=us-central1-c
-	gcloud compute scp --recurse src  axion-arm:~/FHE-C/ --zone=us-central1-c
+	gcloud compute scp --recurse Makefile	axion-arm-3:~/FHE-C/ --zone=northamerica-northeast2-b --ssh-key-file=~/.ssh/gcloud_key
+	gcloud compute scp --recurse test	axion-arm-3:~/FHE-C/ --zone=northamerica-northeast2-b --ssh-key-file=~/.ssh/gcloud_key
+	gcloud compute scp --recurse src	axion-arm-3:~/FHE-C/ --zone=northamerica-northeast2-b --ssh-key-file=~/.ssh/gcloud_key
+
+
+# ----------------------------------------------------------------------
+# OpenFHE Toolchain
+# ----------------------------------------------------------------------
+
+CXX := g++
+
+ARM_CXX ?= aarch64-linux-gnu-g++
+
+OPENFHE_TEST := openfhe_perf
+
+OPENFHE_SRC := test/$(OPENFHE_TEST).cpp
+
+OPENFHE_BUILD_DIR := build-openfhe
+
+ifeq ($(ARCH),x86)
+		OPENFHE_CXX := g++
+else ifeq ($(ARCH),arm)
+		OPENFHE_CXX := $(ARM_CXX)
+endif
+
+OPENFHE_CXXFLAGS := \
+		-O3 \
+		-std=c++17 \
+		-DCKKS_N2=$(N2) \
+		-DCKKS_L=$(L) \
+		-DCKKS_N=$(N) \
+		-DCKKS_N_TESTS=$(N_TESTS)
+
+# ----------------------------------------------------------------------
+# OpenFHE Libraries
+# ----------------------------------------------------------------------
+
+OPENFHE_PREFIX ?= /usr/local
+
+OPENFHE_INCLUDE := $(OPENFHE_PREFIX)/include/openfhe
+
+OPENFHE_LIBDIR := $(OPENFHE_PREFIX)/lib
+
+OPENFHE_LDLIBS := \
+		-lOPENFHEpke \
+		-lOPENFHEcore \
+		-lOPENFHEbinfhe \
+		-Wl,-rpath,$(OPENFHE_LIBDIR)
+
+OPENFHE_CXXFLAGS += \
+		-I$(OPENFHE_INCLUDE) \
+		-I$(OPENFHE_INCLUDE)/core \
+		-I$(OPENFHE_INCLUDE)/pke \
+		-I$(OPENFHE_INCLUDE)/binfhe
+
+OPENFHE_LDFLAGS := \
+		-L$(OPENFHE_LIBDIR)
+
+# ----------------------------------------------------------------------
+# OpenFHE CKKS Benchmark
+# ----------------------------------------------------------------------
+
+OPENFHE_TARGET := $(OPENFHE_BUILD_DIR)/$(OPENFHE_TEST)
+
+openfhe: openfhe_run
+
+openfhe_build: $(OPENFHE_TARGET)
+
+$(OPENFHE_TARGET): $(OPENFHE_SRC) FORCE
+	@mkdir -p $(OPENFHE_BUILD_DIR)
+	$(OPENFHE_CXX) \
+			$(OPENFHE_CXXFLAGS) \
+			$< \
+			-o $@ \
+			$(OPENFHE_LDFLAGS) \
+			$(OPENFHE_LDLIBS)
+
+openfhe_run: $(OPENFHE_TARGET)
+	./$(OPENFHE_TARGET)
+
+openfhe_clean:
+	rm -rf $(OPENFHE_BUILD_DIR)
 
 # ----------------------------------------------------------------------
 # Clean
 # ----------------------------------------------------------------------
 
 clean:
-	rm -rf build build-arm
+	rm -rf build build-arm build-openfhe
 
 # FORCE causes objects to be recompiled for each mode.
 FORCE:

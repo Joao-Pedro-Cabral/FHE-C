@@ -2,9 +2,9 @@
 #ifndef __COMPLEX_H__
 #define __COMPLEX_H__
 
-#ifdef __aarch64__
+#ifdef __NEON_MODE__
 #include <arm_neon.h>
-#else
+#elif __AVX2_MODE__
 #include <immintrin.h>
 #endif
 #include <stdlib.h>
@@ -23,7 +23,7 @@ static inline double img_mul(double a_rel, double a_img, double b_rel,
   return a_rel * b_img + a_img * b_rel;
 }
 
-#ifdef __aarch64__
+#ifdef __NEON_MODE__
 // Real part multiplication
 static inline float64x2_t rel_vmul(float64x2_t a_rel, float64x2_t a_img,
                                    float64x2_t b_rel, float64x2_t b_img) {
@@ -61,7 +61,7 @@ static inline float64x2_t complex_vadd(float64x2_t a, float64x2_t b) {
 static inline float64x2_t complex_vsub(float64x2_t a, float64x2_t b) {
   return vsubq_f64(a, b);
 }
-#else
+#elif __AVX2_MODE__
 // Real part multiplication
 static inline __m256d rel_vmul(__m256d a_rel, __m256d a_img, __m256d b_rel,
                                __m256d b_img) {

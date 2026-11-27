@@ -71,25 +71,31 @@ static const uint64_t miller_base_primes[MILLER_BASIS_PRIMES] = {
 
 // We suppose that the input is on the form d2^s+1
 static bool miller_rabin_primality_test(uint64_t p) {
-  uint32_t s = (uint32_t)__builtin_ctzll(p - 1);
-  uint64_t d = (p - 1) >> s;
   // Check some base cases
+  if (p < 2) return false;
+  if (p == 2 || p == 3 || p == 5) return true;
   if ((p % 2 == 0) || (p % 3 == 0) || (p % 5 == 0)) return false;
   for (uint32_t i = 0; i < MILLER_BASIS_PRIMES; i++) {
     if (p == miller_base_primes[i]) return true;
   }
+  uint32_t s = (uint32_t)__builtin_ctzll(p - 1);
+  uint64_t d = (p - 1) >> s;
   // Test
   for (uint32_t i = 0; i < MILLER_N_TESTS; i++) {
-    uint64_t a = miller_basis[i];
+    uint64_t a = miller_basis[i] % p;
+    if (a == 0) continue;
     uint64_t x = mod_pow0(a, d, p);
-    bool composity;
-    for (uint32_t j = 0; j < s; j++) {
-      // p-1 and -p+1 are impossible because 4*p < 2^64
-      composity = (x != 1 && x != p - 1);
+    if (x == 1 || x == p - 1) continue;
+    bool probably_prime = false;
+    for (uint32_t j = 1; j < s; j++) {
       x = mod_mul0(x, x, p);
-      if (x == 1 && composity) return false;
+      if (x == p - 1) {
+        probably_prime = true;
+        break;
+      }
+      if (x == 1) return false;
     }
-    if (x != 1) return false;
+    if (!probably_prime) return false;
   }
   return true;
 }
@@ -98,15 +104,15 @@ static inline uint64_t pollard_func(uint64_t y, uint64_t a, uint64_t p) {
   // y = y^2 + a mod p
   y = mod_mul0(y, y, p);
   y += a;
-  if (y > p) y -= p;
+  if (y >= p) y -= p;
   return y;
 }
 
-static uint64_t brent_pollard_factor(uint64_t p) {
+static uint64_t brent_pollard_factor(uint64_t p, uint64_t nonce) {
   const uint64_t m = 1000;
   uint64_t a, x, y, ys, r, q, g;
-  a = 1;
-  y = 1;
+  a = 1 + nonce;
+  y = 2 + nonce;
   r = 1;
   q = 1;
 
@@ -151,7 +157,14 @@ static uint32_t find_primes_factors_rec(uint64_t* s, uint32_t k, uint64_t m) {
     return k;
   }
 
-  uint64_t factor = brent_pollard_factor(m);
+  uint64_t factor;
+  uint64_t cnt = 0;
+
+  do {
+    factor = brent_pollard_factor(m, cnt);
+    cnt++;
+  } while (factor <= 1 || factor >= m);
+
   k = find_primes_factors_rec(s, k, factor);
   k = find_primes_factors_rec(s, k, m / factor);
   return k;
