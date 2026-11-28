@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description"
+    content="Efficient client-side implementation of CKKS homomorphic encryption on the Orange Pi 4 Pro.">
+  <meta name="theme-color" content="#0b1930">
+  <title>Efficient Client-Side CKKS on Orange Pi 4 Pro | João Pedro Cabral Miranda</title>
+  <style>
+    :root {
+      --ink: #17243a;
+      --muted: #59677c;
+      --navy: #0b1930;
+      --blue: #087eaa;
+      --cyan: #36c5d9;
+      --pale: #eef6f8;
+      --line: #dce6ed;
+      --white: #fff;
+      --shadow: 0 18px 50px rgba(11, 25, 48, .10);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #f7fafc;
+      font: 16px/1.65 Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .wrap {
+      width: min(1120px, calc(100% - 40px));
+      margin: auto;
+    }
+
+    header {
+      background: var(--navy);
+      color: white;
+      overflow: hidden;
+      position: relative;
+    }
+
+    header:before {
+      content: "";
+      position: absolute;
+      width: 520px;
+      height: 520px;
+      border-radius: 50%;
+      right: -130px;
+      top: -280px;
+      background: radial-gradient(circle, rgba(54, 197, 217, .28), transparent 68%);
+    }
+
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 22px 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand {
+      font-weight: 800;
+      letter-spacing: .08em;
+      font-size: .9rem;
+      text-decoration: none;
+    }
+
+    .navlinks {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .navlinks a {
+      color: #d4e4ef;
+      text-decoration: none;
+      font-size: .9rem;
+    }
+
+    .navlinks a:hover {
+      color: var(--cyan);
+    }
+
+    .hero {
+      padding: 76px 0 92px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      color: var(--cyan);
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 6vw, 4.8rem);
+      line-height: 1.06;
+      letter-spacing: -.045em;
+      max-width: 900px;
+      margin: 18px 0 22px;
+    }
+
+    .hero p {
+      max-width: 760px;
+      color: #c3d3e1;
+      font-size: 1.12rem;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 30px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 19px;
+      border-radius: 9px;
+      text-decoration: none;
+      font-weight: 750;
+      border: 1px solid transparent;
+    }
+
+    .primary {
+      background: var(--cyan);
+      color: #062033;
+    }
+
+    .secondary {
+      border-color: #587087;
+      color: white;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+    }
+
+    main {
+      padding: 54px 0 80px;
+    }
+
+    section {
+      margin: 0 0 66px;
+      scroll-margin-top: 24px;
+    }
+
+    .kicker {
+      color: var(--blue);
+      font-size: .75rem;
+      font-weight: 850;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+      line-height: 1.15;
+      letter-spacing: -.035em;
+      margin: 8px 0 16px;
+    }
+
+    h3 {
+      margin: 0 0 9px;
+      font-size: 1.08rem;
+    }
+
+    .lead {
+      max-width: 820px;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 18px;
+      margin-top: 25px;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 23px;
+      box-shadow: var(--shadow);
+    }
+
+    .span4 {
+      grid-column: span 4;
+    }
+
+    .span6 {
+      grid-column: span 6;
+    }
+
+    .span8 {
+      grid-column: span 8;
+    }
+
+    .span12 {
+      grid-column: span 12;
+    }
+
+    .card p,
+    .card li {
+      color: var(--muted);
+    }
+
+    ul {
+      padding-left: 20px;
+      margin: 10px 0 0;
+    }
+
+    .chip {
+      display: inline-block;
+      background: #e5f5f8;
+      color: #08627f;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: .78rem;
+      font-weight: 750;
+      margin: 4px 5px 0 0;
+    }
+
+    .spec {
+      font-size: 2rem;
+      font-weight: 850;
+      letter-spacing: -.04em;
+      color: var(--blue);
+      line-height: 1.15;
+    }
+
+    .spec small {
+      display: block;
+      font-size: .78rem;
+      letter-spacing: 0;
+      color: var(--muted);
+      font-weight: 650;
+      margin-top: 7px;
+    }
+
+    .results {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-top: 25px;
+    }
+
+    .metric {
+      background: var(--navy);
+      color: white;
+      padding: 18px;
+      border-radius: 13px;
+      min-width: 0;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: clamp(1.35rem, 2.8vw, 2rem);
+      line-height: 1.15;
+      color: var(--cyan);
+      letter-spacing: -.04em;
+    }
+
+    .metric span {
+      display: block;
+      color: #d3e0eb;
+      font-size: .82rem;
+      margin-top: 9px;
+    }
+
+    .note {
+      font-size: .88rem;
+      color: var(--muted);
+      margin-top: 14px;
+    }
+
+    .callout {
+      border-left: 4px solid var(--cyan);
+      background: #eaf6f8;
+      padding: 18px 21px;
+      border-radius: 0 12px 12px 0;
+      color: #315064;
+      margin-top: 20px;
+    }
+
+    .repo {
+      background: linear-gradient(120deg, #0b1930, #123b57);
+      color: white;
+      border-radius: 20px;
+      padding: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 25px;
+    }
+
+    .repo p {
+      color: #c5d6e3;
+      margin-bottom: 0;
+    }
+
+    .repo .btn {
+      background: white;
+      color: var(--navy);
+      white-space: nowrap;
+    }
+
+    footer {
+      background: #071222;
+      color: #9eb2c4;
+      padding: 28px 0;
+      font-size: .88rem;
+    }
+
+    footer .wrap {
+      display: flex;
+      justify-content: space-between;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    @media(max-width:800px) {
+
+      .span4,
+      .span6,
+      .span8 {
+        grid-column: span 12;
+      }
+
+      .results {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .repo {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+
+    @media(max-width:520px) {
+      .wrap {
+        width: min(100% - 28px, 1120px);
+      }
+
+      .navlinks {
+        gap: 12px;
+      }
+
+      .navlinks a {
+        font-size: .8rem;
+      }
+
+      .hero {
+        padding: 55px 0 68px;
+      }
+
+      .results {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header id="top">
+    <div class="wrap">
+      <nav aria-label="Main navigation">
+        <a class="brand" href="#top">FHE-C / CKKS</a>
+        <div class="navlinks">
+          <a href="#overview">Overview</a><a href="#approach">Approach</a><a href="#results">Results</a><a
+            href="#next">Next steps</a>
+        </div>
+      </nav>
+      <div class="hero">
+        <div class="eyebrow">Computer Engineering · Graduation Project · 2025</div>
+        <h1>Efficient Client-Side Implementation of CKKS in Orange Pi 4 Pro</h1>
+        <p>Bringing practical homomorphic-encryption workloads closer to the edge through a performance-oriented CKKS
+          implementation for an ARM-based single-board computer.</p>
+        <div class="actions">
+          <a class="btn primary" href="https://github.com/Joao-Pedro-Cabral/FHE-C" target="_blank"
+            rel="noopener">Explore the FHE-C repository ↗</a>
+          <a class="btn secondary" href="#results">See performance results</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="overview">
+      <div class="kicker">01 / The context</div>
+      <h2>Privacy-preserving computation, on the edge</h2>
+      <p class="lead">Fully Homomorphic Encryption (FHE) enables computations to be performed directly on encrypted
+        data, without exposing the underlying plaintext. This can allow computation to be outsourced to an untrusted
+        third party while preserving data confidentiality—for example, in privacy-sensitive applications such as facial
+        recognition.</p>
+      <div class="grid">
+        <article class="card span6">
+          <h3>Why CKKS?</h3>
+          <p>CKKS is an FHE scheme for arithmetic over real and complex numbers. It operates on vectors of complex
+            values and polynomials with integer coefficients modulo Q, with security based on the Ring Learning With
+            Errors (RLWE) problem.</p>
+        </article>
+        <article class="card span6">
+          <h3>Why the edge?</h3>
+          <p>FHE introduces significant computational overhead on both client and server. Many state-of-the-art
+            solutions target high-performance platforms with dedicated hardware, leaving room for more efficient
+            implementations on resource-constrained edge devices.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="platform">
+      <div class="kicker">02 / Target platform</div>
+      <h2>Orange Pi 4 Pro</h2>
+      <p class="lead">The implementation targets an ARM single-board computer, exploring how carefully optimized
+        client-side operations can make CKKS more practical beyond conventional high-performance systems.</p>
+      <div class="grid">
+        <div class="card span4">
+          <div class="spec">8 cores<small>6 Cortex-A55 + 2 Cortex-A76</small></div>
+        </div>
+        <div class="card span4">
+          <div class="spec">4 GB RAM<small>Main Memory</small></div>
+        </div>
+        <div class="card span4">
+          <div class="spec">ARMv8.2-A<small>32 × 128-bit NEON vector registers + AES hardware support</small></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="approach">
+      <div class="kicker">03 / Engineering approach</div>
+      <h2>Optimization across the computation pipeline</h2>
+      <p class="lead">The project aims to deliver an efficient CKKS client-side implementation for the Orange Pi 4 Pro,
+        alongside an end-to-end framework covering client- and server-side operations (excluding bootstrapping).</p>
+      <div class="grid">
+        <article class="card span4">
+          <h3>Sampling routines</h3>
+          <ul>
+            <li>AES-CTR for pseudo-random data generation</li>
+            <li>Rejection sampling for uniform and ternary distributions</li>
+            <li>Binomial sampling in place of Gaussian sampling</li>
+            <li>Deterministic sampling in a multi-core context</li>
+          </ul>
+        </article>
+        <article class="card span4">
+          <h3>Vector arithmetic</h3>
+          <ul>
+            <li>DFT/IDFT with aggressive unrolling and vectorization</li>
+            <li>Multiple merge-stage strategies for generic N</li>
+            <li>Multi-core execution</li>
+          </ul>
+        </article>
+        <article class="card span4">
+          <h3>Polynomial arithmetic</h3>
+          <ul>
+            <li>Montgomery multiplication</li>
+            <li>Lazy reduction</li>
+            <li>NTT/INTT with similar optimizations of DFT/IDFT</li>
+          </ul>
+        </article>
+      </div>
+      <div class="callout"><strong>Implementation focus:</strong> combine algorithmic choices, vector-level
+        optimization, and multi-core execution to reduce the cost of CKKS operations on an ARM edge platform.</div>
+    </section>
+
+    <section id="results">
+      <div class="kicker">04 / Measured performance</div>
+      <h2>Performance improvements</h2>
+      <h3 style="margin-top:28px">Compared with the reference implementation</h3>
+      <div class="results">
+        <div class="metric"><strong>4.4-6.0×</strong><span>Key generation</span></div>
+        <div class="metric"><strong>1.5-1.7×</strong><span>Encode</span></div>
+        <div class="metric"><strong>1.7-2.0×</strong><span>Decode</span></div>
+        <div class="metric"><strong>7.3-9.3×</strong><span>Encryption</span></div>
+        <div class="metric"><strong>5.0-5.2×</strong><span>Decryption</span></div>
+      </div>
+      <p class="note">Reference comparison: results reported using 8 threads.</p>
+      <h3 style="margin-top:34px">Compared with OpenFHE</h3>
+      <div class="results">
+        <div class="metric"><strong>3.0-3.5×</strong><span>Context generation</span></div>
+        <div class="metric"><strong>4.0-4.8×</strong><span>Key generation</span></div>
+        <div class="metric"><strong>37.7-97.3×</strong><span>Encode</span></div>
+        <div class="metric"><strong>9.8-28.5×</strong><span>Encryption</span></div>
+        <div class="metric"><strong>109.5-300.5×</strong><span>Decryption</span></div>
+      </div>
+    </section>
+
+    <section id="next">
+      <div class="kicker">05 / What's next</div>
+      <h2>Next steps</h2>
+      <div class="grid">
+        <article class="card span4">
+          <h3>Optimize key generation</h3>
+          <p>Continue reducing the cost of one of the core client-side operations.</p>
+        </article>
+        <article class="card span4">
+          <h3>Add bootstrapping</h3>
+          <p>Extend server-side functionality with bootstrapping support.</p>
+        </article>
+        <article class="card span4">
+          <h3>Expand architectures</h3>
+          <p>Develop highly efficient server-side implementations targeting additional architectures.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="code">
+      <div class="repo">
+        <div>
+          <div class="eyebrow">Code & implementation</div>
+          <h2 style="margin:8px 0;color:white">Explore FHE-C on GitHub</h2>
+          <p>Browse the C implementation, build configuration, tests, and project development.</p>
+        </div>
+        <a class="btn" href="https://github.com/Joao-Pedro-Cabral/FHE-C" target="_blank" rel="noopener">View repository
+          ↗</a>
+      </div>
+    </section>
+    <p class="note">Project: <strong>Efficient Client-Side Implementation of CKKS in Orange Pi 4 Pro</strong> ·
+      Graduation Project, 2025<br>
+      Author: <strong>João Pedro Cabral Miranda</strong> · Advisor: <strong>Prof. Dr. Thales B. Paiva</strong><br>
+      PCS – Department of Computer Engineering and Digital Systems · Computer Engineering</p>
+  </main>
+
+  <footer>
+    <div class="wrap"><span>© 2025 João Pedro Cabral Miranda</span><a href="#top" style="color:#9eb2c4">Back to top
+        ↑</a></div>
+  </footer>
+</body>
+
+</html>
